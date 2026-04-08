@@ -545,8 +545,8 @@ body.sidebar-open {
   padding: 28px;
   width: 440px;
   max-width: 90vw;
-  max-height: 80vh;
-  max-height: 80dvh;
+  max-height: 85vh;
+  max-height: 85dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -3837,6 +3837,22 @@ select:focus-visible, a:focus-visible {
   .stats-grid { grid-template-columns: 1fr; }
   .stats-section-content.mobile-collapsed { display: none; }
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a17;
+    --sidebar-bg: #232318;
+    --text: #e8e4de;
+    --text-muted: #a09890;
+    --border: #3d3830;
+    --accent: #c4703d;
+    --accent-light: #d4895a;
+    --white: #2a2a26;
+    --success: #4a9a4a;
+    --warning: #c4a020;
+    --error: #c45050;
+  }
+}
 </style>
 </head>
 <body>
@@ -4727,6 +4743,7 @@ const DICT = {
   "ahnt": { pos: "VERB", gloss: "senses" },
   "ahnung": { pos: "NOUN", gloss: "presentiment" },
   "aise": { pos: "NOUN", gloss: "ease", note: "French — foreign entry" },
+  "aktiv": { pos: "ADJ", gloss: "active" },
   "aktives": { pos: "ADJ", gloss: "active" },
   "alexis": { pos: "NOUN", gloss: "Alexis" },
   "all": { pos: "ADJ", gloss: "all" },
@@ -5374,7 +5391,6 @@ const DICT = {
   "dimensionen": { pos: "NOUN", gloss: "dimensions" },
   "dingen": { pos: "NOUN", gloss: "things" },
   "direkt": { pos: "ADJ", gloss: "direct, immediate" },
-  "dismal": { pos: "ADV", gloss: "dismal" },
   "divinus": { pos: "ADJ", gloss: "divine" },
   "doppelgaengermotivs": { pos: "NOUN", gloss: "double-ganger motif" },
   "doppelgängergestalt": { pos: "NOUN", gloss: "double form" },
@@ -5617,7 +5633,7 @@ const DICT = {
   "erhebt": { pos: "VERB", gloss: "raises, elevates" },
   "erhellt": { pos: "VERB", gloss: "illuminates, clarifies" },
   "erhält": { pos: "VERB", gloss: "receives" },
-  "erinnern": { pos: "VERB", gloss: "remember, recall" },
+  "erinnern": { pos: "VERB", gloss: "to remember, to recall" },
   "erinnerungen": { pos: "NOUN", gloss: "memories" },
   "erkannt": { pos: "VERB", gloss: "recognized, known" },
   "erkenne": { pos: "VERB", gloss: "recognize" },
@@ -5766,7 +5782,6 @@ const DICT = {
   "feinheit": { pos: "NOUN", gloss: "subtlety" },
   "feinsten": { pos: "ADJ", gloss: "finest" },
   "feldgeschrei": { pos: "NOUN", gloss: "battle cry" },
-  "fellow": { pos: "NOUN", gloss: "fellow" },
   "femininer": { pos: "ADJ", gloss: "feminine" },
   "fenstern": { pos: "NOUN", gloss: "windows" },
   "ferne": { pos: "NOUN", gloss: "distance" },
@@ -6022,6 +6037,7 @@ const DICT = {
   "genannt": { pos: "VERB", gloss: "called" },
   "genau": { pos: "ADJ", gloss: "exact" },
   "genauer": { pos: "ADJ", gloss: "more precise" },
+  "genealogie": { pos: "NOUN", gloss: "genealogy" },
   "geneigt": { pos: "ADJ", gloss: "inclined" },
   "generationen": { pos: "NOUN", gloss: "generations" },
   "genesen": { pos: "VERB", gloss: "recover, convalesce" },
@@ -6136,7 +6152,6 @@ const DICT = {
   "gezogenen": { pos: "ADJ", gloss: "drawn" },
   "geäußert": { pos: "VERB", gloss: "expressed, uttered" },
   "ggstz": { pos: "NOUN", gloss: "contrast" },
-  "ghastly": { pos: "ADJ", gloss: "ghastly" },
   "giebt": { pos: "VERB", gloss: "gives" },
   "gieng": { pos: "VERB", gloss: "went" },
   "gilt": { pos: "VERB", gloss: "holds, is valid" },
@@ -6175,7 +6190,6 @@ const DICT = {
   "gleichwertig": { pos: "ADJ", gloss: "equivalent" },
   "glied": { pos: "NOUN", gloss: "member, component" },
   "glocke": { pos: "NOUN", gloss: "bell" },
-  "gloomy": { pos: "ADJ", gloss: "gloomy" },
   "glucke": { pos: "NOUN", gloss: "luck" },
   "glut": { pos: "NOUN", gloss: "glow, ardor" },
   "glutrote": { pos: "ADJ", gloss: "glowing red" },
@@ -6272,7 +6286,6 @@ const DICT = {
   "haueslichkeit": { pos: "NOUN", gloss: "domesticity" },
   "hauff": { pos: "NOUN", gloss: "Hauff (name)" },
   "hauffschen": { pos: "ADJ", gloss: "Hauff's" },
-  "haunted": { pos: "ADJ", gloss: "haunted" },
   "haus": { pos: "NOUN", gloss: "house" },
   "hause": { pos: "NOUN", gloss: "home" },
   "hausfrau": { pos: "NOUN", gloss: "housewife" },
@@ -6326,7 +6339,7 @@ const DICT = {
   "herbeigeholte": { pos: "VERB", gloss: "fetched" },
   "herd": { pos: "NOUN", gloss: "hearth" },
   "hering": { pos: "NOUN", gloss: "herring" },
-  "herkunft": { pos: "NOUN", gloss: "origin" },
+  "herkunft": { pos: "NOUN", gloss: "descent, provenance" },
   "herr": { pos: "NOUN", gloss: "sir, lord, master" },
   "herren": { pos: "NOUN", gloss: "gentlemen, lords" },
   "herrn": { pos: "NOUN", gloss: "Mr." },
@@ -6460,14 +6473,11 @@ const DICT = {
   "index": { pos: "NOUN", gloss: "index" },
   "indices": { pos: "NOUN", gloss: "indices" },
   "indifferenten": { pos: "ADJ", gloss: "indifferent" },
-  "individuals": { pos: "NOUN", gloss: "individuals" },
   "individuellen": { pos: "ADJ", gloss: "individual" },
   "induktion": { pos: "NOUN", gloss: "induction" },
   "inertiae": { pos: "NOUN", gloss: "inertia (Latin)" },
-  "infantile": { pos: "ADJ", gloss: "infantile" },
   "infantilen": { pos: "ADJ", gloss: "infantile" },
   "infantiles": { pos: "ADJ", gloss: "infantile, childish" },
-  "infinity": { pos: "NOUN", gloss: "infinity" },
   "infolge": { pos: "PREP", gloss: "as a result of, owing to" },
   "inhalts": { pos: "NOUN", gloss: "of content" },
   "innen": { pos: "ADV", gloss: "inside" },
@@ -7053,6 +7063,7 @@ const DICT = {
   "nichtzufällig": { pos: "ADJ", gloss: "not accidental" },
   "nichtübereinstimmung": { pos: "NOUN", gloss: "disagreement" },
   "niemand": { pos: "PRON", gloss: "no one" },
+  "nihilismus": { pos: "NOUN", gloss: "nihilism" },
   "nimmt": { pos: "VERB", gloss: "takes" },
   "nocte": { pos: "ADV", gloss: "by night (Latin)" },
   "noetige": { pos: "ADJ", gloss: "necessary" },
@@ -7176,7 +7187,6 @@ const DICT = {
   "praktiken": { pos: "NOUN", gloss: "practices" },
   "praktischen": { pos: "ADJ", gloss: "practical" },
   "primaeren": { pos: "ADJ", gloss: "primary" },
-  "primitive": { pos: "ADJ", gloss: "primitive" },
   "primitiven": { pos: "ADJ", gloss: "primitive" },
   "principia": { pos: "NOUN", gloss: "principles" },
   "prinzessin": { pos: "NOUN", gloss: "princess" },
@@ -7243,6 +7253,7 @@ const DICT = {
   "reagieren": { pos: "VERB", gloss: "react" },
   "reagiert": { pos: "VERB", gloss: "reacts, responds" },
   "reaktion": { pos: "NOUN", gloss: "reaction" },
+  "reaktiv": { pos: "ADJ", gloss: "reactive" },
   "real": { pos: "ADJ", gloss: "real" },
   "reale": { pos: "ADJ", gloss: "real" },
   "realen": { pos: "ADJ", gloss: "real" },
@@ -7264,7 +7275,6 @@ const DICT = {
   "reden": { pos: "VERB", gloss: "speak" },
   "redensart": { pos: "NOUN", gloss: "idiom" },
   "redete": { pos: "VERB", gloss: "spoke" },
-  "reducibility": { pos: "NOUN", gloss: "reducibility" },
   "referenten": { pos: "NOUN", gloss: "referees" },
   "regel": { pos: "NOUN", gloss: "rule" },
   "regelmäßig": { pos: "ADV", gloss: "regularly" },
@@ -7296,7 +7306,6 @@ const DICT = {
   "religion": { pos: "NOUN", gloss: "religion" },
   "religionen": { pos: "NOUN", gloss: "religions" },
   "reminiszenz": { pos: "NOUN", gloss: "reminiscence" },
-  "repulsive": { pos: "ADJ", gloss: "repulsive" },
   "resistenter": { pos: "ADJ", gloss: "more resistant" },
   "rest": { pos: "NOUN", gloss: "remainder" },
   "reste": { pos: "NOUN", gloss: "remains" },
@@ -7466,6 +7475,7 @@ const DICT = {
   "schriftzeichen": { pos: "NOUN", gloss: "character" },
   "schritt": { pos: "NOUN", gloss: "step" },
   "schrumpft": { pos: "VERB", gloss: "shrinks" },
+  "schuld": { pos: "NOUN", gloss: "guilt, debt; fault" },
   "schuldig": { pos: "ADJ", gloss: "guilty" },
   "schutzes": { pos: "NOUN", gloss: "protection" },
   "schutzgeist": { pos: "NOUN", gloss: "guardian spirit" },
@@ -7561,6 +7571,7 @@ const DICT = {
   "situationen": { pos: "NOUN", gloss: "situations" },
   "sitzen": { pos: "VERB", gloss: "sit" },
   "skeptizismus": { pos: "NOUN", gloss: "skepticism" },
+  "sklave": { pos: "NOUN", gloss: "slave" },
   "sobald": { pos: "CONJ", gloss: "as soon as" },
   "sofort": { pos: "ADV", gloss: "immediately" },
   "sogar": { pos: "ADV", gloss: "even" },
@@ -7715,7 +7726,6 @@ const DICT = {
   "symbolen": { pos: "NOUN", gloss: "symbols" },
   "symbolisierten": { pos: "VERB", gloss: "symbolized" },
   "symbolismus": { pos: "NOUN", gloss: "symbolism" },
-  "symbols": { pos: "NOUN", gloss: "symbols" },
   "symmetrisch": { pos: "ADJ", gloss: "symmetrical" },
   "symphonie": { pos: "NOUN", gloss: "symphony" },
   "syntaktischen": { pos: "ADJ", gloss: "syntactic" },
@@ -7755,12 +7765,10 @@ const DICT = {
   "terminus": { pos: "NOUN", gloss: "terminus" },
   "testaments": { pos: "NOUN", gloss: "testament's, will's" },
   "teufel": { pos: "NOUN", gloss: "devil" },
-  "that": { pos: "NOUN", gloss: "that" },
   "theilnehmend": { pos: "ADJ", gloss: "participating" },
   "thema": { pos: "NOUN", gloss: "theme" },
   "theorie": { pos: "NOUN", gloss: "theory" },
   "theorien": { pos: "NOUN", gloss: "theories" },
-  "theory": { pos: "NOUN", gloss: "theory" },
   "thier": { pos: "NOUN", gloss: "animal" },
   "thieren": { pos: "NOUN", gloss: "animals" },
   "thierle": { pos: "NOUN", gloss: "small animal" },
@@ -7792,7 +7800,6 @@ const DICT = {
   "toten": { pos: "ADJ", gloss: "dead" },
   "traeume": { pos: "NOUN", gloss: "dreams" },
   "tragen": { pos: "VERB", gloss: "to bear" },
-  "transcendental": { pos: "ADJ", gloss: "transcendental" },
   "traulich": { pos: "ADJ", gloss: "intimate" },
   "traum": { pos: "NOUN", gloss: "dream" },
   "traumzustände": { pos: "NOUN", gloss: "dream states" },
@@ -7819,8 +7826,6 @@ const DICT = {
   "tun": { pos: "VERB", gloss: "do, act" },
   "turm": { pos: "NOUN", gloss: "tower" },
   "twain": { pos: "NOUN", gloss: "Twain (name)" },
-  "type": { pos: "NOUN", gloss: "type" },
-  "types": { pos: "NOUN", gloss: "types" },
   "tyrannei": { pos: "NOUN", gloss: "tyranny" },
   "tätigkeit": { pos: "NOUN", gloss: "activity" },
   "täuschendsten": { pos: "ADJ", gloss: "most deceptive" },
@@ -7851,6 +7856,7 @@ const DICT = {
   "umwandlung": { pos: "NOUN", gloss: "transformation" },
   "umwege": { pos: "NOUN", gloss: "detours" },
   "umwelt": { pos: "NOUN", gloss: "environment" },
+  "umwertung": { pos: "NOUN", gloss: "revaluation, transvaluation" },
   "umwälzenden": { pos: "VERB", gloss: "overturning, revolutionary" },
   "umzielt": { pos: "VERB", gloss: "aims at" },
   "unabhängigen": { pos: "ADJ", gloss: "independent" },
@@ -7870,14 +7876,11 @@ const DICT = {
   "unbewussten": { pos: "ADJ", gloss: "unconscious" },
   "unbewusstes": { pos: "ADJ", gloss: "unconscious" },
   "unbewuszt": { pos: "ADJ", gloss: "unconscious" },
-  "uncanny": { pos: "ADJ", gloss: "uncanny" },
-  "uncomfortable": { pos: "ADJ", gloss: "uncomfortable" },
   "undenkbar": { pos: "ADJ", gloss: "unthinkable" },
   "undenkbare": { pos: "ADJ", gloss: "unthinkable" },
   "unding": { pos: "NOUN", gloss: "impossible thing, nonsense" },
   "undurchdringlich": { pos: "ADJ", gloss: "impenetrable" },
   "undurchsichtig": { pos: "ADJ", gloss: "opaque" },
-  "uneasy": { pos: "ADJ", gloss: "uneasy" },
   "uneingeschränkte": { pos: "ADJ", gloss: "unlimited" },
   "uneingeschränkten": { pos: "ADJ", gloss: "unrestricted" },
   "unendlich": { pos: "ADJ", gloss: "infinite" },
@@ -7898,7 +7901,6 @@ const DICT = {
   "unglücklichen": { pos: "ADJ", gloss: "unfortunate" },
   "unglücksoder": { pos: "NOUN", gloss: "misfortune-or" },
   "ungunst": { pos: "NOUN", gloss: "disfavor" },
-  "unh": { pos: "PART", gloss: "unh" },
   "unheimlichem": { pos: "ADJ", gloss: "uncanny, eerie" },
   "unheimlichen": { pos: "ADJ", gloss: "uncanny, eerie" },
   "unheimlicher": { pos: "ADJ", gloss: "uncanny, eerie" },
@@ -7980,7 +7982,7 @@ const DICT = {
   "urne": { pos: "NOUN", gloss: "urn" },
   "ursachen": { pos: "NOUN", gloss: "causes, reasons" },
   "urspruengliche": { pos: "ADJ", gloss: "original" },
-  "ursprung": { pos: "NOUN", gloss: "origin" },
+  "ursprung": { pos: "NOUN", gloss: "origin, source" },
   "ursprünglich": { pos: "ADJ", gloss: "original" },
   "ursprünglichen": { pos: "ADJ", gloss: "original" },
   "urteil": { pos: "NOUN", gloss: "judgment" },
@@ -8042,7 +8044,7 @@ const DICT = {
   "vereint": { pos: "VERB", gloss: "united" },
   "verfallene": { pos: "ADJ", gloss: "decayed" },
   "verfertigt": { pos: "VERB", gloss: "fabricated" },
-  "vergessen": { pos: "VERB", gloss: "forget" },
+  "vergessen": { pos: "VERB", gloss: "to forget" },
   "vergesslichkeit": { pos: "NOUN", gloss: "forgetfulness" },
   "vergleich": { pos: "NOUN", gloss: "comparison" },
   "vergleiche": { pos: "NOUN", gloss: "comparisons" },
@@ -10403,7 +10405,7 @@ const TEXTS = {
         id: "n5",
         label: "GD — Sprüche §8",
         german: "Aus der Kriegsschule des Lebens. — Was mich nicht umbringt, macht mich stärker.",
-        reference: "From the military school of life. — What does not kill me makes me stronger.",
+        reference: "From the war-school of life (Kriegsschule). — What does not kill me makes me stronger.",
         source: "Götzen-Dämmerung, Sprüche und Pfeile §8"
       },
       {
@@ -10698,7 +10700,7 @@ const TEXTS = {
         id: "n47",
         label: "GM I §13 — Adler und Lamm",
         german: "Dass die Lämmer den grossen Raubvögeln gram sind, das befremdet nicht: nur liegt darin kein Grund, es den grossen Raubvögeln zu verargen, dass sie sich kleine Lämmer holen. Und wenn die Lämmer unter sich sagen „diese Raubvögel sind böse; und wer so wenig als möglich ein Raubvogel ist, vielmehr deren Gegenstück, ein Lamm, — sollte der nicht gut sein?“ so ist an dieser Aufrichtung eines Ideals Nichts auszusetzen, abgerechnet, dass die Raubvögel dazu ein wenig spöttisch blicken werden und sich vielleicht sagen: „wir sind ihnen gar nicht gram, diesen guten Lämmern, wir lieben sie sogar: nichts ist schmackhafter als ein zartes Lamm.“",
-        reference: "That lambs feel resentment toward great birds of prey does not surprise us: but that is no reason to hold it against great birds of prey that they snatch up little lambs. And if the lambs say among themselves, \"These birds of prey are evil; and whoever is least like a bird of prey and most like its opposite, a lamb — should he not be good?\" there is nothing to criticize in this setting up of an ideal, except that the birds of prey may look at it with a little mockery and perhaps say: \"we are not at all angry with these good lambs, we even love them: nothing is more delicious than a tender lamb.\"",
+        reference: "That lambs bear a grudge against great birds of prey does not surprise us: but that is no reason to hold it against great birds of prey that they snatch up little lambs. And if the lambs say among themselves, \"These birds of prey are evil; and whoever is least like a bird of prey and most like its opposite, a lamb — should he not be good?\" there is nothing to criticize in this setting up of an ideal, except that the birds of prey may look at it with a little mockery and perhaps say: \"we are not at all angry with these good lambs, we even love them: nothing is more delicious than a tender lamb.\"",
         source: "Zur Genealogie der Moral, I §13 (Auszug)"
       },
       {
@@ -10907,7 +10909,7 @@ const TEXTS = {
       },
       {
         id: "gm-v5a",
-        label: "GM Vorrede §5 — Englische Psychologen",
+        label: "GM Vorrede §5 — Werth der Moral",
         german: "Was mich zuerst und gründlicher anzuregen wusste, so dass ich eigentlich nie wieder von ihm losgekommen bin, das war das Problem vom Werth der Moral — und hiermit hatte ich mich an einen Punkt gestellt, welcher mir selbst lange Zeit nicht als Problem erschienen war.",
         reference: "What first and most thoroughly stimulated me, so that I was actually never again released from it, was the problem of the value of morality—and with this I had placed myself at a point that had for a long time not appeared to me as a problem.",
         source: "Zur Genealogie der Moral, Vorrede §5"
@@ -11024,6 +11026,7 @@ const TEXTS = {
         reference: "But on the day on which we can say with all our hearts, 'Forward! our old morality also belongs to comedy!'—we shall have discovered a new plot and a new possibility for the Dionysian drama of 'The Fate of the Soul'—and he will avail himself of it, I think we can wager, he, the great eternal dramatist of our existence!",
         source: "Zur Genealogie der Moral, Vorrede §7"
       },
+      // Ecce Homo excerpts — commentary on GM from Ecce Homo, Zur Genealogie der Moral
       {
         id: "gm-v7a",
         label: "Ecce Homo — Diese drei Abhandlungen",
@@ -19118,7 +19121,23 @@ class App {
     this.init();
   }
 
-  save(key, val) { try { localStorage.setItem("uw_" + key, JSON.stringify(val)); } catch(e) { if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') { console.warn('localStorage quota exceeded — progress not saved for key:', key); } } }
+  save(key, val) {
+    try {
+      localStorage.setItem("uw_" + key, JSON.stringify(val));
+    } catch(e) {
+      if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        console.warn('localStorage quota exceeded — progress not saved for key:', key);
+        if (!this._storageWarningShown) {
+          this._storageWarningShown = true;
+          const msg = document.createElement('div');
+          msg.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#8b1a1a;color:#fff;padding:10px 18px;border-radius:6px;font-size:13px;font-family:Helvetica Neue,Arial,sans-serif;z-index:9999;';
+          msg.textContent = 'Storage full — progress could not be saved. Clear browser storage to continue saving.';
+          document.body.appendChild(msg);
+          setTimeout(() => { msg.remove(); this._storageWarningShown = false; }, 5000);
+        }
+      }
+    }
+  }
   load(key) { try { return JSON.parse(localStorage.getItem("uw_" + key)); } catch(e) { return null; } }
 
   init() {
@@ -20158,7 +20177,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
         body: JSON.stringify({ model: "tts-1", input: text, voice: "nova", speed: 0.95 })
       });
       if (!response.ok) { this._ttsCache.delete(text); return; }
-      this._ttsCache.set(text, await response.blob());
+      this._ttsCache.set(text, URL.createObjectURL(await response.blob()));
     } catch (e) {
       this._ttsCache.delete(text); // remove placeholder on error so it can be retried
     }
@@ -20187,13 +20206,13 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
   _evictTTSCache(keepTexts) {
     const keep = new Set(keepTexts || []);
     for (const key of [...this._ttsCache.keys()]) {
-      if (!keep.has(key)) this._ttsCache.delete(key);
+      if (!keep.has(key)) { const v = this._ttsCache.get(key); if (typeof v === 'string') URL.revokeObjectURL(v); this._ttsCache.delete(key); }
     }
     this._ttsPrefetchQueue = this._ttsPrefetchQueue.filter(t => keep.has(t));
     // Hard cap: evict oldest entries (Map insertion order) if still over limit
     const MAX_TTS_CACHE = 25;
     while (this._ttsCache.size > MAX_TTS_CACHE) {
-      this._ttsCache.delete(this._ttsCache.keys().next().value);
+      const oldestKey = this._ttsCache.keys().next().value; const oldestVal = this._ttsCache.get(oldestKey); if (typeof oldestVal === 'string') URL.revokeObjectURL(oldestVal); this._ttsCache.delete(oldestKey);
     }
   }
 
@@ -20228,13 +20247,12 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
   async _openaiTTS(text, voice, onEnd, onStart) {
     const _gen = this._ttsGeneration; // capture before any await; bail out if stale
     // Check in-memory cache first for instant playback
-    const cachedBlob = this._ttsCache && this._ttsCache.get(text);
-    if (cachedBlob) {
-      const url = URL.createObjectURL(cachedBlob);
-      const audio = new Audio(url);
+    const cachedUrl = this._ttsCache && this._ttsCache.get(text);
+    if (typeof cachedUrl === 'string') {
+      const audio = new Audio(cachedUrl);
       audio.onplay = () => { if (onStart) onStart(); };
-      audio.onended = () => { URL.revokeObjectURL(url); if (onEnd) onEnd(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); if (onEnd) onEnd(); };
+      audio.onended = () => { if (onEnd) onEnd(); };
+      audio.onerror = () => { if (onEnd) onEnd(); };
       this._ttsAudio = audio;
       try { await audio.play(); } catch (e) { URL.revokeObjectURL(url); if (onEnd) onEnd("fallback"); }
       return;
@@ -20263,14 +20281,14 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       // Bail out again after blob read
       if (this._ttsGeneration !== _gen) return;
       // Store in cache for instant replay
-      if (this._ttsCache && (!this._ttsCache.has(text) || this._ttsCache.get(text) === null)) {
-        this._ttsCache.set(text, blob);
-      }
       const url = URL.createObjectURL(blob);
+      if (this._ttsCache && (!this._ttsCache.has(text) || this._ttsCache.get(text) === null)) {
+        this._ttsCache.set(text, url);
+      }
       const audio = new Audio(url);
       audio.onplay = () => { if (onStart) onStart(); };
-      audio.onended = () => { URL.revokeObjectURL(url); if (onEnd) onEnd(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); if (onEnd) onEnd(); };
+      audio.onended = () => { if (!this._ttsCache || !this._ttsCache.has(text)) URL.revokeObjectURL(url); if (onEnd) onEnd(); };
+      audio.onerror = () => { if (!this._ttsCache || !this._ttsCache.has(text)) URL.revokeObjectURL(url); if (onEnd) onEnd(); };
       this._ttsAudio = audio;
       audio.play();
     } catch (e) {
@@ -20619,7 +20637,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
   async _lessonTTSWithOpenAI(text) {
     const btn = this._ttsBtn;
     const firstChunk = text.length <= 4000 ? text : (text.split(/(?<=[.!?])\s+/).filter(Boolean)[0] || text.slice(0, 4000));
-    const isCached = this._ttsCache && this._ttsCache.get(firstChunk) instanceof Blob;
+    const isCached = this._ttsCache && typeof this._ttsCache.get(firstChunk) === 'string';
     if (btn && !isCached) btn.innerHTML = "&#8987; Generating audio\u2026";
     try {
       const MAX_INPUT = 4000;
@@ -21043,7 +21061,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       vocabContent.style.display = "";
       if (!this.vocabActiveBatch && this.vocabActiveBatch !== 0) {
         vocabContent.innerHTML = `<div class="progression-info" style="margin-top:40px;">
-          <h4>How Progression Works</h4>
+          <h2>How Progression Works</h2>
           <p>Vocabulary items are organized into batches of up to 25 words, grouped by part of speech (nouns, verbs, adjectives, etc.) and by author-specific terminology. Select a batch from the sidebar to begin practice.</p>
           <p>Three exercise types are available: <strong>Flashcard</strong> (self-assessed recall — click the card to reveal the answer, then mark whether you knew it), <strong>Multiple Choice</strong> (select the correct English translation from four options), and <strong>Typed Response</strong> (type the English translation from memory). You can switch exercise types at any time using the dropdown above the batch list.</p>
           <p>The sidebar tracks your progress as completed/total for each batch and category. An item is marked complete when you answer it correctly. Your progress persists across sessions. Selecting a batch you have already completed will let you practice it again. To clear all vocabulary progress, use the Reset option in Settings.</p>
@@ -21877,7 +21895,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
         <p style="margin-top:12px">Grammar exercises are generated from the German text corpus (Wittgenstein, Freud, Nietzsche) and test your ability to identify, select, and produce correct grammatical forms.</p>
       </div>
       <div class="progression-info">
-        <h4>How Progression Works</h4>
+        <h2>How Progression Works</h2>
         <p>Each grammar pattern offers three phases of increasing difficulty: <strong>Repetition</strong> (identify the correct form from labeled options), <strong>Cloze</strong> (fill in the blank from unlabeled options), and <strong>Production</strong> (type the correct form from memory). The sidebar displays your accuracy as correct/attempted for each category and pattern.</p>
         <p>Exercises are drawn from the text corpus and shuffled each session. Up to 20 exercises are generated per pattern. Progress is recorded on your first attempt at each exercise within a session; retries on incorrect answers do not overwrite your initial result. You can revisit any pattern at any time to generate a fresh set of exercises.</p>
         <p>The checkmark next to a pattern indicates that every exercise you have attempted for it was answered correctly. To clear your grammar progress entirely, use the Reset option in Settings.</p>
@@ -22104,7 +22122,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
 
   renderParadigmTable(ex, correctKey) {
     const profile = ex.profile;
-    let html = `<h4>${profile.description}</h4>`;
+    let html = `<h2>${profile.description}</h2>`;
 
     if (profile.paradigmGrid) {
       // Grid-based paradigm (articles)
@@ -22132,7 +22150,7 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       html += `</tbody></table>`;
       // If we have actual generated forms for this exercise, show them too
       if (ex.allForms && ex.infinitive && (ex.profile.category === "verb" || ex.profile.category === "modal")) {
-        html += `<h4 style="margin-top:12px">${ex.infinitive} — Conjugated Forms</h4>`;
+        html += `<h3 style="margin-top:12px">${ex.infinitive} — Conjugated Forms</h3>`;
         html += `<table class="paradigm-table"><thead><tr><th>Person</th><th>Form</th></tr></thead><tbody>`;
         for (const [person, form] of Object.entries(ex.allForms || {})) {
           const isMatch = form.toLowerCase() === ex.correctForm.toLowerCase();
@@ -22373,11 +22391,11 @@ Respond with JSON: {"correct": true/false, "note": "brief explanation if incorre
 
     if (isCorrect) {
       fb.className = "grammar-feedback visible correct-feedback";
-      fb.innerHTML = `<h4>Correct</h4><p>Well done.</p>`;
+      fb.innerHTML = `<h2>Correct</h2><p>Well done.</p>`;
     } else {
       fb.className = "grammar-feedback visible incorrect-feedback";
       const correctForm = ex.correctForm.replace(/[.,;:!?()"""''„"]/g, "");
-      let html = `<h4>Incorrect</h4>`;
+      let html = `<h2>Incorrect</h2>`;
       html += `<p>The correct answer is: <strong>${correctForm}</strong></p>`;
       html += `<p style="margin-top:8px">${ex.profile.rule}</p>`;
 
@@ -22447,7 +22465,7 @@ Lesson: ${ex.profile.description}`;
   renderGrammarComplete(container) {
     const profile = this.grammarSelectedProfile;
     let html = `<div style="text-align:center;padding:40px 20px;">`;
-    html += `<h3 style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:16px;margin-bottom:16px;">Session Complete</h3>`;
+    html += `<h2 style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:16px;margin-bottom:16px;">Session Complete</h2>`;
     html += `<p style="font-size:13px;font-family:'Helvetica Neue',Arial,sans-serif;color:var(--text-muted);margin-bottom:20px;">You have completed all exercises for <strong>${profile.description}</strong> in this session.</p>`;
     html += `<button class="action-btn" id="grammar-restart-btn" style="background:var(--accent);color:white;">Practice Again</button>`;
     html += `</div>`;
