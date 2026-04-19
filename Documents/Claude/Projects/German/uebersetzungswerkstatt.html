@@ -3874,8 +3874,7 @@ select:focus-visible, a:focus-visible {
     <button class="text-tab active" data-text="tractatus" aria-label="Tractatus Logico-Philosophicus">TLP</button>
     <button class="text-tab" data-text="pu" aria-label="Philosophische Untersuchungen">PU</button>
     <button class="text-tab" data-text="unheimliche" aria-label="Freud — Das Unheimliche">Freud</button>
-    <button class="text-tab" data-text="nietzsche" aria-label="Nietzsche selections">Nietzsche</button>
-    <button class="text-tab" data-text="genealogie" aria-label="Zur Genealogie der Moral">Genealogie</button>
+    <button class="text-tab" data-text="nietzsche" aria-label="Zur Genealogie der Moral">Nietzsche</button>
   </div>
   <div id="exercise-list"></div>
   <div id="grammar-sidebar" style="display:none;"></div>
@@ -10369,365 +10368,6 @@ const TEXTS = {
   },
   nietzsche: {
     id: "nietzsche",
-    title: "Ausgewählte Aphorismen",
-    author: "Friedrich Nietzsche",
-    year: null,
-    exercises: [
-      {
-        id: "n1",
-        label: "JGB §146 — Abgrund",
-        german: "Wer mit Ungeheuern kämpft, mag zusehn, dass er nicht dabei zum Ungeheuer wird. Und wenn du lange in einen Abgrund blickst, blickt der Abgrund auch in dich hinein.",
-        reference: "Whoever fights with monsters should see to it that he does not thereby become a monster. And when you gaze long into an abyss, the abyss also gazes into you.",
-        source: "Jenseits von Gut und Böse, §146"
-      },
-      {
-        id: "n2",
-        label: "JGB §153 — Liebe",
-        german: "Was aus Liebe getan wird, geschieht immer jenseits von Gut und Böse.",
-        reference: "What is done out of love always takes place beyond good and evil.",
-        source: "Jenseits von Gut und Böse, §153"
-      },
-      {
-        id: "n3",
-        label: "FW §276 — Amor fati",
-        german: "Ich will immer mehr lernen, das Nothwendige an den Dingen als das Schöne sehen: — so werde ich Einer von Denen sein, welche die Dinge schön machen. Amor fati: das sei von nun an meine Liebe!",
-        reference: "I want to learn more and more to see what is necessary in things as what is beautiful in them — thus I will be one of those who make things beautiful. Amor fati: let that be my love from now on!",
-        source: "Die fröhliche Wissenschaft, §276"
-      },
-      {
-        id: "n4",
-        label: "FW §125 — Der tolle Mensch (Auszug)",
-        german: "Gott ist todt! Gott bleibt todt! Und wir haben ihn getödtet! Wie trösten wir uns, die Mörder aller Mörder?",
-        reference: "God is dead! God remains dead! And we have killed him! How shall we console ourselves, the murderers of all murderers?",
-        source: "Die fröhliche Wissenschaft, §125 (Auszug)"
-      },
-      {
-        id: "n5",
-        label: "GD — Sprüche §8",
-        german: "Aus der Kriegsschule des Lebens. — Was mich nicht umbringt, macht mich stärker.",
-        reference: "From the war-school of life (Kriegsschule). — What does not kill me makes me stronger.",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §8"
-      },
-      {
-        id: "n6",
-        label: "Za I — Vom Lesen",
-        german: "Von allem Geschriebenen liebe ich nur Das, was Einer mit seinem Blute schreibt. Schreibe mit Blut: und du wirst erfahren, dass Blut Geist ist.",
-        reference: "Of all that is written I love only what a man has written with his blood. Write with blood: and you will discover that blood is spirit.",
-        source: "Also sprach Zarathustra, I: Vom Lesen und Schreiben"
-      },
-      {
-        id: "n7",
-        label: "Za — Vorrede §5",
-        german: "Ich sage euch: man muß noch Chaos in sich haben, um einen tanzenden Stern gebären zu können.",
-        reference: "I say unto you: one must still have chaos in oneself to be able to give birth to a dancing star.",
-        source: "Also sprach Zarathustra, Vorrede §5"
-      },
-      {
-        id: "n8",
-        label: "MA I §483 — Feinde der Wahrheit",
-        german: "Überzeugungen sind gefährlichere Feinde der Wahrheit als Lügen.",
-        reference: "Convictions are more dangerous enemies of truth than lies.",
-        source: "Menschliches, Allzumenschliches I, §483"
-      }
-    ,
-      {
-        id: "n9",
-        label: "GD — Sprüche §1",
-        german: "Müssiggang ist aller Psychologie Anfang. Wie? wäre Psychologie ein— Laster?",
-        reference: "Idleness is the beginning of all psychology. What? Could psychology be — a vice?",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §1"
-      },
-      {
-        id: "n10",
-        label: "GD — Sprüche §3",
-        german: "Um allein zu leben, muss man ein Thier oder ein Gott sein — sagt Aristoteles. Fehlt der dritte Fall: man muss Beides sein — Philosoph…",
-        reference: "To live alone one must be an animal or a god — says Aristotle. The third case is missing: one must be both — a philosopher…",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §3"
-      },
-      {
-        id: "n11",
-        label: "GD — Sprüche §7",
-        german: "Wie? ist der Mensch nur ein Fehlgriff Gottes? Oder Gott nur ein Fehlgriff des Menschen? —",
-        reference: "What? Is man only a blunder of God? Or God only a blunder of man? —",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §7"
-      },
-      {
-        id: "n12",
-        label: "GD — Sprüche §12",
-        german: "Hat man sein warum? des Lebens, so verträgt man sich fast mit jedem wie? — Der Mensch strebt nicht nach Glück; nur der Engländer thut das.",
-        reference: "If one has one’s why? of life, one gets along with almost every how? — Man does not strive for happiness; only the Englishman does that.",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §12"
-      },
-      {
-        id: "n13",
-        label: "GD — Sprüche §23",
-        german: "„Deutscher Geist“: seit achtzehn Jahren eine contradictio in adjecto.",
-        reference: "\"German spirit\": for eighteen years a contradictio in adjecto.",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §23"
-      },
-      {
-        id: "n14",
-        label: "GD — Sprüche §26",
-        german: "Ich misstraue allen Systematikern und gehe ihnen aus dem Weg. Der Wille zum System ist ein Mangel an Rechtschaffenheit.",
-        reference: "I distrust all systematizers and avoid them. The will to a system is a lack of integrity.",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §26"
-      },
-      {
-        id: "n15",
-        label: "GD — Sprüche §33",
-        german: "Wie wenig gehört zum Glücke! Der Ton eines Dudelsacks. — Ohne Musik wäre das Leben ein Irrthum. Der Deutsche denkt sich selbst Gott liedersingend.",
-        reference: "How little is needed for happiness! The sound of a bagpipe. — Without music life would be an error. The German imagines even God singing songs.",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §33"
-      },
-      {
-        id: "n16",
-        label: "GD — Sprüche §44",
-        german: "Formel meines Glücks: ein Ja, ein Nein, eine gerade Linie, ein Ziel…",
-        reference: "Formula of my happiness: a Yes, a No, a straight line, a goal…",
-        source: "Götzen-Dämmerung, Sprüche und Pfeile §44"
-      },
-      {
-        id: "n17",
-        label: "GD — Wie die „wahre Welt“ zur Fabel wurde §1",
-        german: "1. Die wahre Welt erreichbar für den Weisen, den Frommen, den Tugendhaften, — er lebt in ihr, er ist sie. (Älteste Form der Idee, relativ klug, simpel, überzeugend. Umschreibung des Satzes „ich, Plato, bin die Wahrheit“.)",
-        reference: "1. The true world attainable for the wise, the pious, the virtuous — he lives in it, he is it. (Oldest form of the idea, relatively clever, simple, convincing. Paraphrase of the proposition \"I, Plato, am the truth.\")",
-        source: "Götzen-Dämmerung, Wie die „wahre Welt“ endlich zur Fabel wurde"
-      },
-      {
-        id: "n18",
-        label: "GD — Die „wahre Welt“ §5–6",
-        german: "5. Die „wahre Welt“ — eine Idee, die zu Nichts mehr nütz ist, nicht einmal mehr verpflichtend, — eine unnütz, eine überflüssig gewordene Idee, folglich eine widerlegte Idee: schaffen wir sie ab! (Heller Tag; Frühstück; Rückkehr des bon sens und der Heiterkeit; Schamröthe Plato’s; Teufelslärm aller freien Geister.) 6. Die wahre Welt haben wir abgeschafft: welche Welt blieb übrig? die scheinbare vielleicht?… Aber nein! mit der wahren Welt haben wir auch die scheinbare abgeschafft! (Mittag; Augenblick des kürzesten Schattens; Ende des längsten Irrthums; Höhepunkt der Menschheit; INCIPIT ZARATHUSTRA.)",
-        reference: "5. The \"true world\" — an idea no longer useful for anything, no longer even obligating — a useless, superfluous idea, consequently a refuted idea: let us abolish it! (Bright day; breakfast; return of bon sens and cheerfulness; Plato’s blush; pandemonium of all free spirits.) 6. We have abolished the true world: what world has remained? The apparent one perhaps?… But no! With the true world we have also abolished the apparent one! (Noon; moment of the shortest shadow; end of the longest error; highpoint of humanity; INCIPIT ZARATHUSTRA.)",
-        source: "Götzen-Dämmerung, Wie die „wahre Welt“ endlich zur Fabel wurde"
-      },
-      {
-        id: "n19",
-        label: "GD — Das Problem des Sokrates §1",
-        german: "Über das Leben haben zu allen Zeiten die Weisesten gleich geurtheilt: es taugt nichts… Immer und überall hat man aus ihrem Munde denselben Klang gehört, — einen Klang voll Zweifel, voll Schwermuth, voll Müdigkeit am Leben, voll Widerstand gegen das Leben. Selbst Sokrates sagte, als er starb: „leben — das heisst lange krank sein: ich bin dem Heilande Asklepios einen Hahn schuldig.“ Selbst Sokrates hatte es satt.",
-        reference: "At all times the wisest have judged alike about life: it is no good… Always and everywhere one has heard the same sound from their mouths — a sound full of doubt, full of melancholy, full of weariness of life, full of resistance against life. Even Socrates said as he died: \"to live — that means to be a long time sick: I owe the savior Asclepius a rooster.\" Even Socrates had had enough of it.",
-        source: "Götzen-Dämmerung, Das Problem des Sokrates §1"
-      },
-      {
-        id: "n20",
-        label: "FW §108 — Neue Kämpfe",
-        german: "Nachdem Buddha todt war, zeigte man noch Jahrhunderte lang seinen Schatten in einer Höhle, — einen ungeheuren schauerlichen Schatten. Gott ist todt: aber so wie die Art der Menschen ist, wird es vielleicht noch Jahrtausende lang Höhlen geben, in denen man seinen Schatten zeigt. — Und wir — wir müssen auch noch seinen Schatten besiegen!",
-        reference: "After Buddha was dead, his shadow was still shown for centuries in a cave — a tremendous, gruesome shadow. God is dead: but given the way people are, there may still be caves for thousands of years in which his shadow will be shown. — And we — we still have to vanquish his shadow too!",
-        source: "Die fröhliche Wissenschaft, §108"
-      },
-      {
-        id: "n21",
-        label: "FW §121 — Das Leben kein Argument",
-        german: "Wir haben uns eine Welt zurecht gemacht, in der wir leben können — mit der Annahme von Körpern, Linien, Flächen, Ursachen und Wirkungen, Bewegung und Ruhe, Gestalt und Inhalt: ohne diese Glaubensartikel hielte es jetzt Keiner aus zu leben! Aber damit sind sie noch nichts Bewiesenes. Das Leben ist kein Argument; unter den Bedingungen des Lebens könnte der Irrthum sein.",
-        reference: "We have arranged for ourselves a world in which we are able to live — by positing bodies, lines, planes, causes and effects, motion and rest, form and content: without these articles of faith no one could endure living now! But that does not mean they are anything proven. Life is no argument; the conditions of life might include error.",
-        source: "Die fröhliche Wissenschaft, §121"
-      },
-      {
-        id: "n22",
-        label: "FW §283 — Gefährlich leben!",
-        german: "Denn, glaubt es mir! — das Geheimniss, um die grösste Fruchtbarkeit und den grössten Genuss vom Dasein einzuernten, heisst: gefährlich leben! Baut eure Städte an den Vesuv! Schickt eure Schiffe in unerforschte Meere! Lebt im Kriege mit Euresgleichen und mit euch selber! Seid Räuber und Eroberer, so lange ihr nicht Herrscher und Besitzer sein könnt, ihr Erkennenden!",
-        reference: "For, believe me! — the secret of harvesting the greatest fruitfulness and the greatest enjoyment from existence is: to live dangerously! Build your cities on the slopes of Vesuvius! Send your ships into uncharted seas! Live in war with your peers and with yourselves! Be robbers and conquerors as long as you cannot be rulers and possessors, you seekers of knowledge!",
-        source: "Die fröhliche Wissenschaft, §283 (Auszug)"
-      },
-      {
-        id: "n23",
-        label: "FW §279 — Sternen-Freundschaft",
-        german: "Wir waren Freunde und sind uns fremd geworden. Aber das ist recht so und wir wollen’s uns nicht verhehlen und verdunkeln, als ob wir uns dessen zu schämen hätten. Wir sind zwei Schiffe, deren jedes sein Ziel und seine Bahn hat; wir können uns wohl kreuzen und ein Fest miteinander feiern, wie wir es gethan haben, — und dann lagen die braven Schiffe so ruhig in Einem Hafen und in Einer Sonne, dass es scheinen mochte, sie seien schon am Ziele und hätten Ein Ziel gehabt.",
-        reference: "We were friends and have become estranged from each other. But that is right, and we do not want to conceal and obscure it from ourselves, as if we had reason to be ashamed. We are two ships, each of which has its goal and its course; we may cross and celebrate a feast together, as we have done — and then the good ships lay so quietly in one harbor and in one sun that it may have seemed as if they had already reached their goal, as if they had had one goal.",
-        source: "Die fröhliche Wissenschaft, §279 (Auszug)"
-      },
-      {
-        id: "n24",
-        label: "FW §287 — Lust an der Blindheit",
-        german: "„Meine Gedanken, sagte der Wanderer zu seinem Schatten, sollen mir anzeigen, wo ich stehe: aber sie sollen mir nicht verrathen, wohin ich gehe. Ich liebe die Unwissenheit um die Zukunft und will nicht an der Ungeduld und dem Vorwegkosten verheissener Dinge zu Grunde gehen.“",
-        reference: "\"My thoughts,\" said the wanderer to his shadow, \"should show me where I stand: but they should not betray to me where I am going. I love my ignorance of the future and do not wish to perish of impatience and of tasting promised things in advance.\"",
-        source: "Die fröhliche Wissenschaft, §287"
-      },
-      {
-        id: "n25",
-        label: "FW §290 — Eins ist Noth",
-        german: "Seinem Charakter „Stil geben“ — eine grosse und seltene Kunst! Sie übt Der, welcher Alles übersieht, was seine Natur an Kräften und Schwächen bietet, und es dann einem künstlerischen Plane einfügt, bis ein Jedes als Kunst und Vernunft erscheint und auch die Schwäche noch das Auge entzückt.",
-        reference: "To \"give style\" to one’s character — a great and rare art! It is practiced by those who survey all the strengths and weaknesses that their nature has to offer and then fit them into an artistic plan until each appears as art and reason and even weakness delights the eye.",
-        source: "Die fröhliche Wissenschaft, §290 (Auszug)"
-      },
-      {
-        id: "n26",
-        label: "FW §343 — Tod Gottes und die Morgenröthe",
-        german: "In der That, wir Philosophen und „freien Geister“ fühlen uns bei der Nachricht, dass der „alte Gott todt“ ist, wie von einer neuen Morgenröthe angestrahlt; unser Herz strömt dabei über von Dankbarkeit, Erstaunen, Ahnung, Erwartung, — endlich erscheint uns der Horizont wieder frei, gesetzt selbst, dass er nicht hell ist, endlich dürfen unsre Schiffe wieder auslaufen, auf jede Gefahr hin auslaufen, jedes Wagniss des Erkennenden ist wieder erlaubt, das Meer, unser Meer liegt wieder offen da, vielleicht gab es noch niemals ein so „offnes Meer“. —",
-        reference: "Indeed, we philosophers and \"free spirits\" feel, at the news that the \"old God is dead,\" as if illuminated by a new dawn; our hearts overflow with gratitude, amazement, premonition, expectation — at last the horizon appears free to us again, even if it is not bright; at last our ships may set out again, set out to face any danger; every daring of the knower is permitted again; the sea, our sea, lies open again; perhaps there has never yet been such an \"open sea.\" —",
-        source: "Die fröhliche Wissenschaft, §343 (Auszug)"
-      },
-      {
-        id: "n27",
-        label: "Za II — Auf den glückseligen Inseln (Gott und Schaffen)",
-        german: "Einst sagte man Gott, wenn man auf ferne Meere blickte; nun aber lehrte ich euch sagen: Übermensch. Gott ist eine Muthmaassung; aber ich will, dass euer Muthmaassen nicht weiter reiche, als euer schaffender Wille. Könntet ihr einen Gott schaffen? — So schweigt mir doch von allen Göttern! Wohl aber könntet ihr den Übermenschen schaffen.",
-        reference: "Once one said God when one looked upon distant seas; but now I have taught you to say: overman. God is a conjecture; but I want your conjecturing to reach no further than your creative will. Could you create a god? — Then be silent about all gods! But you could well create the overman.",
-        source: "Also sprach Zarathustra II, Auf den glückseligen Inseln"
-      },
-      {
-        id: "n28",
-        label: "Za II — Auf den glückseligen Inseln (Schaffen)",
-        german: "Schaffen — das ist die grosse Erlösung vom Leiden, und des Lebens Leichtwerden. Aber dass der Schaffende sei, dazu selber thut Leid noth und viel Verwandelung. Ja, viel bitteres Sterben muss in eurem Leben sein, ihr Schaffenden! Also seid ihr Fürsprecher und Rechtfertiger aller Vergänglichkeit.",
-        reference: "Creating — that is the great redemption from suffering, and life’s growing light. But for the creator to be, suffering is needed and much transformation. Indeed, much bitter dying must be in your life, you creators! Thus you are advocates and justifiers of all impermanence.",
-        source: "Also sprach Zarathustra II, Auf den glückseligen Inseln"
-      },
-      {
-        id: "n29",
-        label: "Za II — Von den Mitleidigen",
-        german: "Das Schlimmste aber sind die kleinen Gedanken. Wahrlich, besser noch bös gethan, als klein gedacht! Zwar sagt ihr: „die Lust an kleinen Bosheiten erspart uns manche grosse böse That.“ Aber hier sollte man nicht sparen wollen.",
-        reference: "But the worst are the petty thoughts. Truly, better to have done evil than to have thought pettily! To be sure, you say: \"the delight in petty malice saves us many a great evil deed.\" But here one should not wish to be thrifty.",
-        source: "Also sprach Zarathustra II, Von den Mitleidigen"
-      },
-      {
-        id: "n30",
-        label: "Za II — Von der Selbst-Überwindung",
-        german: "Und diess Geheimniss redete das Leben selber zu mir. „Siehe, sprach es, ich bin das, was sich immer selber überwinden muss. Freilich, ihr heisst es Wille zur Zeugung oder Trieb zum Zwecke, zum Höheren, Ferneren, Vielfacheren: aber all diess ist Eins und Ein Geheimniss.“",
-        reference: "And life itself confided this secret to me. \"Behold,\" it said, \"I am that which must always overcome itself. To be sure, you call it will to procreation or drive toward a goal, toward something higher, more remote, more manifold: but all this is one and one secret.\"",
-        source: "Also sprach Zarathustra II, Von der Selbst-Überwindung"
-      },
-      {
-        id: "n31",
-        label: "Za II — Von den Taranteln",
-        german: "Dass Kampf und Ungleiches auch noch in der Schönheit sei und Krieg um Macht und Übermacht: das lehrt er uns hier im deutlichsten Gleichniss.",
-        reference: "That struggle and inequality are present even in beauty, and war for power and more power: that is what he teaches us here in the clearest parable.",
-        source: "Also sprach Zarathustra II, Von den Taranteln"
-      },
-      {
-        id: "n32",
-        label: "Za II — Das Nachtlied",
-        german: "Nacht ist es: nun reden lauter alle springenden Brunnen. Und auch meine Seele ist ein springender Brunnen. Nacht ist es: nun erst erwachen alle Lieder der Liebenden. Und auch meine Seele ist das Lied eines Liebenden.",
-        reference: "It is night: now all gushing fountains speak louder. And my soul too is a gushing fountain. It is night: only now do all songs of lovers awaken. And my soul too is the song of a lover.",
-        source: "Also sprach Zarathustra II, Das Nachtlied"
-      },
-      {
-        id: "n33",
-        label: "Za III — Der Wanderer (Gipfel)",
-        german: "Ich bin ein Wanderer und ein Bergsteiger, sagte er zu seinem Herzen, ich liebe die Ebenen nicht und es scheint, ich kann nicht lange still sitzen. Und was mir nun auch noch als Schicksal und Erlebniss komme, — ein Wandern wird darin sein und ein Bergsteigen: man erlebt endlich nur noch sich selber.",
-        reference: "I am a wanderer and a mountain climber, he said to his heart, I do not like the plains and it seems I cannot sit still for long. And whatever may yet come to me as fate and experience — it will include wandering and mountain climbing: in the end one experiences only oneself.",
-        source: "Also sprach Zarathustra III, Der Wanderer"
-      },
-      {
-        id: "n34",
-        label: "Za III — Der Wanderer (Aufstieg)",
-        german: "Und wenn dir nunmehr alle Leitern fehlen, so musst du verstehen, noch auf deinen eigenen Kopf zu steigen: wie wolltest du anders aufwärts steigen? Auf deinen eigenen Kopf und hinweg über dein eigenes Herz! Jetzt muss das Mildeste an dir noch zum Härtesten werden.",
-        reference: "And if henceforth you lack all ladders, then you must learn to climb on your own head: how else would you climb upward? On your own head and beyond your own heart! Now the gentlest thing in you must become the hardest.",
-        source: "Also sprach Zarathustra III, Der Wanderer"
-      },
-      {
-        id: "n35",
-        label: "Za III — Von Gesicht und Räthsel (Muth)",
-        german: "Muth nämlich ist der beste Todtschläger, — Muth, welcher angreift: denn in jedem Angriffe ist klingendes Spiel. Der Mensch aber ist das muthigste Thier: damit überwand er jedes Thier. Mit klingendem Spiele überwand er noch jeden Schmerz; Menschen-Schmerz aber ist der tiefste Schmerz.",
-        reference: "For courage is the best slayer — courage which attacks: for in every attack there is playing and brass. But man is the most courageous animal: thus he has overcome every animal. With playing and brass he has so far overcome even every pain; but human pain is the deepest pain.",
-        source: "Also sprach Zarathustra III, Von Gesicht und Räthsel §1"
-      },
-      {
-        id: "n36",
-        label: "Za III — Von Gesicht und Räthsel (Ewige Wiederkehr)",
-        german: "Siehe diesen Thorweg! Zwerg! sprach ich weiter: der hat zwei Gesichter. Zwei Wege kommen hier zusammen: die gieng noch Niemand zu Ende. Diese lange Gasse zurück: die währt eine Ewigkeit. Und jene lange Gasse hinaus — das ist eine andre Ewigkeit.",
-        reference: "Behold this gateway, dwarf! I continued: it has two faces. Two paths come together here: no one has yet walked them to the end. This long lane back: it lasts an eternity. And that long lane out there — that is another eternity.",
-        source: "Also sprach Zarathustra III, Von Gesicht und Räthsel §2"
-      },
-      {
-        id: "n37",
-        label: "Za III — Vor Sonnen-Aufgang",
-        german: "Das aber ist mein Segnen: über jedwedem Ding als sein eigener Himmel stehn, als sein rundes Dach, seine azurne Glocke und ewige Sicherheit: und selig ist, wer also segnet! Diese Freiheit und Himmels-Heiterkeit stellte ich gleich azurner Glocke über alle Dinge, als ich lehrte, dass über ihnen und durch sie kein „ewiger Wille“ — will.",
-        reference: "But this is my blessing: to stand over every thing as its own sky, its round roof, its azure bell and eternal security: and blessed is he who blesses thus! This freedom and celestial cheerfulness I placed like an azure bell over all things when I taught that over them and through them no \"eternal will\" — wills.",
-        source: "Also sprach Zarathustra III, Vor Sonnen-Aufgang"
-      },
-      {
-        id: "n38",
-        label: "Za III — Aus dem Tiefsten",
-        german: "Woher kommen die höchsten Berge? so fragte ich einst. Da lernte ich, dass sie aus dem Meere kommen. Diess Zeugniss ist in ihr Gestein geschrieben und in die Wände ihrer Gipfel. Aus dem Tiefsten muss das Höchste zu seiner Höhe kommen. —",
-        reference: "From where do the highest mountains come? I once asked. Then I learned that they come from the sea. This testimony is written in their rock and in the walls of their summits. From the deepest depth the highest must come to its height. —",
-        source: "Also sprach Zarathustra III, Der Wanderer"
-      },
-      {
-        id: "n39",
-        label: "JGB §4 — Falschheit eines Urtheils",
-        german: "Die Falschheit eines Urtheils ist uns noch kein Einwand gegen ein Urtheil; darin klingt unsre neue Sprache vielleicht am fremdesten. Die Frage ist, wie weit es lebenfördernd, lebenerhaltend, Art-erhaltend, vielleicht gar Art-züchtend ist; und wir sind grundsätzlich geneigt zu behaupten, dass die falschesten Urtheile (zu denen die synthetischen Urtheile a priori gehören) uns die unentbehrlichsten sind.",
-        reference: "The falseness of a judgment is to us not necessarily an objection to a judgment; in this our new language may sound strangest. The question is to what extent it is life-promoting, life-preserving, species-preserving, perhaps even species-cultivating; and we are fundamentally inclined to maintain that the falsest judgments (to which synthetic judgments a priori belong) are the most indispensable to us.",
-        source: "Jenseits von Gut und Böse, §4 (Auszug)"
-      },
-      {
-        id: "n40",
-        label: "JGB §39 — Niemand lügt so viel",
-        german: "Niemand lügt so viel als der Entrüstete.",
-        reference: "Nobody lies as much as the indignant man.",
-        source: "Jenseits von Gut und Böse, §39"
-      },
-      {
-        id: "n41",
-        label: "JGB §68 — Gedächtniss und Stolz",
-        german: "„Ich habe das gethan“ sagt mein Gedächtniss. „Ich kann das nicht gethan haben“ — sagt mein Stolz und bleibt unerbittlich. Endlich — giebt das Gedächtniss nach.",
-        reference: "\"I have done that,\" says my memory. \"I cannot have done that\" — says my pride and remains inexorable. Eventually — memory yields.",
-        source: "Jenseits von Gut und Böse, §68"
-      },
-      {
-        id: "n42",
-        label: "JGB §156 — Der Wahnsinn",
-        german: "Der Wahnsinn ist bei Einzelnen etwas Seltenes, — aber bei Gruppen, Parteien, Völkern, Zeiten die Regel.",
-        reference: "Madness is something rare in individuals — but in groups, parties, peoples, ages it is the rule.",
-        source: "Jenseits von Gut und Böse, §156"
-      },
-      {
-        id: "n43",
-        label: "JGB §188 — Moral als Tyrannei",
-        german: "Jede Moral ist, im Gegensatz zum laisser aller, ein Stück Tyrannei gegen die „Natur“, auch gegen die „Vernunft“: das ist aber noch kein Einwand gegen sie, man müsste denn schon wieder von irgend einer Moral aus decretiren, dass alle Art Tyrannei und Unvernunft unerlaubt sei. Das Wesentliche und Unschätzbare an jeder Moral ist, dass sie ein langer Zwang ist.",
-        reference: "Every morality is, as opposed to laisser aller, a piece of tyranny against \"nature,\" also against \"reason\": but that is no objection to it, unless one were to decree, from some morality or other, that all kinds of tyranny and unreason are impermissible. The essential and invaluable thing about every morality is that it is a long compulsion.",
-        source: "Jenseits von Gut und Böse, §188 (Auszug)"
-      },
-      {
-        id: "n44",
-        label: "JGB §259 — Ausbeutung",
-        german: "Das Leben selbst ist wesentlich Aneignung, Verletzung, Überwältigung des Fremden und Schwächeren, Unterdrückung, Härte, Aufzwängung eigner Formen, Einverleibung und mindestens, mildestens, Ausbeutung.",
-        reference: "Life itself is essentially appropriation, injury, overpowering of the alien and weaker, suppression, hardness, imposition of one’s own forms, incorporation and at the least, at the mildest, exploitation.",
-        source: "Jenseits von Gut und Böse, §259 (Auszug)"
-      },
-      {
-        id: "n45",
-        label: "JGB §270 — Das tiefe Leiden",
-        german: "Das tiefe Leiden macht vornehm; es trennt. — Eine der feinsten Verkleidungsformen ist der Epikureismus und eine gewisse fürderhin zur Schau getragene Tapferkeit des Geschmacks, welche das Leiden leichtfertig nimmt und sich gegen alles Traurige und Tiefe zur Wehre setzt.",
-        reference: "Profound suffering makes noble; it separates. — One of the finest disguises is Epicureanism and a certain ostentatious bravery of taste which takes suffering lightly and arms itself against everything sad and deep.",
-        source: "Jenseits von Gut und Böse, §270 (Auszug)"
-      },
-      {
-        id: "n46",
-        label: "JGB §284 — Geduld",
-        german: "Es kommt mir gar nicht darauf an, ob jetzt Einer mit mir überein läuft: ebenso wenig, ob Keiner. Dafür wird es vielleicht in fünfzig Jahren Einigen einleuchten, was ich gethan habe.",
-        reference: "It does not matter to me at all whether anyone now agrees with me: just as little whether no one does. Perhaps in fifty years it will dawn on some what I have done.",
-        source: "Jenseits von Gut und Böse, §284 (Auszug)"
-      },
-      {
-        id: "n47",
-        label: "GM I §13 — Adler und Lamm",
-        german: "Dass die Lämmer den grossen Raubvögeln gram sind, das befremdet nicht: nur liegt darin kein Grund, es den grossen Raubvögeln zu verargen, dass sie sich kleine Lämmer holen. Und wenn die Lämmer unter sich sagen „diese Raubvögel sind böse; und wer so wenig als möglich ein Raubvogel ist, vielmehr deren Gegenstück, ein Lamm, — sollte der nicht gut sein?“ so ist an dieser Aufrichtung eines Ideals Nichts auszusetzen, abgerechnet, dass die Raubvögel dazu ein wenig spöttisch blicken werden und sich vielleicht sagen: „wir sind ihnen gar nicht gram, diesen guten Lämmern, wir lieben sie sogar: nichts ist schmackhafter als ein zartes Lamm.“",
-        reference: "That lambs bear a grudge against great birds of prey does not surprise us: but that is no reason to hold it against great birds of prey that they snatch up little lambs. And if the lambs say among themselves, \"These birds of prey are evil; and whoever is least like a bird of prey and most like its opposite, a lamb — should he not be good?\" there is nothing to criticize in this setting up of an ideal, except that the birds of prey may look at it with a little mockery and perhaps say: \"we are not at all angry with these good lambs, we even love them: nothing is more delicious than a tender lamb.\"",
-        source: "Zur Genealogie der Moral, I §13 (Auszug)"
-      },
-      {
-        id: "n48",
-        label: "GM II §1 — Vergesslichkeit",
-        german: "Vergesslichkeit ist keine blosse vis inertiae, wie die Oberflächlichen glauben, sie ist vielmehr ein aktives, im strengsten Sinne positives Hemmungsvermögen, dem es zuzuschreiben ist, dass was nur von uns erlebt, erfahren, in uns hineingenommen wird, uns im Zustande der Verdauung ebenso wenig in’s Bewusstsein tritt, als der ganze tausendfältige Prozess, mit dem sich unsre leibliche Ernährung, die sogenannte „Einverleibung“ abspielt.",
-        reference: "Forgetting is no mere vis inertiae, as the superficial believe; rather, it is an active and, in the strictest sense, positive faculty of suppression, and is responsible for the fact that whatever we experience, learn, or take into ourselves enters our consciousness during the state of digestion as little as does the whole thousandfold process by which our bodily nourishment, so-called \"incorporation,\" takes place.",
-        source: "Zur Genealogie der Moral, II §1 (Auszug)"
-      },
-      {
-        id: "n49",
-        label: "GM III §12 — Perspektivismus",
-        german: "Es giebt nur ein perspektivisches Sehen, nur ein perspektivisches „Erkennen“; und je mehr Affekte wir über eine Sache zu Worte kommen lassen, je mehr Augen, verschiedne Augen wir uns für dieselbe Sache einzusetzen wissen, um so vollständiger wird unser „Begriff“ dieser Sache, unsre „Objektivität“ sein.",
-        reference: "There is only a perspectival seeing, only a perspectival \"knowing\"; and the more affects we allow to speak about a thing, the more eyes, various eyes we are able to use for the same thing, the more complete will be our \"concept\" of that thing, our \"objectivity.\"",
-        source: "Zur Genealogie der Moral, III §12 (Auszug)"
-      },
-      {
-        id: "n50",
-        label: "GM III §28 — Schluss",
-        german: "Lieber will noch der Mensch das Nichts wollen, als nicht wollen…",
-        reference: "Man would rather will nothingness than not will…",
-        source: "Zur Genealogie der Moral, III §28 (Schluss)"
-      }
-    ]
-  },
-  genealogie: {
-    id: "genealogie",
     title: "Zur Genealogie der Moral — Vorrede",
     author: "Friedrich Nietzsche",
     year: 1887,
@@ -19015,6 +18655,283 @@ const GRAMMAR_UNITS = [
 
 
 // ============================================================
+// FSRS v4.5 SPACED REPETITION ENGINE
+// ============================================================
+
+/**
+ * FSRS v4.5 implementation for the Übersetzungswerkstatt app.
+ * Card states: 0=New, 1=Learning, 2=Review, 3=Relearning
+ * Ratings: 1=Again, 2=Hard, 3=Good, 4=Easy
+ * Target retention: 0.9
+ */
+const FSRS = (() => {
+  // FSRS v4.5 default weight vector (19 weights)
+  const W = [
+    0.4072, 1.1829, 3.1262, 15.4722,   // w0-w3: initial stability for Again/Hard/Good/Easy
+    7.2102, 0.5316, 1.0651, 0.0589,     // w4-w7
+    1.5330, 0.1482, 1.0131, 1.8558,     // w8-w11
+    0.0200, 0.3400, 1.2600, 0.2900,     // w12-w15
+    2.6100, 0.5100, 0.6000              // w16-w18
+  ];
+  const DECAY = -0.5;
+  const FACTOR = 19.0 / 81.0;
+  const TARGET_RETENTION = 0.9;
+
+  // Storage key for all FSRS card state
+  const STORAGE_KEY = "uw_fsrsState";
+
+  let _cards = {};  // in-memory card store: { [cardKey]: cardObj }
+
+  /**
+   * Card schema:
+   * { difficulty, stability, lastReview (ISO string), reps, lapses, scheduledDays, state }
+   * state: 0=New, 1=Learning, 2=Review, 3=Relearning
+   */
+  function _newCard() {
+    return {
+      difficulty: 0,
+      stability: 0,
+      lastReview: null,
+      reps: 0,
+      lapses: 0,
+      scheduledDays: 0,
+      state: 0
+    };
+  }
+
+  function _clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
+
+  /**
+   * Retrievability: probability of recall at elapsed days t with stability S.
+   * R(t, S) = (1 + FACTOR * t / S) ^ DECAY
+   */
+  function retrievability(card) {
+    if (!card.lastReview || card.stability <= 0) return 0;
+    const elapsed = (Date.now() - new Date(card.lastReview).getTime()) / (1000 * 60 * 60 * 24);
+    return Math.pow(1 + FACTOR * elapsed / card.stability, DECAY);
+  }
+
+  /** Initial difficulty for a given rating (1-4) */
+  function _initDifficulty(rating) {
+    return _clamp(W[4] - Math.exp(W[5] * (rating - 1)) + 1, 1, 10);
+  }
+
+  /** Initial stability for a given rating (1-4) */
+  function _initStability(rating) {
+    return Math.max(W[rating - 1], 0.1);
+  }
+
+  /** Next difficulty after a review with given rating */
+  function _nextDifficulty(d, rating) {
+    const newD = d - W[6] * (rating - 3);
+    // Mean reversion toward initial difficulty
+    const d0 = _initDifficulty(3);
+    return _clamp(W[7] * d0 + (1 - W[7]) * newD, 1, 10);
+  }
+
+  /** Next stability after a successful recall (rating >= 2) */
+  function _nextRecallStability(d, s, r, rating) {
+    const hardPenalty = (rating === 2) ? W[15] : 1;
+    const easyBonus = (rating === 4) ? W[16] : 1;
+    return s * (1 + Math.exp(W[8]) *
+      (11 - d) *
+      Math.pow(s, -W[9]) *
+      (Math.exp((1 - r) * W[10]) - 1) *
+      hardPenalty *
+      easyBonus);
+  }
+
+  /** Next stability after a lapse (rating === 1, Again) */
+  function _nextForgetStability(d, s, r) {
+    return Math.max(
+      W[11] *
+      Math.pow(d, -W[12]) *
+      (Math.pow(s + 1, W[13]) - 1) *
+      Math.exp((1 - r) * W[14]),
+      0.1
+    );
+  }
+
+  /** Compute the interval in days for a target retention */
+  function _nextInterval(s) {
+    return Math.max(Math.round(s / FACTOR * (Math.pow(TARGET_RETENTION, 1 / DECAY) - 1)), 1);
+  }
+
+  /**
+   * Process a review rating for a card.
+   * rating: 1=Again, 2=Hard, 3=Good, 4=Easy
+   * Returns the updated card object.
+   */
+  function review(cardKey, rating) {
+    let card = _cards[cardKey] || _newCard();
+
+    const now = new Date().toISOString();
+    const r = (card.lastReview && card.stability > 0) ? retrievability(card) : 0;
+
+    if (card.state === 0) {
+      // New card — first review
+      card.difficulty = _initDifficulty(rating);
+      card.stability = _initStability(rating);
+      card.reps = 1;
+      card.lapses = (rating === 1) ? 1 : 0;
+      card.state = (rating === 1) ? 1 : (rating < 4 ? 1 : 2);
+    } else if (card.state === 1 || card.state === 3) {
+      // Learning or Relearning
+      card.difficulty = _nextDifficulty(card.difficulty, rating);
+      if (rating === 1) {
+        card.stability = _initStability(1);
+        card.lapses++;
+        card.state = (card.state === 1) ? 1 : 3;
+      } else {
+        card.stability = _nextRecallStability(card.difficulty, card.stability, r || 0.9, rating);
+        card.reps++;
+        card.state = 2; // Graduate to Review
+      }
+    } else {
+      // Review (state === 2)
+      card.difficulty = _nextDifficulty(card.difficulty, rating);
+      if (rating === 1) {
+        // Lapse — move to Relearning
+        card.stability = _nextForgetStability(card.difficulty, card.stability, r);
+        card.lapses++;
+        card.state = 3;
+      } else {
+        card.stability = _nextRecallStability(card.difficulty, card.stability, r, rating);
+        card.reps++;
+        // stays in Review
+      }
+    }
+
+    card.scheduledDays = _nextInterval(card.stability);
+    card.lastReview = now;
+    _cards[cardKey] = card;
+    _save();
+    return card;
+  }
+
+  /** Get a card (returns null if not tracked yet) */
+  function getCard(cardKey) {
+    return _cards[cardKey] || null;
+  }
+
+  /** Get all cards as a plain object (for export) */
+  function getAllCards() {
+    return { ..._cards };
+  }
+
+  /** Load all cards from an object (for import merge) */
+  function mergeCards(imported) {
+    if (!imported || typeof imported !== "object") return 0;
+    let merged = 0;
+    for (const [key, incoming] of Object.entries(imported)) {
+      const existing = _cards[key];
+      if (!existing) {
+        _cards[key] = incoming;
+        merged++;
+      } else {
+        // Keep more recent lastReview; if tied, keep higher reps
+        const existDate = existing.lastReview ? new Date(existing.lastReview).getTime() : 0;
+        const incomDate = incoming.lastReview ? new Date(incoming.lastReview).getTime() : 0;
+        if (incomDate > existDate || (incomDate === existDate && (incoming.reps || 0) > (existing.reps || 0))) {
+          _cards[key] = incoming;
+          merged++;
+        }
+      }
+    }
+    if (merged > 0) _save();
+    return merged;
+  }
+
+  /** Replace entire card store (for reset) */
+  function resetAll() {
+    _cards = {};
+    _save();
+  }
+
+  /**
+   * Check if a card is overdue (past its scheduled review date).
+   */
+  function isOverdue(cardKey) {
+    const card = _cards[cardKey];
+    if (!card || !card.lastReview || card.state === 0) return false;
+    const elapsed = (Date.now() - new Date(card.lastReview).getTime()) / (1000 * 60 * 60 * 24);
+    return elapsed >= card.scheduledDays;
+  }
+
+  /**
+   * Get all overdue card keys, sorted by most overdue first.
+   */
+  function getOverdueKeys() {
+    const overdue = [];
+    for (const key in _cards) {
+      const card = _cards[key];
+      if (!card.lastReview || card.state === 0) continue;
+      const elapsed = (Date.now() - new Date(card.lastReview).getTime()) / (1000 * 60 * 60 * 24);
+      if (elapsed >= card.scheduledDays) {
+        overdue.push({ key, elapsed, scheduled: card.scheduledDays, overdueBy: elapsed - card.scheduledDays });
+      }
+    }
+    overdue.sort((a, b) => b.overdueBy - a.overdueBy);
+    return overdue.map(o => o.key);
+  }
+
+  /**
+   * Count overdue cards matching a key prefix (e.g. "vocab_" or "grammar_").
+   */
+  function countOverdue(prefix) {
+    let count = 0;
+    for (const key in _cards) {
+      if (prefix && !key.startsWith(prefix)) continue;
+      const card = _cards[key];
+      if (!card.lastReview || card.state === 0) continue;
+      const elapsed = (Date.now() - new Date(card.lastReview).getTime()) / (1000 * 60 * 60 * 24);
+      if (elapsed >= card.scheduledDays) count++;
+    }
+    return count;
+  }
+
+  /** Persist to localStorage */
+  function _save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(_cards));
+    } catch(e) {
+      console.warn("FSRS: localStorage save failed:", e);
+    }
+  }
+
+  /** Load from localStorage */
+  function _load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) _cards = JSON.parse(raw);
+    } catch(e) {
+      console.warn("FSRS: localStorage load failed:", e);
+      _cards = {};
+    }
+  }
+
+  // Initialize on load
+  _load();
+
+  return {
+    review,
+    getCard,
+    getAllCards,
+    mergeCards,
+    resetAll,
+    retrievability,
+    isOverdue,
+    getOverdueKeys,
+    countOverdue,
+    DECAY,
+    FACTOR,
+    TARGET_RETENTION,
+    _newCard  // exposed for import/export
+  };
+})();
+
+
+// ============================================================
 // APPLICATION
 // ============================================================
 const API_TIMEOUT_MS = 30000; // Timeout for all external API fetch calls (ms)
@@ -19366,12 +19283,6 @@ class App {
       if (ex.label.startsWith("Teil III")) return "Teil III";
       if (ex.label.startsWith("Teil II")) return "Teil II";
       return "Teil I";
-    } else if (textId === "nietzsche") {
-      // Group by work abbreviation
-      const abbrevMap = { "JGB": "Jenseits von Gut und Böse", "FW": "Die fröhliche Wissenschaft", "GD": "Götzen-Dämmerung", "GM": "Zur Genealogie der Moral", "Za": "Also sprach Zarathustra", "MA": "Menschliches, Allzumenschliches" };
-      const m = ex.label.match(/^(\S+)/);
-      if (m && abbrevMap[m[1]]) return abbrevMap[m[1]];
-      return ex.label.split("—")[0].trim();
     }
     // For custom/other texts, no grouping
     return null;
@@ -21519,6 +21430,8 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       this.vocabProgress[key] = true;
     }
     this.save("vocabProgress", this.vocabProgress);
+    // Feed FSRS: knew → Good(3), didn't know → Again(1)
+    this._recordVocabFSRS(item, knew ? 3 : 1);
     this._resetAllTTSState();
     this.vocabCurrentIdx++;
     this.vocabFlipped = false;
@@ -21546,6 +21459,8 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       this.vocabProgress[key] = true;
       this.save("vocabProgress", this.vocabProgress);
     }
+    // Feed FSRS: correct → Good(3), incorrect → Again(1)
+    this._recordVocabFSRS(item, isCorrect ? 3 : 1);
 
     setTimeout(() => {
       this._resetAllTTSState();
@@ -21584,6 +21499,8 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       feedback.className = "vocab-typed-feedback incorrect";
       feedback.textContent = `Not quite. The correct answer is: ${item.english}`;
     }
+    // Feed FSRS: correct → Good(3), incorrect → Again(1)
+    this._recordVocabFSRS(item, isCorrect ? 3 : 1);
 
     input.disabled = true;
     checkBtn.style.display = "none";
@@ -21593,6 +21510,70 @@ Format your response as JSON: {"score": NUMBER, "feedback": "TEXT"}`;
       this.vocabCurrentIdx++;
       this.renderVocabExercise();
     });
+  }
+
+  // ============================================================
+  // FSRS INTEGRATION HELPERS
+  // ============================================================
+
+  /**
+   * Record a vocab practice result to FSRS.
+   * Each vocab item maps to one FSRS card keyed as "vocab_<section>_<num>".
+   */
+  _recordVocabFSRS(item, rating) {
+    const fsrsKey = `vocab_${item.section}_${item.num}`;
+    FSRS.review(fsrsKey, rating);
+  }
+
+  /**
+   * Get overdue vocab FSRS card keys and their corresponding VOCAB items.
+   */
+  _getOverdueVocabItems() {
+    const overdueKeys = FSRS.getOverdueKeys().filter(k => k.startsWith("vocab_"));
+    const items = [];
+    for (const key of overdueKeys) {
+      // key format: vocab_<section>_<num>
+      const parts = key.replace("vocab_", "").split("_");
+      const num = parseInt(parts.pop());
+      const section = parts.join("_");
+      const vocabItem = VOCAB.find(v => v.section === section && v.num === num);
+      if (vocabItem) items.push(vocabItem);
+    }
+    return items;
+  }
+
+  /**
+   * Start a review session of overdue vocab items.
+   */
+  startVocabReview() {
+    const items = this._getOverdueVocabItems();
+    if (items.length === 0) return;
+
+    this._resetAllTTSState();
+    this.vocabActiveBatch = null;
+    this._vocabReviewMode = true;
+    this.vocabExerciseType = document.getElementById("vocab-exercise-select")?.value || this.vocabExerciseType || "flashcard";
+    this.vocabItems = this._shuffleArray([...items]);
+    this.vocabCurrentIdx = 0;
+    this.vocabFlipped = false;
+    this.vocabProgress = this.load("vocabProgress") || {};
+
+    const contentArea = document.getElementById("vocab-content");
+    if (contentArea) {
+      contentArea.innerHTML = "";
+      this.renderVocabExercise();
+    }
+  }
+
+  /**
+   * Start a review session of overdue grammar items.
+   */
+  startGrammarReview() {
+    // Collect overdue grammar keys
+    const overdueKeys = FSRS.getOverdueKeys().filter(k => k.startsWith("grammar_"));
+    if (overdueKeys.length === 0) return;
+    // For now, show an alert with count — full review queue will be built by UX Implementer (Feature 3/4)
+    alert(`${overdueKeys.length} grammar item(s) due for review. Start a grammar practice session to review them.`);
   }
 
   // ============================================================
@@ -22459,6 +22440,17 @@ Lesson: ${ex.profile.description}`;
       };
       this.save("grammarProgress", this.grammarProgress);
       this.renderGrammarSidebar();
+    }
+    // Feed FSRS: one card per paradigm cell for paradigm exercises
+    if (ex.paradigmKey) {
+      const fsrsKey = `grammar_${ex.profile.pattern}_${ex.paradigmKey}`;
+      FSRS.review(fsrsKey, isCorrect ? 3 : 1);
+    }
+    // Feed FSRS: one card per thematic sentence
+    if (ex.sentenceId || (ex.sentence && ex.sentence.id)) {
+      const sid = ex.sentenceId || ex.sentence.id;
+      const fsrsKey = `grammar_${sid}`;
+      FSRS.review(fsrsKey, isCorrect ? 3 : 1);
     }
   }
 
