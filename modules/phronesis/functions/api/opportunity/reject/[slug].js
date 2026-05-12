@@ -5,15 +5,16 @@
  *
  * Steps:
  *   1. Validate CF Access JWT
- *   2. Fetch opp-<slug>.md from vault repo
+ *   2. Fetch projects/opp-<slug>.md from vault repo
  *   3. Update frontmatter: status → declined, date_declined → today
  *   4. Commit
  *   5. Return 202
  *
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — repo-scoped PAT, contents:write
- *   VAULT_REPO       — "owner/repo"
+ *   VAULT_REPO       — "owner/repo"  (e.g. "cameronhubbard642-eng/agora")
  *   CF_ACCESS_AUD    — Cloudflare Access audience tag
+ *   VAULT_SUBTREE    — path prefix within repo (e.g. "Organization & Planning")
  */
 
 /* Shared helpers — imported via Cloudflare module pattern.
@@ -35,18 +36,22 @@ export async function onRequestPost(ctx) {
     return jsonResponse({ error: 'Invalid slug' }, 400);
   }
 
+  /* VAULT_SUBTREE prefix (e.g. "Organization & Planning") */
+  const subtree = (env.VAULT_SUBTREE || '').replace(/\/$/, '');
+  function vp(relPath) { return subtree ? subtree + '/' + relPath : relPath; }
+
   const gh = new GitHubContents(env.VAULT_GITHUB_PAT, env.VAULT_REPO);
 
   try {
-    const oppPath = `opp-${slug}.md`;
-    const oppFile = await gh.getFile(oppPath);
+    const oppPath = `projects/opp-${slug}.md`;
+    const oppFile = await gh.getFile(vp(oppPath));
     const parsed  = parseFrontmatter(oppFile.content);
 
     parsed.frontmatter.status        = 'declined';
     parsed.frontmatter.date_declined = isoDateNow();
 
     const updatedOpp = serializeFrontmatter(parsed.frontmatter) + parsed.body;
-    await gh.putFile(oppPath, updatedOpp, oppFile.sha,
+    await gh.putFile(vp(oppPath), updatedOpp, oppFile.sha,
       `phronesis: reject ${slug} [automated]`);
 
     return jsonResponse({
@@ -62,6 +67,10 @@ export async function onRequestPost(ctx) {
 }
 
 /* ── GitHub Contents API wrapper ── */
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 class GitHubContents {
   constructor(pat, repo) {
     this.pat  = pat;
@@ -70,7 +79,7 @@ class GitHubContents {
   }
 
   async getFile(path) {
-    const resp = await fetch(`${this.base}/${path}`, { headers: this._headers() });
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, { headers: this._headers() });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
     const data = await resp.json();
     return {
@@ -87,7 +96,7 @@ class GitHubContents {
     };
     if (sha) body.sha = sha;
 
-    const resp = await fetch(`${this.base}/${path}`, {
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, {
       method: 'PUT',
       headers: this._headers(),
       body: JSON.stringify(body)

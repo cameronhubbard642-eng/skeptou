@@ -5,7 +5,7 @@
  *
  * Steps (sequential; abort on any GitHub API failure):
  *   1. Validate CF Access JWT
- *   2. Fetch opp-<slug>.md from vault repo
+ *   2. Fetch projects/opp-<slug>.md from vault repo
  *   3. Parse frontmatter; update status → confirmed-pursuing, add date_accepted
  *   4. Commit updated opp file
  *   5. Fetch PROJECT_MANIFEST.md; move row to Active Projects; commit
@@ -14,8 +14,9 @@
  *
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — repo-scoped PAT, contents:write on O&P vault
- *   VAULT_REPO       — "owner/repo"
+ *   VAULT_REPO       — "owner/repo"  (e.g. "cameronhubbard642-eng/agora")
  *   CF_ACCESS_AUD    — Cloudflare Access audience tag for this app
+ *   VAULT_SUBTREE    — path prefix within repo (e.g. "Organization & Planning")
  */
 
 export async function onRequestPost(ctx) {
@@ -32,26 +33,30 @@ export async function onRequestPost(ctx) {
     return jsonResponse({ error: 'Invalid slug' }, 400);
   }
 
+  /* VAULT_SUBTREE prefix (e.g. "Organization & Planning") */
+  const subtree = (env.VAULT_SUBTREE || '').replace(/\/$/, '');
+  function vp(relPath) { return subtree ? subtree + '/' + relPath : relPath; }
+
   const gh = new GitHubContents(env.VAULT_GITHUB_PAT, env.VAULT_REPO);
 
   try {
-    /* Step 1–4: update opp file */
-    const oppPath = `opp-${slug}.md`;
-    const oppFile = await gh.getFile(oppPath);
+    /* Step 1–4: update opp file (opp-*.md lives in projects/) */
+    const oppPath = `projects/opp-${slug}.md`;
+    const oppFile = await gh.getFile(vp(oppPath));
     const parsed  = parseFrontmatter(oppFile.content);
 
     parsed.frontmatter.status       = 'confirmed-pursuing';
     parsed.frontmatter.date_accepted = isoDateNow();
 
     const updatedOpp = serializeFrontmatter(parsed.frontmatter) + parsed.body;
-    await gh.putFile(oppPath, updatedOpp, oppFile.sha,
+    await gh.putFile(vp(oppPath), updatedOpp, oppFile.sha,
       `phronesis: accept ${slug} [automated]`);
 
     /* Step 5: update PROJECT_MANIFEST.md */
     try {
-      const manifestFile = await gh.getFile('PROJECT_MANIFEST.md');
+      const manifestFile = await gh.getFile(vp('PROJECT_MANIFEST.md'));
       const updatedManifest = moveOppToActive(manifestFile.content, slug, parsed.frontmatter.title || slug);
-      await gh.putFile('PROJECT_MANIFEST.md', updatedManifest, manifestFile.sha,
+      await gh.putFile(vp('PROJECT_MANIFEST.md'), updatedManifest, manifestFile.sha,
         `phronesis: accept ${slug} — manifest update [automated]`);
     } catch (manifestErr) {
       /* Non-fatal: manifest update failure doesn't roll back opp commit */
@@ -60,7 +65,7 @@ export async function onRequestPost(ctx) {
 
     /* Step 6: create projects/<slug>-plan.md */
     const planContent = buildPlanFile(slug, parsed.frontmatter);
-    await gh.putFile(`projects/${slug}-plan.md`, planContent, null,
+    await gh.putFile(vp(`projects/${slug}-plan.md`), planContent, null,
       `phronesis: accept ${slug} — scaffold plan [automated]`);
 
     return jsonResponse({
@@ -76,6 +81,13 @@ export async function onRequestPost(ctx) {
 }
 
 /* ── GitHub Contents API wrapper ────────────────────────────────────────── */
+/* encodePath: encode each segment individually so folder names with spaces or
+ * '&' (e.g. "Organization & Planning") are handled correctly without encoding
+ * the '/' path separators. */
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 class GitHubContents {
   constructor(pat, repo) {
     this.pat  = pat;
@@ -84,7 +96,7 @@ class GitHubContents {
   }
 
   async getFile(path) {
-    const resp = await fetch(`${this.base}/${path}`, {
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, {
       headers: this._headers()
     });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
@@ -103,7 +115,7 @@ class GitHubContents {
     };
     if (sha) body.sha = sha;
 
-    const resp = await fetch(`${this.base}/${path}`, {
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, {
       method: 'PUT',
       headers: this._headers(),
       body: JSON.stringify(body)
@@ -170,7 +182,7 @@ prestige: ${prestige}
 deadline: ${deadline}
 requirement: ${requirement}
 date_accepted: ${dateAccepted}
-linked_opportunity: opp-${slug}
+linked_opportunity: projects/opp-${slug}
 ---
 
 # ${title}

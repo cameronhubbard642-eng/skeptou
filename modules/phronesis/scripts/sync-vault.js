@@ -30,9 +30,11 @@ const ROOT = path.resolve(__dirname, '..');
 
 const PAT          = process.env.VAULT_GITHUB_PAT;
 const REPO         = process.env.VAULT_REPO;
-/* VAULT_SUBTREE: vault-root prefix for agora migration.
- * Default "". Set to "agora/vault" once agora's directory layout is locked.
- * All vault-relative paths are passed through vaultPath() before API calls. */
+/* VAULT_SUBTREE: prefix within the vault repo for all O&P content.
+ * Set to "Organization & Planning" for the agora repo (cameronhubbard642-eng/agora).
+ * All vault-relative paths are passed through vaultPath() before API calls.
+ * The ghGet() function encodes each path segment individually so spaces and
+ * ampersands in the folder name are handled correctly. */
 const VAULT_SUBTREE = (process.env.VAULT_SUBTREE || '').replace(/\/$/, '');
 
 if (!PAT || !REPO) {
@@ -51,20 +53,32 @@ function vaultPath(relPath) {
 /* Format: { vaultPath, localPath, exclude: bool }
  * exclude=true means the file is fetched but marked draft (not rendered as page) */
 const SYNC_MAP = [
-  { vault: 'PROJECT_MANIFEST.md',     local: 'content/manifest.md' },
-  { vault: 'INVENTORY.md',            local: 'content/inventory.md' },
-  { vault: 'COMMITMENTS.md',          local: 'content/commitments.md',  exclude: true },
-  { vault: 'calendar/icloud-export.ics', local: 'content/calendar.ics', exclude: true }
+  { vault: 'PROJECT_MANIFEST.md',            local: 'content/manifest.md' },
+  { vault: 'INVENTORY.md',                   local: 'content/inventory.md' },
+  { vault: 'COMMITMENTS.md',                 local: 'content/commitments.md',    exclude: true },
+  /* Calendar is a markdown export from macOS Calendar via AppleScript.
+   * Vault path: commitments/calendar-sync.md
+   * aggregate-busy.js reads content/calendar-sync.md and parses this format. */
+  { vault: 'commitments/calendar-sync.md',   local: 'content/calendar-sync.md',  exclude: true }
 ];
 
-/* Opportunity files: fetch listing, then each opp-*.md */
-const OPP_PREFIX = 'opp-';
-const OPP_DIR    = 'content/opportunities';
+/* Opportunity files: opp-*.md live in projects/ (not at vault root).
+ * Fetch listing of projects/, then each opp-*.md file found there. */
+const OPP_PREFIX     = 'opp-';
+const OPP_DIR        = 'content/opportunities';
+const OPP_VAULT_DIR  = 'projects';
 
 /* ── GitHub Contents API (minimal, stdlib only) ─────────────────────────── */
+/* Encode each path segment individually so folder names containing spaces or
+ * special characters (e.g. "Organization & Planning") are handled correctly.
+ * encodeURIComponent on the whole path would also encode '/' separators. */
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 function ghGet(vaultPath) {
   return new Promise((resolve, reject) => {
-    const url = `https://api.github.com/repos/${REPO}/contents/${encodeURIComponent(vaultPath)}`;
+    const url = `https://api.github.com/repos/${REPO}/contents/${encodePath(vaultPath)}`;
     const opts = {
       headers: {
         'Authorization': `Bearer ${PAT}`,
@@ -154,9 +168,9 @@ async function main() {
     }
   }
 
-  /* Sync opp-*.md files */
+  /* Sync opp-*.md files from projects/ subdirectory */
   try {
-    const listing = await fetchDirListing(vaultPath(''));
+    const listing = await fetchDirListing(vaultPath(OPP_VAULT_DIR));
     const oppFiles = listing.filter(f => f.name && f.name.startsWith(OPP_PREFIX) && f.name.endsWith('.md'));
 
     fs.mkdirSync(path.join(ROOT, OPP_DIR), { recursive: true });

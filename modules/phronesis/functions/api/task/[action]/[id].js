@@ -109,6 +109,10 @@ function decodeTaskId(id) {
 }
 
 /* ── GitHub Contents API ────────────────────────────────────────────────── */
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 class GitHubContents {
   constructor(pat, repo) {
     this.pat  = pat;
@@ -117,7 +121,7 @@ class GitHubContents {
   }
 
   async getFile(path) {
-    const resp = await fetch(`${this.base}/${path}`, { headers: this._headers() });
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, { headers: this._headers() });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
     const data = await resp.json();
     return {
@@ -133,7 +137,7 @@ class GitHubContents {
       committer: { name: 'phronesis-bot', email: 'phronesis@skeptou.com' }
     };
     if (sha) body.sha = sha;
-    const resp = await fetch(`${this.base}/${path}`, {
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, {
       method: 'PUT',
       headers: this._headers(),
       body: JSON.stringify(body)

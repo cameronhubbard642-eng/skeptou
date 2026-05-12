@@ -32,11 +32,15 @@
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT       = path.resolve(__dirname, '..');
-const ICS_PATH   = path.join(ROOT, 'content', 'calendar.ics');
-const COMM_PATH  = path.join(ROOT, 'content', 'commitments.md');
+const ROOT        = path.resolve(__dirname, '..');
+/* Calendar source: commitments/calendar-sync.md in agora vault, synced to
+ * content/calendar-sync.md.  Format: markdown export from macOS Calendar
+ * (not .ics) — see parseCalendarSync() below.
+ * TODO(pending-cam-confirm): parser rewrite for markdown format  */
+const CAL_PATH    = path.join(ROOT, 'content', 'calendar-sync.md');
+const COMM_PATH   = path.join(ROOT, 'content', 'commitments.md');
 const CONFIG_PATH = path.join(ROOT, 'config', 'event-types.yaml');
-const OUT_PATH   = path.join(ROOT, 'src', 'data', 'busy-scores.json');
+const OUT_PATH    = path.join(ROOT, 'src', 'data', 'busy-scores.json');
 const WINDOW_DAYS = 364;
 
 /* ── Date window ─────────────────────────────────────────────────────────── */
@@ -282,16 +286,18 @@ function priorityWeight(text) {
 /* ── Main ────────────────────────────────────────────────────────────────── */
 let parsed = 0;
 
-if (fs.existsSync(ICS_PATH)) {
+/* TODO(pending-cam-confirm): parseICS() does not handle the markdown calendar
+ * format.  Replace with parseCalendarSync() once Cam confirms (ambiguity A).
+ * For now, skip silently if calendar-sync.md is present rather than crashing. */
+if (fs.existsSync(CAL_PATH)) {
   try {
-    parseICS(fs.readFileSync(ICS_PATH, 'utf8'));
-    console.log('aggregate-busy: parsed calendar.ics');
+    console.warn('aggregate-busy: calendar-sync.md found but markdown parser not yet implemented — skipping calendar scores (see ambiguity A)');
     parsed++;
   } catch (e) {
-    console.error('aggregate-busy: calendar.ics parse error —', e.message);
+    console.error('aggregate-busy: calendar-sync.md parse error —', e.message);
   }
 } else {
-  console.warn('aggregate-busy: calendar.ics not found at', ICS_PATH, '— skipping');
+  console.warn('aggregate-busy: calendar-sync.md not found at', CAL_PATH, '— skipping');
 }
 
 if (fs.existsSync(COMM_PATH)) {
