@@ -107,7 +107,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: phronesis-skeptou
+          projectName: phronesis
           directory: modules/phronesis/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
@@ -118,7 +118,7 @@ jobs:
     #   VAULT_GITHUB_PAT       — O&P vault, contents:read+write [needed for vault sync]
     #   VAULT_REPO             — "owner/repo" for O&P vault     [needed for vault sync]
     #
-    # Cloudflare Pages secrets (CF dashboard → phronesis-skeptou → Settings → Variables):
+    # Cloudflare Pages secrets (CF dashboard → phronesis → Settings → Variables):
     #   VAULT_GITHUB_PAT       — same PAT, contents:write (Worker accept/reject)
     #   VAULT_REPO             — same "owner/repo"
     #   CF_ACCESS_AUD          — Access audience tag (Worker JWT validation)
