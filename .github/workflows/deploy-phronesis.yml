@@ -13,6 +13,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
 
     steps:
       - name: Checkout repo
