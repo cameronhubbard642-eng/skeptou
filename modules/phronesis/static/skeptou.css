@@ -726,6 +726,55 @@ details.sk-collapsed[open] > summary::before {
 .sk-priority-medium { color: var(--color-steel,  #4682b4); }
 .sk-priority-low    { color: var(--color-quartz, #51414f); }
 
+/* ── PWA install prompt toast ── */
+.sk-install-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-parchment, #fcf5e5);
+  border: var(--rule-weight, 1px) solid var(--color-mauve, #915f6d);
+  border-left: 3px solid var(--color-mauve, #915f6d);
+  padding: 0.65rem 0.875rem;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 10px rgba(48, 25, 52, 0.14);
+  z-index: 1000;
+  max-width: 340px;
+}
+
+.sk-install-toast[hidden] { display: none; }
+
+.sk-install-toast__text {
+  flex: 1;
+  color: var(--color-purple, #301934);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.sk-install-toast__install {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sk-install-toast__dismiss {
+  font-family: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--color-quartz, #51414f);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 0.2em;
+  flex-shrink: 0;
+  transition: color 0.12s ease;
+}
+
+.sk-install-toast__dismiss:hover {
+  color: var(--color-wine, #722f37);
+}
+
 /* ── Mobile responsive ── */
 @media (max-width: 600px) {
   .sk-nav {

@@ -164,6 +164,13 @@
 
   </main><!-- /.sk-main -->
 
+  <!-- Install prompt toast (shown on beforeinstallprompt) -->
+  <div id="sk-install-toast" class="sk-install-toast" hidden aria-live="polite" role="status">
+    <span class="sk-install-toast__text">Install Phronesis for offline access</span>
+    <button class="sk-btn sk-btn--accept sk-install-toast__install" id="sk-install-btn">Install</button>
+    <button class="sk-install-toast__dismiss" id="sk-install-dismiss" aria-label="Dismiss">×</button>
+  </div>
+
   <script>
   /* ─── Phronesis SPA — client-side router + view renderers ─── */
   /* Architecture: hash routing; data from embedded JSON (build-time injected in CI). */
@@ -754,6 +761,31 @@
     return String(s).charAt(0).toUpperCase() + String(s).slice(1);
   }
 
+  /* ── Service worker registration ────────────────────────────────────── */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js').catch(function(err) {
+        console.warn('phronesis: SW registration failed —', err);
+      });
+    });
+  }
+
+  /* ── Install prompt ──────────────────────────────────────────────────── */
+  var deferredInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    var toast = document.getElementById('sk-install-toast');
+    if (toast) toast.hidden = false;
+  });
+
+  window.addEventListener('appinstalled', function() {
+    deferredInstallPrompt = null;
+    var toast = document.getElementById('sk-install-toast');
+    if (toast) toast.hidden = true;
+  });
+
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
     renderStats();
@@ -765,6 +797,28 @@
     renderOpportunities();
     renderInventory();
     initRouter();
+
+    /* Install toast wiring */
+    var installBtn  = document.getElementById('sk-install-btn');
+    var dismissBtn  = document.getElementById('sk-install-dismiss');
+    var toast       = document.getElementById('sk-install-toast');
+
+    if (installBtn) {
+      installBtn.addEventListener('click', function() {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then(function() {
+          deferredInstallPrompt = null;
+          if (toast) toast.hidden = true;
+        });
+      });
+    }
+
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', function() {
+        if (toast) toast.hidden = true;
+      });
+    }
   });
 
   </script>
