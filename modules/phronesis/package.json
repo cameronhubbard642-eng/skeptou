@@ -1,0 +1,21 @@
+{
+  "name": "phronesis-skeptou",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phronesis — private planning dashboard for skeptou.com",
+  "scripts": {
+    "sync":         "node scripts/sync-vault.js",
+    "busy":         "node scripts/aggregate-busy.js",
+    "viz":          "node scripts/generate-viz.js",
+    "build:data":   "npm run sync && npm run busy && npm run viz",
+    "build:quartz": "npx quartz build",
+    "build":        "npm run build:data && npm run build:quartz",
+    "dev":          "npx quartz build --serve"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0"
+  }
+}

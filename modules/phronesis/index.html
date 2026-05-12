@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Phronesis — Sképtou</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#301934" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Phronesis" />
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/skeptou.css" />
+
+  <!-- Cinzel for ornamental elements (Google Fonts — no Borges license needed for CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* phronesis-local overrides: none currently — all styles in skeptou.css */
+  </style>
+</head>
+
+<!-- body.private enables Borges font stack (Access-gated subdomain) -->
+<body class="private">
+
+  <!-- Navigation -->
+  <nav class="sk-nav" role="navigation" aria-label="Phronesis navigation">
+    <a href="#dashboard" class="sk-nav__title" onclick="navigate('dashboard')">Phronesis</a>
+    <ul class="sk-nav__links" role="list">
+      <li><a href="#dashboard"     class="sk-nav__link" data-view="dashboard"     onclick="navigate('dashboard')">Dashboard</a></li>
+      <li><a href="#manifest"      class="sk-nav__link" data-view="manifest"      onclick="navigate('manifest')">Manifest</a></li>
+      <li><a href="#opportunities" class="sk-nav__link" data-view="opportunities" onclick="navigate('opportunities')">Opportunities</a></li>
+      <li><a href="#inventory"     class="sk-nav__link" data-view="inventory"     onclick="navigate('inventory')">Inventory</a></li>
+    </ul>
+  </nav>
+
+  <main class="sk-main" id="sk-main">
+
+    <!-- ─────────────────────────────────────────────────────
+         §I  Dashboard
+    ───────────────────────────────────────────────────── -->
+    <section id="view-dashboard" class="sk-view" role="main" aria-label="Dashboard">
+      <h1 style="margin-bottom: var(--section-margin);">Dashboard</h1>
+
+      <!-- Status summary -->
+      <h2 class="sk-section-head" data-section="§I">Status</h2>
+      <div class="sk-status-grid" id="status-grid">
+        <!-- Populated by renderStats() -->
+      </div>
+
+      <hr class="sk-rule" />
+
+      <!-- Busy-period visualization -->
+      <h2 class="sk-section-head" data-section="§II">Busy Period</h2>
+      <div class="sk-viz-toggle" role="group" aria-label="Visualization type">
+        <button class="sk-viz-btn active" data-target="heatmap" onclick="switchViz('heatmap')">Heatmap</button>
+        <button class="sk-viz-btn"        data-target="density" onclick="switchViz('density')">Density</button>
+      </div>
+      <div class="sk-viz" id="sk-viz-heatmap" role="img" aria-label="Activity heatmap — 52-week calendar grid">
+        <!-- Heatmap SVG injected by renderHeatmap() -->
+      </div>
+      <div class="sk-viz" id="sk-viz-density" hidden role="img" aria-label="Activity density — area chart over 52 weeks">
+        <!-- Density SVG injected by renderDensity() -->
+      </div>
+
+      <hr class="sk-rule" />
+
+      <!-- Quick links -->
+      <h2 class="sk-section-head" data-section="§III">Quick Links</h2>
+      <ul class="sk-quicklinks" role="list">
+        <li><a href="#manifest"      onclick="navigate('manifest')">§ Project Manifest</a></li>
+        <li><a href="#opportunities" onclick="navigate('opportunities')">§ Opportunities</a></li>
+        <li><a href="#inventory"     onclick="navigate('inventory')">§ Inventory</a></li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────
+         §II  Project Manifest
+    ───────────────────────────────────────────────────── -->
+    <section id="view-manifest" class="sk-view" role="main" aria-label="Project Manifest">
+      <h1 style="margin-bottom: var(--section-margin);">Project Manifest</h1>
+      <div id="manifest-content">
+        <!-- Populated by renderManifest() -->
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────
+         §III  Opportunity Dashboard
+    ───────────────────────────────────────────────────── -->
+    <section id="view-opportunities" class="sk-view" role="main" aria-label="Opportunity Dashboard">
+      <h1 style="margin-bottom: var(--section-margin);">Opportunities</h1>
+      <div id="opp-content">
+        <!-- Populated by renderOpportunities() -->
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────
+         §IV  Inventory
+    ───────────────────────────────────────────────────── -->
+    <section id="view-inventory" class="sk-view" role="main" aria-label="Inventory">
+      <h1 style="margin-bottom: var(--section-margin);">Inventory</h1>
+      <div id="inventory-content">
+        <!-- Populated by renderInventory() -->
+      </div>
+    </section>
+
+  </main><!-- /.sk-main -->
+
+  <script>
+  /* ─── Phronesis SPA — client-side router + view renderers ─── */
+  /* Architecture: hash routing; data from embedded JSON (build-time injected in CI). */
+  /* In production, busy-scores.json and manifest-stats.json are fetched at load.    */
+
+  'use strict';
+
+  /* ── Embedded sample data (replaced by CI build step) ────────────────── */
+  /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
+  /* For baseline, sample data approximates a realistic busy pattern.        */
+  const BUSY_SCORES = (function() {
+    const scores = {};
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 364);
+    /* Generate synthetic busy-score data */
+    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().slice(0, 10);
+      const dow = d.getDay();
+      /* Simulate realistic academic calendar: heavier midweek, lighter weekends */
+      const base = (dow === 0 || dow === 6) ? 0 : Math.random();
+      if (base > 0.3) {
+        scores[key] = Math.round(base * 8);
+      }
+    }
+    /* Add some peak weeks */
+    ['2026-01', '2026-03', '2026-05'].forEach(function(month) {
+      for (let d = 1; d <= 10; d++) {
+        const key = month + '-' + String(d).padStart(2, '0');
+        if (scores[key] !== undefined) scores[key] = Math.min(12, (scores[key] || 0) + 4);
+      }
+    });
+    return { scores: scores, max_score: 12 };
+  })();
+
+  const MANIFEST_STATS = {
+    active_projects: 3,
+    pending_decisions: 2,
+    confirmed_pursuing: 4
+  };
+
+  /* Sample opportunity data (replaced by synced vault content in CI) */
+  const OPPORTUNITIES = [
+    {
+      slug: 'symposium-2026',
+      title: 'Philosophy of Mind Symposium 2026',
+      type: 'commitment',
+      status: 'pending-cam-decision',
+      deadline: '2026-08-15',
+      prestige: 'High / flagship conference',
+      requirement: 'Abstract (500 words) + short CV. Full paper due if accepted.',
+      description: 'Annual symposium on consciousness and intentionality.'
+    },
+    {
+      slug: 'episteme-submission',
+      title: 'Episteme — Special Issue on Disagreement',
+      type: 'opportunity',
+      status: 'pending-cam-decision',
+      deadline: '2026-07-01',
+      prestige: 'High / flagship journal',
+      requirement: 'Full paper, ~8–10k words. Blind review.',
+      description: 'Special issue on peer disagreement and epistemic autonomy.'
+    },
+    {
+      slug: 'uc-workshop',
+      title: 'UC System-Wide Ethics Workshop',
+      type: 'commitment',
+      status: 'confirmed-pursuing',
+      deadline: '2026-06-10',
+      prestige: '',
+      requirement: 'Talk abstract (200 words)',
+      description: 'Workshop on applied ethics across the UC campuses.'
+    },
+    {
+      slug: 'handbook-chapter',
+      title: 'Oxford Handbook of Epistemic Injustice — Chapter Invitation',
+      type: 'opportunity',
+      status: 'confirmed-pursuing',
+      deadline: '2026-09-01',
+      prestige: 'High / flagship press',
+      requirement: 'Full chapter, ~12k words. Invited; no peer review.',
+      description: 'Invited chapter contribution.'
+    },
+    {
+      slug: 'grad-conference',
+      title: 'Graduate Conference Comments (UCR)',
+      type: 'commitment',
+      status: 'declined',
+      deadline: '2026-04-20',
+      prestige: '',
+      requirement: 'Comments + participation (one day)',
+      description: 'Declined due to schedule conflict.'
+    }
+  ];
+
+  const MANIFEST_DATA = {
+    active: [
+      { title: 'Epistemic Akrasia paper', type: 'paper', status: 'confirmed-pursuing', deadline: '2026-10-01' },
+      { title: 'Dissertation Ch. 5 revision', type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01' },
+      { title: 'Oxford Handbook chapter', type: 'paper', status: 'confirmed-pursuing', deadline: '2026-09-01' }
+    ]
+  };
+
+  const INVENTORY_DATA = {
+    sections: [
+      {
+        title: 'Papers',
+        items: [
+          { name: 'Epistemic Akrasia (draft)', note: 'In progress' },
+          { name: 'Testimony and Trust (submitted)', note: 'Under review — BJPS' },
+          { name: 'Against Epistemic Cowardice (published)', note: 'Phil Studies 2025' }
+        ]
+      },
+      {
+        title: 'Teaching',
+        items: [
+          { name: 'PHIL 101 — Introduction to Philosophy', note: 'Fall 2026' },
+          { name: 'PHIL 215 — Epistemology', note: 'Spring 2026' }
+        ]
+      },
+      {
+        title: 'Service',
+        items: [
+          { name: 'Referee — Episteme, Phil Quarterly', note: 'Ongoing' },
+          { name: 'Graduate Admissions Committee', note: '2025–26' }
+        ]
+      }
+    ]
+  };
+
+  /* ── Client-side router ──────────────────────────────────────────────── */
+  const VIEWS = ['dashboard', 'manifest', 'opportunities', 'inventory'];
+
+  function navigate(viewId) {
+    if (!VIEWS.includes(viewId)) viewId = 'dashboard';
+
+    /* Activate view */
+    VIEWS.forEach(function(v) {
+      const el = document.getElementById('view-' + v);
+      if (el) el.classList.toggle('active', v === viewId);
+    });
+
+    /* Update nav link active state */
+    document.querySelectorAll('.sk-nav__link').forEach(function(link) {
+      link.classList.toggle('active', link.dataset.view === viewId);
+    });
+
+    /* Update hash without triggering another hashchange */
+    if (location.hash !== '#' + viewId) {
+      history.replaceState(null, '', '#' + viewId);
+    }
+  }
+
+  function initRouter() {
+    const hash = (location.hash || '#dashboard').slice(1);
+    navigate(VIEWS.includes(hash) ? hash : 'dashboard');
+
+    window.addEventListener('hashchange', function() {
+      const h = location.hash.slice(1);
+      navigate(VIEWS.includes(h) ? h : 'dashboard');
+    });
+  }
+
+  /* ── Visualization toggle ─────────────────────────────────────────────── */
+  function switchViz(target) {
+    ['heatmap', 'density'].forEach(function(t) {
+      const el = document.getElementById('sk-viz-' + t);
+      if (el) el.hidden = (t !== target);
+    });
+    document.querySelectorAll('.sk-viz-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.target === target);
+    });
+  }
+
+  /* ── Status summary ──────────────────────────────────────────────────── */
+  function renderStats() {
+    const grid = document.getElementById('status-grid');
+    if (!grid) return;
+    const stats = [
+      { n: MANIFEST_STATS.active_projects,   label: 'active projects',   href: '#manifest' },
+      { n: MANIFEST_STATS.pending_decisions,  label: 'pending decisions', href: '#opportunities' },
+      { n: MANIFEST_STATS.confirmed_pursuing, label: 'confirmed',         href: '#opportunities' }
+    ];
+    grid.innerHTML = stats.map(function(s) {
+      return '<div class="sk-stat"><a href="' + s.href + '" onclick="navigate(\'' +
+        s.href.slice(1) + '\')">' +
+        '<div class="sk-stat__number">' + s.n + '</div>' +
+        '<div class="sk-stat__label sk-smallcaps">' + s.label + '</div>' +
+        '</a></div>';
+    }).join('');
+  }
+
+  /* ── Heatmap SVG ─────────────────────────────────────────────────────── */
+  /* Spec: 52 cols × 7 rows; 12px × 12px cells; 2px gap; color scale:       */
+  /* 0→Parchment, 25%→LightSteel, 50%→Steel, 75%+→Purple                   */
+  function renderHeatmap() {
+    const container = document.getElementById('sk-viz-heatmap');
+    if (!container) return;
+
+    const CELL = 12, GAP = 2, STEP = CELL + GAP;
+    const COLS = 52, ROWS = 7;
+    const LEFT_MARGIN = 18, TOP_MARGIN = 22;
+    const W = LEFT_MARGIN + COLS * STEP + 4;
+    const H = TOP_MARGIN + ROWS * STEP + 4;
+
+    /* Color scale stops */
+    const COLORS = ['#fcf5e5', '#b0c4de', '#4682b4', '#301934'];
+    const scores = BUSY_SCORES.scores;
+    const maxScore = BUSY_SCORES.max_score || 1;
+
+    function colorFor(score) {
+      if (!score || score === 0) return COLORS[0];
+      const ratio = score / maxScore;
+      if (ratio < 0.25) return COLORS[0];
+      if (ratio < 0.5)  return COLORS[1];
+      if (ratio < 0.75) return COLORS[2];
+      return COLORS[3];
+    }
+
+    /* Build 52-week grid starting from 52 weeks ago (Sunday-aligned) */
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - (364 + startDate.getDay()));
+
+    const cells = [];
+    const monthLabels = {};
+    let d = new Date(startDate);
+
+    for (let col = 0; col < COLS; col++) {
+      for (let row = 0; row < ROWS; row++) {
+        const key = d.toISOString().slice(0, 10);
+        const score = scores[key] || 0;
+        const x = LEFT_MARGIN + col * STEP;
+        const y = TOP_MARGIN + row * STEP;
+        cells.push('<rect x="' + x + '" y="' + y + '" width="' + CELL +
+          '" height="' + CELL + '" rx="1" fill="' + colorFor(score) + '">' +
+          '<title>' + key + ' — Score: ' + score + '</title></rect>');
+        /* Month label on first row, first column of each month */
+        if (row === 0) {
+          const monthKey = d.getFullYear() + '-' + d.getMonth();
+          if (!monthLabels[monthKey]) {
+            monthLabels[monthKey] = { x: x, label: d.toLocaleDateString('en-US', { month: 'short' }) };
+          }
+        }
+        d.setDate(d.getDate() + 1);
+      }
+    }
+
+    /* Day-of-week labels: Mon (row 1), Wed (row 3), Fri (row 5) */
+    const DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
+    const dowSvg = DOW_LABELS.map(function(lbl, i) {
+      if (!lbl) return '';
+      return '<text x="' + (LEFT_MARGIN - 4) + '" y="' + (TOP_MARGIN + i * STEP + CELL - 2) +
+        '" text-anchor="end" font-size="8" fill="#51414f" font-family="Cinzel,serif">' + lbl + '</text>';
+    }).join('');
+
+    /* Month labels */
+    const monthSvg = Object.values(monthLabels).map(function(m) {
+      return '<text x="' + m.x + '" y="' + (TOP_MARGIN - 6) +
+        '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" font-variant="small-caps">' +
+        m.label + '</text>';
+    }).join('');
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
+      '" width="' + W + '" height="' + H + '" role="img" aria-label="Activity heatmap">' +
+      monthSvg + dowSvg + cells.join('') + '</svg>';
+  }
+
+  /* ── Density gradient SVG ─────────────────────────────────────────────── */
+  /* Spec: area chart; weekly aggregation; Steel fill 25% opacity; Mauve stroke */
+  function renderDensity() {
+    const container = document.getElementById('sk-viz-density');
+    if (!container) return;
+
+    const W = 780, H = 140;
+    const MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
+    const chartW = W - MARGIN_L - MARGIN_R;
+    const chartH = H - MARGIN_T - MARGIN_B;
+
+    /* Build weekly buckets (52 weeks) */
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 364);
+
+    const weeks = [];
+    let d = new Date(startDate);
+    const scores = BUSY_SCORES.scores;
+
+    for (let w = 0; w < 52; w++) {
+      let sum = 0;
+      const weekStart = d.toLocaleDateString('en-US', { month: 'short' });
+      for (let day = 0; day < 7; day++) {
+        const key = d.toISOString().slice(0, 10);
+        sum += scores[key] || 0;
+        d.setDate(d.getDate() + 1);
+      }
+      weeks.push({ week: w, sum: sum, label: weekStart });
+    }
+
+    const maxWeek = Math.max(...weeks.map(function(w) { return w.sum; }), 1);
+
+    /* Build SVG path points */
+    function xFor(i) { return MARGIN_L + (i / 51) * chartW; }
+    function yFor(v) { return MARGIN_T + chartH - (v / maxWeek) * chartH; }
+
+    const pts = weeks.map(function(w, i) { return xFor(i) + ',' + yFor(w.sum); });
+    const areaPath = 'M ' + xFor(0) + ',' + (MARGIN_T + chartH) +
+      ' L ' + pts.join(' L ') +
+      ' L ' + xFor(51) + ',' + (MARGIN_T + chartH) + ' Z';
+    const linePath = 'M ' + pts.join(' L ');
+
+    /* Month labels (first week of each month) */
+    const seenMonths = {};
+    const monthLabels = weeks.map(function(w, i) {
+      if (!seenMonths[w.label]) {
+        seenMonths[w.label] = true;
+        return '<text x="' + xFor(i) + '" y="' + (H - 4) +
+          '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" text-anchor="middle">' +
+          w.label + '</text>';
+      }
+      return '';
+    }).join('');
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
+      '" width="' + W + '" height="' + H + '" role="img" aria-label="Activity density chart">' +
+      '<path d="' + areaPath + '" fill="#4682b4" fill-opacity="0.25" />' +
+      '<path d="' + linePath + '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />' +
+      monthLabels + '</svg>';
+  }
+
+  /* ── Project Manifest view ─────────────────────────────────────────────── */
+  function renderManifest() {
+    const el = document.getElementById('manifest-content');
+    if (!el) return;
+    const rows = MANIFEST_DATA.active.map(function(p) {
+      return '<tr>' +
+        '<td>' + escHtml(p.title) + '</td>' +
+        '<td><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
+        '<td><span class="sk-badge sk-badge--confirmed">' + escHtml(p.status) + '</span></td>' +
+        '<td>' + escHtml(p.deadline) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
+      'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>' +
+      '<table role="table" aria-label="Active projects"><thead><tr>' +
+      '<th>Project</th><th>Type</th><th>Status</th><th>Deadline</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+    const bt = document.getElementById('build-time');
+    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' (sample)';
+  }
+
+  /* ── Opportunity Dashboard view ──────────────────────────────────────── */
+  function renderOpportunities() {
+    const el = document.getElementById('opp-content');
+    if (!el) return;
+
+    const pending   = OPPORTUNITIES.filter(function(o) { return o.status === 'pending-cam-decision'; });
+    const confirmed = OPPORTUNITIES.filter(function(o) { return o.status === 'confirmed-pursuing'; });
+    const declined  = OPPORTUNITIES.filter(function(o) { return o.status === 'declined'; });
+
+    function renderCard(opp) {
+      const isPending = opp.status === 'pending-cam-decision';
+      const prestige  = opp.prestige ? '<div class="sk-opp-card__meta-item"><strong>Prestige</strong> ' + escHtml(opp.prestige) + '</div>' : '';
+      const req       = opp.requirement ? '<p class="sk-opp-card__requirement">' + escHtml(opp.requirement.slice(0, 80)) + (opp.requirement.length > 80 ? '…' : '') + '</p>' : '';
+      const badgeClass = isPending ? 'sk-badge--pending' : (opp.status === 'confirmed-pursuing' ? 'sk-badge--confirmed' : 'sk-badge--declined');
+      const badgeLabel = isPending ? 'pending decision' : (opp.status === 'confirmed-pursuing' ? 'confirmed' : 'declined');
+
+      const actions = isPending
+        ? '<div class="sk-opp-card__actions" id="actions-' + opp.slug + '">' +
+            '<button class="sk-btn sk-btn--accept" onclick="handleOppAction(\'' + opp.slug + '\', \'accept\')">Accept</button>' +
+            '<button class="sk-btn sk-btn--reject" onclick="handleOppAction(\'' + opp.slug + '\', \'reject\')">Reject</button>' +
+          '</div>'
+        : '';
+
+      return '<div class="sk-opp-card" id="card-' + opp.slug + '" role="article">' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.5rem;">' +
+          '<div class="sk-opp-card__title">' + escHtml(opp.title) + '</div>' +
+          '<span class="sk-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
+        '</div>' +
+        '<div class="sk-opp-card__meta">' +
+          '<div class="sk-opp-card__meta-item"><strong>Type</strong> ' + escHtml(opp.type) + '</div>' +
+          '<div class="sk-opp-card__meta-item"><strong>Deadline</strong> ' + escHtml(opp.deadline) + '</div>' +
+          prestige +
+        '</div>' +
+        req +
+        actions +
+      '</div>';
+    }
+
+    let html = '';
+
+    if (pending.length > 0) {
+      html += '<h2 class="sk-section-head" data-section="§I">Pending Decision</h2>';
+      html += pending.map(renderCard).join('');
+    }
+
+    if (confirmed.length > 0) {
+      html += '<h2 class="sk-section-head" data-section="§II">Confirmed Pursuing</h2>';
+      html += confirmed.map(renderCard).join('');
+    }
+
+    if (declined.length > 0) {
+      html += '<details class="sk-collapsed" style="margin-top:var(--section-margin)">' +
+        '<summary>Declined (' + declined.length + ')</summary>' +
+        declined.map(renderCard).join('') +
+        '</details>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  /* ── Opportunity Accept/Reject actions ────────────────────────────────── */
+  async function handleOppAction(slug, action) {
+    const actionsEl = document.getElementById('actions-' + slug);
+    if (!actionsEl) return;
+
+    /* Disable buttons */
+    actionsEl.querySelectorAll('button').forEach(function(btn) { btn.disabled = true; });
+    actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
+
+    try {
+      const resp = await fetch('/api/opportunity/' + action + '/' + encodeURIComponent(slug), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (resp.ok || resp.status === 202) {
+        const data = await resp.json().catch(function() { return {}; });
+        const verb = action === 'accept' ? 'Accepted' : 'Declined';
+        actionsEl.innerHTML = '<span class="sk-secondary" style="font-style:italic;font-size:.85rem;">' +
+          verb + ' — ' + (data.message || 'Rebuilding…') + '</span>';
+      } else {
+        const err = await resp.json().catch(function() { return { error: 'Unknown error' }; });
+        actionsEl.innerHTML = '<span class="sk-error">Error: ' + escHtml(err.error || resp.statusText) + '</span>';
+      }
+    } catch (e) {
+      actionsEl.innerHTML = '<span class="sk-error">Network error — try again.</span>';
+    }
+  }
+
+  /* ── Inventory view ───────────────────────────────────────────────────── */
+  function renderInventory() {
+    const el = document.getElementById('inventory-content');
+    if (!el) return;
+
+    const html = INVENTORY_DATA.sections.map(function(section, i) {
+      const sectionNum = ['§I', '§II', '§III', '§IV'][i] || '§' + (i + 1);
+      const items = section.items.map(function(item) {
+        return '<li><span>' + escHtml(item.name) + '</span>' +
+          (item.note ? ' <span class="sk-secondary" style="font-size:.8rem;">— ' + escHtml(item.note) + '</span>' : '') +
+          '</li>';
+      }).join('');
+      return '<h2 class="sk-section-head" data-section="' + sectionNum + '">' + escHtml(section.title) + '</h2>' +
+        '<ul class="sk-inventory-list" role="list">' + items + '</ul>';
+    }).join('');
+
+    el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
+      'Read-only roll-up · Synced from O&amp;P vault</p>' + html;
+  }
+
+  /* ── Utility ─────────────────────────────────────────────────────────── */
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ── Init ─────────────────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', function() {
+    renderStats();
+    renderHeatmap();
+    renderDensity();
+    renderManifest();
+    renderOpportunities();
+    renderInventory();
+    initRouter();
+  });
+
+  </script>
+</body>
+</html>

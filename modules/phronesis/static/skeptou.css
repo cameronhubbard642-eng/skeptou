@@ -1,0 +1,588 @@
+/* skeptou.css — Sképtou master design system
+ * Source of truth for all private subdomain styling.
+ * Copied/referenced per module at build time.
+ * body.private → Borges font stack active (Access-gated subdomains only)
+ */
+
+/* ── Font faces — Borges (private subdomain license confirmed) ── */
+/* Source files: assets/fonts/borges/*.ttf
+ * Build step copies to each module's static/fonts/borges/ directory.
+ * Uncomment @font-face blocks when deploying to Access-gated subdomains.
+ */
+@font-face {
+  font-family: 'Borges-Gris';
+  src: url('/fonts/borges/Borges-Gris.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-GrisItalic';
+  src: url('/fonts/borges/Borges-GrisItalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-Negra';
+  src: url('/fonts/borges/Borges-Negra.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-NegraItalic';
+  src: url('/fonts/borges/Borges-NegraItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-Blanca';
+  src: url('/fonts/borges/Borges-Blanca.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-BlancaItalic';
+  src: url('/fonts/borges/Borges-BlancaItalic.ttf') format('truetype');
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-SuperNegra';
+  src: url('/fonts/borges/Borges-SuperNegra.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-TituloBlanca';
+  src: url('/fonts/borges/Borges-TituloBlanca.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-TituloHueca';
+  src: url('/fonts/borges/Borges-TituloHueca.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Borges-Poema';
+  src: url('/fonts/borges/Borges-Poema.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Base — fallback (public or non-font context) ── */
+html, body {
+  background-color: var(--color-parchment, #fcf5e5);
+  color: var(--color-purple, #301934);
+  font-family: 'Cormorant', Georgia, 'Times New Roman', serif;
+  font-weight: 300;
+  line-height: var(--line-height, 1.5);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── body.private → Borges (Access-gated subdomains) ── */
+body.private {
+  font-family: var(--font-body, 'Borges-Gris', 'Cormorant', serif);
+}
+
+/* ── Typography ── */
+p {
+  margin-bottom: 0.75em;
+  max-width: 68ch;
+  text-indent: 0;
+}
+
+em {
+  font-family: var(--font-body-italic, serif);
+  font-style: italic;
+}
+
+strong {
+  font-family: var(--font-bold, serif);
+  font-weight: 700;
+  color: var(--color-wine, #722f37);
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-body, serif);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--color-mauve, #915f6d);
+  line-height: 1.25;
+  margin-bottom: 0.5em;
+}
+
+h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
+h2 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); margin-top: var(--section-margin, 1.75rem); }
+h3 { font-size: clamp(0.95rem, 2vw, 1.15rem); margin-top: 1.25rem; }
+
+/* ── §Roman section numbering via CSS counters ── */
+.sk-section-numbered {
+  counter-reset: section-counter;
+}
+
+.sk-section-numbered > section {
+  counter-increment: section-counter;
+}
+
+.sk-section-numbered > section > h2::before {
+  content: '§' counter(section-counter, upper-roman) '\2002';
+  color: var(--color-mauve, #915f6d);
+  font-variant-caps: small-caps;
+}
+
+/* ── Mauve hairline rules ── */
+hr, .sk-rule {
+  border: none;
+  border-top: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+  margin-block: var(--section-margin, 1.75rem);
+}
+
+hr.sk-rule--short {
+  width: 6rem;
+  margin-inline: 0;
+}
+
+/* ── Small-caps utility ── */
+.sk-smallcaps {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  font-size: 0.9em;
+}
+
+/* ── Section label (Mauve, small-caps) ── */
+.sk-label {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.12em;
+  color: var(--color-mauve, #915f6d);
+  font-size: 0.78rem;
+  text-transform: lowercase;
+}
+
+/* ── Emphasis / keyterm ── */
+.sk-keyterm {
+  color: var(--color-wine, #722f37);
+  font-style: italic;
+}
+
+/* ── Secondary text ── */
+.sk-secondary {
+  color: var(--color-quartz, #51414f);
+}
+
+/* ── Page content max-width ── */
+.page-content {
+  max-width: 68ch;
+}
+
+/* ── Tables (Manifest, Inventory) ── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+thead th {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--color-mauve, #915f6d);
+  text-align: left;
+  padding: 0.4rem 0.75rem 0.4rem 0;
+  border-bottom: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+  font-weight: 300;
+}
+
+tbody td {
+  padding: 0.4rem 0.75rem 0.4rem 0;
+  vertical-align: top;
+  border-bottom: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.15);
+  color: var(--color-purple, #301934);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Status badges ── */
+.sk-badge {
+  display: inline-block;
+  font-variant-caps: small-caps;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  padding: 0.15em 0.6em;
+  border-radius: 2px;
+  border: var(--rule-weight, 1px) solid currentColor;
+}
+
+.sk-badge--pending {
+  color: var(--color-wine, #722f37);
+  border-color: var(--color-wine, #722f37);
+  background: rgba(114, 47, 55, 0.06);
+}
+
+.sk-badge--confirmed {
+  color: var(--color-steel, #4682b4);
+  border-color: var(--color-steel, #4682b4);
+  background: rgba(70, 130, 180, 0.06);
+}
+
+.sk-badge--declined {
+  color: var(--color-quartz, #51414f);
+  border-color: var(--color-quartz, #51414f);
+  background: rgba(81, 65, 79, 0.06);
+}
+
+/* ── Opportunity cards ── */
+.sk-opp-card {
+  border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.3);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(252, 245, 229, 0.5);
+}
+
+.sk-opp-card__title {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--color-purple, #301934);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.sk-opp-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--color-quartz, #51414f);
+}
+
+.sk-opp-card__meta-item strong {
+  font-family: inherit;
+  font-weight: 300;
+  color: var(--color-mauve, #915f6d);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+
+.sk-opp-card__requirement {
+  font-size: 0.85rem;
+  color: var(--color-quartz, #51414f);
+  font-style: italic;
+  margin-bottom: 0.75rem;
+  max-width: 56ch;
+}
+
+.sk-opp-card__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.sk-opp-card__feedback {
+  font-size: 0.82rem;
+  color: var(--color-quartz, #51414f);
+  font-style: italic;
+}
+
+/* ── Action buttons ── */
+.sk-btn {
+  font-family: inherit;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 300;
+  padding: 0.3em 1em;
+  border: var(--rule-weight, 1px) solid currentColor;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sk-btn--accept {
+  color: var(--color-steel, #4682b4);
+}
+
+.sk-btn--accept:hover {
+  background: var(--color-steel, #4682b4);
+  color: var(--color-parchment, #fcf5e5);
+}
+
+.sk-btn--reject {
+  color: var(--color-quartz, #51414f);
+}
+
+.sk-btn--reject:hover {
+  background: var(--color-quartz, #51414f);
+  color: var(--color-parchment, #fcf5e5);
+}
+
+.sk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Navigation ── */
+.sk-nav {
+  border-bottom: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 2rem;
+}
+
+.sk-nav__title {
+  font-family: var(--font-display, serif);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--color-purple, #301934);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  text-decoration: none;
+}
+
+.sk-nav__links {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+}
+
+.sk-nav__link {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: var(--color-quartz, #51414f);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.sk-nav__link:hover,
+.sk-nav__link.active {
+  color: var(--color-mauve, #915f6d);
+}
+
+/* ── Main layout ── */
+.sk-main {
+  padding: 2rem;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+/* ── View sections ── */
+.sk-view {
+  display: none;
+}
+
+.sk-view.active {
+  display: block;
+}
+
+/* ── Status summary cards ── */
+.sk-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: var(--section-margin-lg, 2.25rem);
+}
+
+.sk-stat {
+  border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.25);
+  padding: 1rem;
+  text-align: center;
+}
+
+.sk-stat__number {
+  font-family: var(--font-display, serif);
+  font-size: 2rem;
+  color: var(--color-mauve, #915f6d);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.sk-stat__label {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: var(--color-quartz, #51414f);
+}
+
+.sk-stat a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.sk-stat a:hover .sk-stat__number {
+  color: var(--color-wine, #722f37);
+}
+
+/* ── Visualization ── */
+.sk-viz-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sk-viz-btn {
+  font-family: inherit;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 300;
+  padding: 0.2em 0.9em;
+  border: var(--rule-weight, 1px) solid var(--color-quartz, #51414f);
+  background: transparent;
+  color: var(--color-quartz, #51414f);
+  cursor: pointer;
+}
+
+.sk-viz-btn.active {
+  background: var(--color-quartz, #51414f);
+  color: var(--color-parchment, #fcf5e5);
+}
+
+.sk-viz {
+  overflow-x: auto;
+  margin-bottom: var(--section-margin, 1.75rem);
+}
+
+.sk-viz svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Quick links ── */
+.sk-quicklinks {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  list-style: none;
+  margin-top: var(--section-margin, 1.75rem);
+}
+
+.sk-quicklinks a {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  font-size: 0.82rem;
+  color: var(--color-mauve, #915f6d);
+  text-decoration: none;
+}
+
+.sk-quicklinks a:hover {
+  color: var(--color-wine, #722f37);
+}
+
+/* ── Collapsible (declined section) ── */
+details.sk-collapsed > summary {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+  color: var(--color-quartz, #51414f);
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0.75rem;
+}
+
+details.sk-collapsed > summary::before {
+  content: '▸ ';
+  font-style: normal;
+  font-variant-caps: normal;
+}
+
+details.sk-collapsed[open] > summary::before {
+  content: '▾ ';
+}
+
+/* ── Section heading with §-prefix ── */
+.sk-section-head {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--color-mauve, #915f6d);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  margin-top: var(--section-margin, 1.75rem);
+}
+
+.sk-section-head::before {
+  content: attr(data-section) '\2002';
+  color: var(--color-mauve, #915f6d);
+}
+
+/* ── Inventory list ── */
+.sk-inventory-list {
+  list-style: none;
+}
+
+.sk-inventory-list li {
+  padding: 0.5rem 0;
+  border-bottom: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.15);
+  font-size: 0.9rem;
+}
+
+.sk-inventory-list li:last-child {
+  border-bottom: none;
+}
+
+.sk-inventory-list a {
+  color: var(--color-purple, #301934);
+  text-decoration: none;
+}
+
+.sk-inventory-list a:hover {
+  color: var(--color-wine, #722f37);
+}
+
+/* ── Loading / error states ── */
+.sk-loading {
+  color: var(--color-quartz, #51414f);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.sk-error {
+  color: var(--color-wine, #722f37);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 600px) {
+  .sk-nav {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .sk-nav__links {
+    gap: 1rem;
+  }
+
+  .sk-main {
+    padding: 1.25rem 1rem;
+  }
+
+  .sk-status-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sk-opp-card {
+    padding: 1rem;
+  }
+}

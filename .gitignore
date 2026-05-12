@@ -1,0 +1,36 @@
+# Build outputs
+node_modules/
+public/
+.wrangler/
+dist/
+out/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.env.local
+
+# OS
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Claude Code worktree state (tied to home-dir git; not part of this repo)
+.claude/
+
+# Auto-memory journal (personal; not for version control)
+.auto-memory/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Quartz build cache
+.quartz-cache/
+
+# Logs
+*.log
+npm-debug.log*

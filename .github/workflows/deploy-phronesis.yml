@@ -1,0 +1,90 @@
+name: Deploy phronesis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/phronesis/**'
+      - 'assets/branding/**'
+      - 'assets/fonts/**'
+      - 'assets/css/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: modules/phronesis/package.json
+
+      - name: Install dependencies
+        run: cd modules/phronesis && npm ci
+
+      # ── Step 1: Sync vault content ─────────────────────────────────────
+      # iCloud .ics vault path:  calendar/icloud-export.ics
+      # Local dest:              modules/phronesis/content/calendar.ics
+      # Canonical plan dir:      projects/  (O&P vault)
+      - name: Sync vault content
+        env:
+          VAULT_GITHUB_PAT: ${{ secrets.VAULT_GITHUB_PAT }}
+          VAULT_REPO: ${{ secrets.VAULT_REPO }}
+        run: node modules/phronesis/scripts/sync-vault.js
+
+      # ── Step 2: Aggregate busy-period data ─────────────────────────────
+      - name: Aggregate busy-period data
+        run: node modules/phronesis/scripts/aggregate-busy.js
+
+      # ── Step 3: Generate visualizations ────────────────────────────────
+      - name: Generate visualizations
+        run: node modules/phronesis/scripts/generate-viz.js
+
+      # ── Step 4: Copy design tokens, CSS, and fonts ─────────────────────
+      # design-tokens.css → modules/phronesis/static/
+      # skeptou.css       → modules/phronesis/static/
+      # Borges *.ttf      → modules/phronesis/static/fonts/borges/
+      - name: Copy design assets
+        run: |
+          cp assets/branding/tokens/design-tokens.css modules/phronesis/static/design-tokens.css
+          cp assets/css/skeptou.css modules/phronesis/static/skeptou.css
+          mkdir -p modules/phronesis/static/fonts/borges
+          cp assets/fonts/Borges-*.ttf modules/phronesis/static/fonts/borges/
+
+      # ── Step 5: Generate PWA icons ──────────────────────────────────────
+      # φ glyph on Parchment background at 192px and 512px.
+      # Uses Node canvas-free SVG → PNG via Inkscape or sharp if available;
+      # falls back to committing placeholder PNGs until icons are designed.
+      - name: Generate PWA icons
+        run: node modules/phronesis/scripts/generate-icons.js || echo "Icon generation skipped — placeholder icons remain"
+
+      # ── Step 6: Build Quartz ─────────────────────────────────────────────
+      - name: Build Quartz
+        run: cd modules/phronesis && npx quartz build
+
+      # ── Step 7: Deploy to Cloudflare Pages ───────────────────────────────
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: phronesis-skeptou
+          directory: modules/phronesis/public
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+    # Secrets required (DevOps provisions):
+    #   VAULT_GITHUB_PAT       — O&P vault repo, contents:read (sync) + contents:write (Worker)
+    #   VAULT_REPO             — "owner/repo" string for O&P vault
+    #   CLOUDFLARE_API_TOKEN   — Pages deploy permission
+    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
+    #
+    # Cloudflare Pages secrets (for Worker, set via CF dashboard):
+    #   VAULT_GITHUB_PAT       — same PAT, contents:write
+    #   VAULT_REPO             — same "owner/repo"
+    #   CF_ACCESS_AUD          — Cloudflare Access audience tag for phronesis app

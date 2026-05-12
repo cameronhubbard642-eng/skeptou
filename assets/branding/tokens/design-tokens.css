@@ -1,0 +1,43 @@
+/* design-tokens.css — Sképtou */
+/* Sképtou design tokens — ucr-borges web translation */
+/* Source of truth: assets/branding/tokens/design-tokens.css (copied at build time) */
+
+:root {
+  /* ── Color ─────────────────────────────────────── */
+  --color-parchment:   #fcf5e5;   /* background */
+  --color-purple:      #301934;   /* body text — NOT black */
+  --color-mauve:       #915f6d;   /* section headers, dividers, rules */
+  --color-wine:        #722f37;   /* emphasis, keyterms */
+  --color-quartz:      #51414f;   /* secondary text */
+  --color-coral:       #f08080;   /* warm accent — use sparingly */
+  --color-light-steel: #b0c4de;   /* cool accent */
+  --color-steel:       #4682b4;   /* cool accent, stronger */
+
+  /* ── Typography — private subdomains ───────────── */
+  --font-body:         'Borges-Gris', serif;
+  --font-body-italic:  'Borges-GrisItalic', serif;
+  --font-bold:         'Borges-Negra', serif;
+  --font-bold-italic:  'Borges-NegraItalic', serif;
+  --font-light:        'Borges-Blanca', serif;
+  --font-display:      'Borges-TituloBlanca', serif;
+  --font-display-alt:  'Borges-TituloHueca', serif;  /* outline */
+  --font-ornament:     'Cinzel', serif;               /* Google Fonts */
+
+  /* ── Typography — public apex only ─────────────── */
+  --font-apex-body:    'Cormorant', serif;
+
+  /* ── Spacing ────────────────────────────────────── */
+  --line-height:       1.5;
+  --section-margin:    1.75rem;   /* ~24pt at 16px base */
+  --section-margin-lg: 2.25rem;   /* ~30pt */
+
+  /* ── Rules ──────────────────────────────────────── */
+  --rule-weight:       1px;       /* 0.6pt → 0.8px; 1px safe screen minimum */
+  --rule-color:        var(--color-mauve);
+
+  /* ── Section numbering ──────────────────────────── */
+  --section-prefix:    '§';
+
+  /* ── Watermark ──────────────────────────────────── */
+  --watermark-opacity: 0.04;      /* 4% — within the 3–5% range */
+}
