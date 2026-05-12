@@ -164,6 +164,9 @@
 
   </main><!-- /.sk-main -->
 
+  <!-- Ephemeral error toast (auto-dismisses after 4s) -->
+  <div id="sk-ephemeral-toast" class="sk-ephemeral-toast" hidden role="alert" aria-live="assertive"></div>
+
   <!-- Install prompt toast (shown on beforeinstallprompt) -->
   <div id="sk-install-toast" class="sk-install-toast" hidden aria-live="polite" role="status">
     <span class="sk-install-toast__text">Install Phronesis for offline access</span>
@@ -315,6 +318,74 @@
   /* ── Priority ordering (shared by Tasks and Snapshots) ─────────────────── */
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
+  /* ── Task ID scheme ──────────────────────────────────────────────────── */
+  /* id = base64url( filePath + '\x00' + title )                            */
+  /* Matches Worker decode and sync-vault.js production computation.        */
+  /* filePath is vault-relative (e.g. "projects/epistemic-akrasia-plan.md") */
+  /* and does NOT include the VAULT_SUBTREE prefix — the Worker applies it. */
+
+  function taskFilePath(project) {
+    var slug = (project || 'misc')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+$/, '');
+    return 'projects/' + slug + '-plan.md';
+  }
+
+  function taskId(filePath, title) {
+    var raw = filePath + '\x00' + title;
+    var b64;
+    try {
+      b64 = btoa(unescape(encodeURIComponent(raw)));
+    } catch (_) {
+      b64 = btoa(raw);
+    }
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function computeTaskIds() {
+    TASKS_DATA.forEach(function(t) {
+      if (!t.filePath) t.filePath = taskFilePath(t.project);
+      if (!t.id)       t.id       = taskId(t.filePath, t.title);
+    });
+  }
+
+  /* ── Task completion state (session-only; not persisted) ─────────────── */
+  var completedTasks = {};
+
+  /* ── Task toggle handler ─────────────────────────────────────────────── */
+  function handleTaskToggle(id, checked) {
+    /* Optimistic update */
+    completedTasks[id] = checked;
+    renderTasks();
+    renderSnapshots();
+
+    var action = checked ? 'complete' : 'uncomplete';
+
+    fetch('/api/task/' + action + '/' + encodeURIComponent(id), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    }).then(function(resp) {
+      if (!resp.ok && resp.status !== 202) throw new Error(resp.statusText);
+    }).catch(function() {
+      /* Revert on error */
+      completedTasks[id] = !checked;
+      renderTasks();
+      renderSnapshots();
+      showEphemeralToast('Could not save — check connection and try again.');
+    });
+  }
+
+  /* ── Ephemeral error toast ───────────────────────────────────────────── */
+  function showEphemeralToast(message) {
+    var el = document.getElementById('sk-ephemeral-toast');
+    if (!el) return;
+    el.textContent = message;
+    el.hidden = false;
+    setTimeout(function() { el.hidden = true; }, 4000);
+  }
+
   /* ── Client-side router ──────────────────────────────────────────────── */
   const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory'];
 
@@ -378,9 +449,9 @@
   function renderSnapshots() {
     const today = new Date().toISOString().slice(0, 10);
 
-    /* Next Up: top 3 tasks by nearest due date (future only) */
+    /* Next Up: top 3 tasks by nearest due date (future only, exclude completed) */
     const nextTasks = TASKS_DATA
-      .filter(function(t) { return t.due >= today; })
+      .filter(function(t) { return t.due >= today && !completedTasks[t.id]; })
       .slice()
       .sort(function(a, b) { return a.due.localeCompare(b.due); })
       .slice(0, 3);
@@ -389,10 +460,16 @@
     if (tasksEl) {
       tasksEl.innerHTML = nextTasks.length
         ? nextTasks.map(function(t) {
-            return '<a class="sk-snapshot__item" href="#tasks" onclick="navigate(\'tasks\')">' +
-              '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
-              '<span class="sk-snapshot__item-meta">' + escHtml(t.due) + '</span>' +
-            '</a>';
+            return '<div class="sk-snapshot__item">' +
+              '<label class="sk-snapshot__check" title="Mark complete">' +
+                '<input type="checkbox" class="sk-task-check"' +
+                  ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+              '</label>' +
+              '<a class="sk-snapshot__item-link" href="#tasks" onclick="navigate(\'tasks\')">' +
+                '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
+                '<span class="sk-snapshot__item-meta">' + escHtml(t.due) + '</span>' +
+              '</a>' +
+            '</div>';
           }).join('')
         : '<p class="sk-secondary" style="font-size:.82rem;">No upcoming tasks.</p>';
     }
@@ -611,9 +688,14 @@
     });
 
     function taskRow(t) {
-      const glyph = t.priority === 'high' ? '🔺' : t.priority === 'medium' ? '⏫' : '🔼';
-      const priClass = 'sk-priority-' + (t.priority || 'low');
-      return '<li class="sk-task-item">' +
+      var done     = !!completedTasks[t.id];
+      var glyph    = t.priority === 'high' ? '🔺' : t.priority === 'medium' ? '⏫' : '🔼';
+      var priClass = 'sk-priority-' + (t.priority || 'low');
+      return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
+        '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
+          '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
+            ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+        '</label>' +
         '<span class="sk-task-item__title">' +
           '<span class="' + priClass + '" aria-label="' + escHtml(t.priority) + ' priority">' + glyph + '</span> ' +
           escHtml(t.title) +
@@ -788,6 +870,7 @@
 
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
+    computeTaskIds();   /* must run before any render that uses task IDs */
     renderStats();
     renderHeatmap();
     renderDensity();

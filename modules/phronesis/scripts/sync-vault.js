@@ -28,12 +28,23 @@ const https = require('https');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const PAT  = process.env.VAULT_GITHUB_PAT;
-const REPO = process.env.VAULT_REPO;
+const PAT          = process.env.VAULT_GITHUB_PAT;
+const REPO         = process.env.VAULT_REPO;
+/* VAULT_SUBTREE: vault-root prefix for agora migration.
+ * Default "". Set to "agora/vault" once agora's directory layout is locked.
+ * All vault-relative paths are passed through vaultPath() before API calls. */
+const VAULT_SUBTREE = (process.env.VAULT_SUBTREE || '').replace(/\/$/, '');
 
 if (!PAT || !REPO) {
   console.warn('sync-vault: VAULT_GITHUB_PAT or VAULT_REPO not set — skipping vault sync');
   process.exit(0);
+}
+
+/* Prefix a vault-relative path with VAULT_SUBTREE */
+function vaultPath(relPath) {
+  if (!VAULT_SUBTREE) return relPath;
+  if (!relPath)       return VAULT_SUBTREE;
+  return VAULT_SUBTREE + '/' + relPath;
 }
 
 /* ── Files to sync ────────────────────────────────────────────────────────── */
@@ -137,7 +148,7 @@ async function main() {
   /* Sync fixed files */
   for (const { vault, local, exclude } of SYNC_MAP) {
     try {
-      await syncFile(vault, local, exclude);
+      await syncFile(vaultPath(vault), local, exclude);
     } catch (e) {
       console.error(`sync-vault: error syncing ${vault} —`, e.message);
     }
@@ -145,7 +156,7 @@ async function main() {
 
   /* Sync opp-*.md files */
   try {
-    const listing = await fetchDirListing('');
+    const listing = await fetchDirListing(vaultPath(''));
     const oppFiles = listing.filter(f => f.name && f.name.startsWith(OPP_PREFIX) && f.name.endsWith('.md'));
 
     fs.mkdirSync(path.join(ROOT, OPP_DIR), { recursive: true });
@@ -190,7 +201,79 @@ async function main() {
     console.error('sync-vault: manifest-stats error —', e.message);
   }
 
+  /* Extract tasks from project plan files */
+  try {
+    await extractTasks();
+  } catch (e) {
+    console.error('sync-vault: task extraction error —', e.message);
+  }
+
   console.log('sync-vault: done');
+}
+
+/* ── Task extraction from projects/*.md plan files ─────────────────────── */
+/* Convention:
+ *   - Tasks are `- [ ]` / `- [x]` lines in projects/<slug>-plan.md files
+ *   - Priority prefix: 🔺 high · ⏫ medium · 🔼 low
+ *   - Due date: `(due: YYYY-MM-DD)` inline annotation
+ *   - Task ID = base64url(vaultRelativePath + '\x00' + title)
+ *     where vaultRelativePath does NOT include VAULT_SUBTREE prefix —
+ *     the accept/complete Workers apply VAULT_SUBTREE themselves.
+ */
+async function extractTasks() {
+  const projectsVaultPath = vaultPath('projects');
+  const listing = await fetchDirListing(projectsVaultPath);
+  const planFiles = listing.filter(f => f.name && f.name.endsWith('-plan.md'));
+
+  const tasks = [];
+
+  for (const f of planFiles) {
+    try {
+      const content = await fetchFile(f.path);
+      if (!content) continue;
+
+      /* vaultRelativePath is always projects/<name>, regardless of VAULT_SUBTREE */
+      const vaultRelativePath = 'projects/' + f.name;
+      const slug = f.name.replace(/-plan\.md$/, '');
+
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const m = /^- \[([ x])\] (.+)$/.exec(line.trim());
+        if (!m) continue;
+
+        const complete = m[1] === 'x';
+        let titleRaw   = m[2].trim();
+
+        /* Strip priority emoji prefix */
+        let priority = 'low';
+        if (titleRaw.startsWith('🔺'))      { priority = 'high';   titleRaw = titleRaw.slice('🔺'.length).trim(); }
+        else if (titleRaw.startsWith('⏫')) { priority = 'medium'; titleRaw = titleRaw.slice('⏫'.length).trim(); }
+        else if (titleRaw.startsWith('🔼')) { priority = 'low';    titleRaw = titleRaw.slice('🔼'.length).trim(); }
+
+        /* Strip due date annotation */
+        let due = null;
+        const dueM = /\(due:\s*(\d{4}-\d{2}-\d{2})\)/.exec(titleRaw);
+        if (dueM) { due = dueM[1]; titleRaw = titleRaw.replace(dueM[0], '').trim(); }
+
+        /* ID matches client-side taskId() and Worker decodeTaskId() */
+        const id = Buffer.from(vaultRelativePath + '\x00' + titleRaw).toString('base64url');
+
+        tasks.push({ id, title: titleRaw, project: humanizeSlug(slug),
+                     filePath: vaultRelativePath, due, priority, complete });
+      }
+    } catch (e) {
+      console.error(`sync-vault: task parse error ${f.path} —`, e.message);
+    }
+  }
+
+  const tasksPath = path.join(ROOT, 'src', 'data', 'tasks.json');
+  fs.mkdirSync(path.dirname(tasksPath), { recursive: true });
+  fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+  console.log(`sync-vault: wrote ${tasks.length} tasks → src/data/tasks.json`);
+}
+
+function humanizeSlug(slug) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 }
 
 function extractFrontmatterField(raw, field) {
