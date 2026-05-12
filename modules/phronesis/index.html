@@ -21,10 +21,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
-
-  <style>
-    /* phronesis-local overrides: none currently — all styles in skeptou.css */
-  </style>
 </head>
 
 <!-- body.private enables Borges font stack (Access-gated subdomain) -->
@@ -35,7 +31,8 @@
     <a href="#dashboard" class="sk-nav__title" onclick="navigate('dashboard')">Phronesis</a>
     <ul class="sk-nav__links" role="list">
       <li><a href="#dashboard"     class="sk-nav__link" data-view="dashboard"     onclick="navigate('dashboard')">Dashboard</a></li>
-      <li><a href="#manifest"      class="sk-nav__link" data-view="manifest"      onclick="navigate('manifest')">Manifest</a></li>
+      <li><a href="#projects"      class="sk-nav__link" data-view="projects"      onclick="navigate('projects')">Projects</a></li>
+      <li><a href="#tasks"         class="sk-nav__link" data-view="tasks"         onclick="navigate('tasks')">Tasks</a></li>
       <li><a href="#opportunities" class="sk-nav__link" data-view="opportunities" onclick="navigate('opportunities')">Opportunities</a></li>
       <li><a href="#inventory"     class="sk-nav__link" data-view="inventory"     onclick="navigate('inventory')">Inventory</a></li>
     </ul>
@@ -49,7 +46,7 @@
     <section id="view-dashboard" class="sk-view" role="main" aria-label="Dashboard">
       <h1 style="margin-bottom: var(--section-margin);">Dashboard</h1>
 
-      <!-- Status summary -->
+      <!-- §I Status summary -->
       <h2 class="sk-section-head" data-section="§I">Status</h2>
       <div class="sk-status-grid" id="status-grid">
         <!-- Populated by renderStats() -->
@@ -57,42 +54,96 @@
 
       <hr class="sk-rule" />
 
-      <!-- Busy-period visualization -->
-      <h2 class="sk-section-head" data-section="§II">Busy Period</h2>
+      <!-- §II Workload visualization -->
+      <h2 class="sk-section-head" data-section="§II">Workload</h2>
       <div class="sk-viz-toggle" role="group" aria-label="Visualization type">
         <button class="sk-viz-btn active" data-target="heatmap" onclick="switchViz('heatmap')">Heatmap</button>
         <button class="sk-viz-btn"        data-target="density" onclick="switchViz('density')">Density</button>
       </div>
-      <div class="sk-viz" id="sk-viz-heatmap" role="img" aria-label="Activity heatmap — 52-week calendar grid">
+      <div class="sk-viz" id="sk-viz-heatmap" role="img" aria-label="Workload heatmap — 52-week calendar grid">
         <!-- Heatmap SVG injected by renderHeatmap() -->
       </div>
-      <div class="sk-viz" id="sk-viz-density" hidden role="img" aria-label="Activity density — area chart over 52 weeks">
+      <div class="sk-viz" id="sk-viz-density" hidden role="img" aria-label="Workload density — area chart over 52 weeks">
         <!-- Density SVG injected by renderDensity() -->
       </div>
 
       <hr class="sk-rule" />
 
-      <!-- Quick links -->
-      <h2 class="sk-section-head" data-section="§III">Quick Links</h2>
-      <ul class="sk-quicklinks" role="list">
-        <li><a href="#manifest"      onclick="navigate('manifest')">§ Project Manifest</a></li>
-        <li><a href="#opportunities" onclick="navigate('opportunities')">§ Opportunities</a></li>
-        <li><a href="#inventory"     onclick="navigate('inventory')">§ Inventory</a></li>
-      </ul>
+      <!-- Snapshot cards -->
+      <div class="sk-snapshots">
+
+        <!-- Next Up tasks -->
+        <section class="sk-snapshot" id="snap-tasks" aria-label="Next up tasks">
+          <h2 class="sk-snapshot__head">Next Up</h2>
+          <div class="sk-snapshot__items" id="snap-tasks-items">
+            <!-- Populated by renderSnapshots() -->
+          </div>
+          <a class="sk-snapshot__more" href="#tasks" onclick="navigate('tasks')">All tasks →</a>
+        </section>
+
+        <!-- Priority Projects -->
+        <section class="sk-snapshot" id="snap-projects" aria-label="Highest priority projects">
+          <h2 class="sk-snapshot__head">Priority Projects</h2>
+          <div class="sk-snapshot__items" id="snap-projects-items">
+            <!-- Populated by renderSnapshots() -->
+          </div>
+          <a class="sk-snapshot__more" href="#projects" onclick="navigate('projects')">All projects →</a>
+        </section>
+
+        <!-- Upcoming Deadlines (opportunities) -->
+        <section class="sk-snapshot" id="snap-opps" aria-label="Opportunities with nearest deadlines">
+          <h2 class="sk-snapshot__head">Upcoming Deadlines</h2>
+          <div class="sk-snapshot__items" id="snap-opps-items">
+            <!-- Populated by renderSnapshots() -->
+          </div>
+          <a class="sk-snapshot__more" href="#opportunities" onclick="navigate('opportunities')">All opportunities →</a>
+        </section>
+
+      </div><!-- /.sk-snapshots -->
     </section>
 
     <!-- ─────────────────────────────────────────────────────
-         §II  Project Manifest
+         §II  Projects
     ───────────────────────────────────────────────────── -->
-    <section id="view-manifest" class="sk-view" role="main" aria-label="Project Manifest">
-      <h1 style="margin-bottom: var(--section-margin);">Project Manifest</h1>
-      <div id="manifest-content">
-        <!-- Populated by renderManifest() -->
+    <section id="view-projects" class="sk-view" role="main" aria-label="Projects">
+      <h1 style="margin-bottom: var(--section-margin);">Projects</h1>
+      <div id="projects-content">
+        <!-- Populated by renderProjects() -->
       </div>
     </section>
 
     <!-- ─────────────────────────────────────────────────────
-         §III  Opportunity Dashboard
+         §III  Tasks
+    ───────────────────────────────────────────────────── -->
+    <section id="view-tasks" class="sk-view" role="main" aria-label="Tasks">
+      <h1 style="margin-bottom: var(--section-margin);">Tasks</h1>
+      <p class="sk-secondary" style="font-size:.82rem;margin-bottom:var(--section-margin);">
+        Sourced from <code>- [ ]</code> items in vault project plan files
+        (<code>projects/&lt;slug&gt;-plan.md</code>). Priority prefix: 🔺 high · ⏫ medium · 🔼 low.
+        Due date annotation: <code>(due: YYYY-MM-DD)</code>.
+      </p>
+      <div class="sk-sort-bar" role="toolbar" aria-label="Sort and group tasks">
+        <label class="sk-smallcaps">Sort
+          <select id="tasks-sort" onchange="renderTasks()">
+            <option value="due">Due date</option>
+            <option value="priority">Priority</option>
+          </select>
+        </label>
+        <label class="sk-smallcaps">Group
+          <select id="tasks-group" onchange="renderTasks()">
+            <option value="none">None</option>
+            <option value="project">Project</option>
+            <option value="priority">Priority</option>
+          </select>
+        </label>
+      </div>
+      <div id="tasks-content">
+        <!-- Populated by renderTasks() -->
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────
+         §IV  Opportunity Dashboard
     ───────────────────────────────────────────────────── -->
     <section id="view-opportunities" class="sk-view" role="main" aria-label="Opportunity Dashboard">
       <h1 style="margin-bottom: var(--section-margin);">Opportunities</h1>
@@ -102,7 +153,7 @@
     </section>
 
     <!-- ─────────────────────────────────────────────────────
-         §IV  Inventory
+         §V  Inventory
     ───────────────────────────────────────────────────── -->
     <section id="view-inventory" class="sk-view" role="main" aria-label="Inventory">
       <h1 style="margin-bottom: var(--section-margin);">Inventory</h1>
@@ -122,23 +173,17 @@
 
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
-  /* For baseline, sample data approximates a realistic busy pattern.        */
   const BUSY_SCORES = (function() {
     const scores = {};
     const today = new Date();
     const start = new Date(today);
     start.setDate(start.getDate() - 364);
-    /* Generate synthetic busy-score data */
     for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
       const key = d.toISOString().slice(0, 10);
       const dow = d.getDay();
-      /* Simulate realistic academic calendar: heavier midweek, lighter weekends */
       const base = (dow === 0 || dow === 6) ? 0 : Math.random();
-      if (base > 0.3) {
-        scores[key] = Math.round(base * 8);
-      }
+      if (base > 0.3) scores[key] = Math.round(base * 8);
     }
-    /* Add some peak weeks */
     ['2026-01', '2026-03', '2026-05'].forEach(function(month) {
       for (let d = 1; d <= 10; d++) {
         const key = month + '-' + String(d).padStart(2, '0');
@@ -154,7 +199,7 @@
     confirmed_pursuing: 4
   };
 
-  /* Sample opportunity data (replaced by synced vault content in CI) */
+  /* Sample opportunity data */
   const OPPORTUNITIES = [
     {
       slug: 'symposium-2026',
@@ -208,21 +253,38 @@
     }
   ];
 
+  /* Sample project data */
   const MANIFEST_DATA = {
     active: [
-      { title: 'Epistemic Akrasia paper', type: 'paper', status: 'confirmed-pursuing', deadline: '2026-10-01' },
-      { title: 'Dissertation Ch. 5 revision', type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01' },
-      { title: 'Oxford Handbook chapter', type: 'paper', status: 'confirmed-pursuing', deadline: '2026-09-01' }
+      { title: 'Epistemic Akrasia paper',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high' },
+      { title: 'Dissertation Ch. 5 revision',  type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high' },
+      { title: 'Oxford Handbook chapter',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-09-01', priority: 'medium' }
     ]
   };
+
+  /* Sample task data
+   * Convention: sourced from `- [ ]` items in vault `projects/<slug>-plan.md` files.
+   * Priority: 🔺 high · ⏫ medium · 🔼 low (emoji prefix on the task line).
+   * Due date: `(due: YYYY-MM-DD)` inline annotation on the task line.
+   * CI build: sync-vault.js writes src/data/tasks.json; index.html reads it at load. */
+  const TASKS_DATA = [
+    { title: 'Submit abstract for Philosophy of Mind Symposium',   project: 'Epistemic Akrasia paper',     due: '2026-06-01', priority: 'high'   },
+    { title: 'Read Fantl & McGrath (2002) on pragmatic encroachment', project: 'Epistemic Akrasia paper', due: '2026-06-05', priority: 'medium' },
+    { title: 'Send referee report — Episteme',                     project: 'Service',                    due: '2026-06-10', priority: 'high'   },
+    { title: 'Revise §3 argument structure (committee feedback)',  project: 'Dissertation Ch. 5 revision', due: '2026-06-15', priority: 'high'   },
+    { title: 'Meeting with committee re Ch. 5 draft',              project: 'Dissertation Ch. 5 revision', due: '2026-06-20', priority: 'high'   },
+    { title: 'Draft §2.1 on testimony norms',                      project: 'Oxford Handbook chapter',    due: '2026-07-01', priority: 'medium' },
+    { title: 'Prepare PHIL 101 syllabus for Fall 2026',            project: 'Teaching',                   due: '2026-07-15', priority: 'medium' },
+    { title: 'Update CV and publications list',                    project: 'Admin',                      due: '2026-08-01', priority: 'low'    }
+  ];
 
   const INVENTORY_DATA = {
     sections: [
       {
         title: 'Papers',
         items: [
-          { name: 'Epistemic Akrasia (draft)', note: 'In progress' },
-          { name: 'Testimony and Trust (submitted)', note: 'Under review — BJPS' },
+          { name: 'Epistemic Akrasia (draft)',               note: 'In progress' },
+          { name: 'Testimony and Trust (submitted)',          note: 'Under review — BJPS' },
           { name: 'Against Epistemic Cowardice (published)', note: 'Phil Studies 2025' }
         ]
       },
@@ -230,37 +292,37 @@
         title: 'Teaching',
         items: [
           { name: 'PHIL 101 — Introduction to Philosophy', note: 'Fall 2026' },
-          { name: 'PHIL 215 — Epistemology', note: 'Spring 2026' }
+          { name: 'PHIL 215 — Epistemology',               note: 'Spring 2026' }
         ]
       },
       {
         title: 'Service',
         items: [
           { name: 'Referee — Episteme, Phil Quarterly', note: 'Ongoing' },
-          { name: 'Graduate Admissions Committee', note: '2025–26' }
+          { name: 'Graduate Admissions Committee',       note: '2025–26' }
         ]
       }
     ]
   };
 
+  /* ── Priority ordering (shared by Tasks and Snapshots) ─────────────────── */
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+
   /* ── Client-side router ──────────────────────────────────────────────── */
-  const VIEWS = ['dashboard', 'manifest', 'opportunities', 'inventory'];
+  const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory'];
 
   function navigate(viewId) {
     if (!VIEWS.includes(viewId)) viewId = 'dashboard';
 
-    /* Activate view */
     VIEWS.forEach(function(v) {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('active', v === viewId);
     });
 
-    /* Update nav link active state */
     document.querySelectorAll('.sk-nav__link').forEach(function(link) {
       link.classList.toggle('active', link.dataset.view === viewId);
     });
 
-    /* Update hash without triggering another hashchange */
     if (location.hash !== '#' + viewId) {
       history.replaceState(null, '', '#' + viewId);
     }
@@ -292,7 +354,7 @@
     const grid = document.getElementById('status-grid');
     if (!grid) return;
     const stats = [
-      { n: MANIFEST_STATS.active_projects,   label: 'active projects',   href: '#manifest' },
+      { n: MANIFEST_STATS.active_projects,   label: 'active projects',   href: '#projects' },
       { n: MANIFEST_STATS.pending_decisions,  label: 'pending decisions', href: '#opportunities' },
       { n: MANIFEST_STATS.confirmed_pursuing, label: 'confirmed',         href: '#opportunities' }
     ];
@@ -305,9 +367,77 @@
     }).join('');
   }
 
+  /* ── Dashboard snapshot cards ────────────────────────────────────────── */
+  function renderSnapshots() {
+    const today = new Date().toISOString().slice(0, 10);
+
+    /* Next Up: top 3 tasks by nearest due date (future only) */
+    const nextTasks = TASKS_DATA
+      .filter(function(t) { return t.due >= today; })
+      .slice()
+      .sort(function(a, b) { return a.due.localeCompare(b.due); })
+      .slice(0, 3);
+
+    const tasksEl = document.getElementById('snap-tasks-items');
+    if (tasksEl) {
+      tasksEl.innerHTML = nextTasks.length
+        ? nextTasks.map(function(t) {
+            return '<a class="sk-snapshot__item" href="#tasks" onclick="navigate(\'tasks\')">' +
+              '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
+              '<span class="sk-snapshot__item-meta">' + escHtml(t.due) + '</span>' +
+            '</a>';
+          }).join('')
+        : '<p class="sk-secondary" style="font-size:.82rem;">No upcoming tasks.</p>';
+    }
+
+    /* Priority Projects: sort by priority then nearest deadline */
+    const topProjects = MANIFEST_DATA.active.slice()
+      .sort(function(a, b) {
+        const pa = PRIORITY_ORDER[a.priority] !== undefined ? PRIORITY_ORDER[a.priority] : 2;
+        const pb = PRIORITY_ORDER[b.priority] !== undefined ? PRIORITY_ORDER[b.priority] : 2;
+        if (pa !== pb) return pa - pb;
+        return (a.deadline || '').localeCompare(b.deadline || '');
+      })
+      .slice(0, 3);
+
+    const projEl = document.getElementById('snap-projects-items');
+    if (projEl) {
+      projEl.innerHTML = topProjects.length
+        ? topProjects.map(function(p) {
+            return '<a class="sk-snapshot__item" href="#projects" onclick="navigate(\'projects\')">' +
+              '<span class="sk-snapshot__item-title">' + escHtml(p.title) + '</span>' +
+              '<span class="sk-snapshot__item-meta">' + escHtml(p.deadline) + '</span>' +
+            '</a>';
+          }).join('')
+        : '<p class="sk-secondary" style="font-size:.82rem;">No active projects.</p>';
+    }
+
+    /* Upcoming Deadlines: active/pending opps by nearest deadline */
+    const upcomingOpps = OPPORTUNITIES
+      .filter(function(o) { return o.status !== 'declined' && o.deadline; })
+      .slice()
+      .sort(function(a, b) { return a.deadline.localeCompare(b.deadline); })
+      .slice(0, 3);
+
+    const oppsEl = document.getElementById('snap-opps-items');
+    if (oppsEl) {
+      oppsEl.innerHTML = upcomingOpps.length
+        ? upcomingOpps.map(function(o) {
+            const badgeClass = o.status === 'pending-cam-decision' ? 'sk-badge--pending' : 'sk-badge--confirmed';
+            const badgeLabel = o.status === 'pending-cam-decision' ? 'pending' : 'confirmed';
+            return '<a class="sk-snapshot__item" href="#opportunities" onclick="navigate(\'opportunities\')">' +
+              '<span class="sk-snapshot__item-title">' + escHtml(o.title) + '</span>' +
+              '<span class="sk-snapshot__item-meta">' +
+                '<span class="sk-badge ' + badgeClass + '" style="font-size:.65rem;margin-right:.4rem;">' + badgeLabel + '</span>' +
+                escHtml(o.deadline) +
+              '</span>' +
+            '</a>';
+          }).join('')
+        : '<p class="sk-secondary" style="font-size:.82rem;">No upcoming opportunities.</p>';
+    }
+  }
+
   /* ── Heatmap SVG ─────────────────────────────────────────────────────── */
-  /* Spec: 52 cols × 7 rows; 12px × 12px cells; 2px gap; color scale:       */
-  /* 0→Parchment, 25%→LightSteel, 50%→Steel, 75%+→Purple                   */
   function renderHeatmap() {
     const container = document.getElementById('sk-viz-heatmap');
     if (!container) return;
@@ -318,7 +448,6 @@
     const W = LEFT_MARGIN + COLS * STEP + 4;
     const H = TOP_MARGIN + ROWS * STEP + 4;
 
-    /* Color scale stops */
     const COLORS = ['#fcf5e5', '#b0c4de', '#4682b4', '#301934'];
     const scores = BUSY_SCORES.scores;
     const maxScore = BUSY_SCORES.max_score || 1;
@@ -332,7 +461,6 @@
       return COLORS[3];
     }
 
-    /* Build 52-week grid starting from 52 weeks ago (Sunday-aligned) */
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - (364 + startDate.getDay()));
@@ -350,7 +478,6 @@
         cells.push('<rect x="' + x + '" y="' + y + '" width="' + CELL +
           '" height="' + CELL + '" rx="1" fill="' + colorFor(score) + '">' +
           '<title>' + key + ' — Score: ' + score + '</title></rect>');
-        /* Month label on first row, first column of each month */
         if (row === 0) {
           const monthKey = d.getFullYear() + '-' + d.getMonth();
           if (!monthLabels[monthKey]) {
@@ -361,7 +488,6 @@
       }
     }
 
-    /* Day-of-week labels: Mon (row 1), Wed (row 3), Fri (row 5) */
     const DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
     const dowSvg = DOW_LABELS.map(function(lbl, i) {
       if (!lbl) return '';
@@ -369,7 +495,6 @@
         '" text-anchor="end" font-size="8" fill="#51414f" font-family="Cinzel,serif">' + lbl + '</text>';
     }).join('');
 
-    /* Month labels */
     const monthSvg = Object.values(monthLabels).map(function(m) {
       return '<text x="' + m.x + '" y="' + (TOP_MARGIN - 6) +
         '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" font-variant="small-caps">' +
@@ -377,12 +502,11 @@
     }).join('');
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Activity heatmap">' +
+      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload heatmap">' +
       monthSvg + dowSvg + cells.join('') + '</svg>';
   }
 
   /* ── Density gradient SVG ─────────────────────────────────────────────── */
-  /* Spec: area chart; weekly aggregation; Steel fill 25% opacity; Mauve stroke */
   function renderDensity() {
     const container = document.getElementById('sk-viz-density');
     if (!container) return;
@@ -392,7 +516,6 @@
     const chartW = W - MARGIN_L - MARGIN_R;
     const chartH = H - MARGIN_T - MARGIN_B;
 
-    /* Build weekly buckets (52 weeks) */
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - 364);
@@ -412,9 +535,8 @@
       weeks.push({ week: w, sum: sum, label: weekStart });
     }
 
-    const maxWeek = Math.max(...weeks.map(function(w) { return w.sum; }), 1);
+    const maxWeek = Math.max.apply(null, weeks.map(function(w) { return w.sum; }).concat([1]));
 
-    /* Build SVG path points */
     function xFor(i) { return MARGIN_L + (i / 51) * chartW; }
     function yFor(v) { return MARGIN_T + chartH - (v / maxWeek) * chartH; }
 
@@ -424,7 +546,6 @@
       ' L ' + xFor(51) + ',' + (MARGIN_T + chartH) + ' Z';
     const linePath = 'M ' + pts.join(' L ');
 
-    /* Month labels (first week of each month) */
     const seenMonths = {};
     const monthLabels = weeks.map(function(w, i) {
       if (!seenMonths[w.label]) {
@@ -437,15 +558,15 @@
     }).join('');
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Activity density chart">' +
+      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload density chart">' +
       '<path d="' + areaPath + '" fill="#4682b4" fill-opacity="0.25" />' +
       '<path d="' + linePath + '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />' +
       monthLabels + '</svg>';
   }
 
-  /* ── Project Manifest view ─────────────────────────────────────────────── */
-  function renderManifest() {
-    const el = document.getElementById('manifest-content');
+  /* ── Projects view ───────────────────────────────────────────────────── */
+  function renderProjects() {
+    const el = document.getElementById('projects-content');
     if (!el) return;
     const rows = MANIFEST_DATA.active.map(function(p) {
       return '<tr>' +
@@ -465,6 +586,56 @@
     if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' (sample)';
   }
 
+  /* ── Tasks view ──────────────────────────────────────────────────────── */
+  function renderTasks() {
+    const el = document.getElementById('tasks-content');
+    if (!el) return;
+
+    const sortBy  = (document.getElementById('tasks-sort')  || {}).value || 'due';
+    const groupBy = (document.getElementById('tasks-group') || {}).value || 'none';
+
+    const tasks = TASKS_DATA.slice().sort(function(a, b) {
+      if (sortBy === 'priority') {
+        const pa = PRIORITY_ORDER[a.priority] !== undefined ? PRIORITY_ORDER[a.priority] : 2;
+        const pb = PRIORITY_ORDER[b.priority] !== undefined ? PRIORITY_ORDER[b.priority] : 2;
+        if (pa !== pb) return pa - pb;
+      }
+      return (a.due || '').localeCompare(b.due || '');
+    });
+
+    function taskRow(t) {
+      const glyph = t.priority === 'high' ? '🔺' : t.priority === 'medium' ? '⏫' : '🔼';
+      const priClass = 'sk-priority-' + (t.priority || 'low');
+      return '<li class="sk-task-item">' +
+        '<span class="sk-task-item__title">' +
+          '<span class="' + priClass + '" aria-label="' + escHtml(t.priority) + ' priority">' + glyph + '</span> ' +
+          escHtml(t.title) +
+          (t.project ? ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>' : '') +
+        '</span>' +
+        '<span class="sk-task-item__due">' + escHtml(t.due || '') + '</span>' +
+      '</li>';
+    }
+
+    if (groupBy === 'none') {
+      el.innerHTML = '<ul class="sk-task-list" role="list">' + tasks.map(taskRow).join('') + '</ul>';
+      return;
+    }
+
+    const groups = {};
+    tasks.forEach(function(t) {
+      const key = groupBy === 'project'
+        ? (t.project || 'Other')
+        : capitalize(t.priority || 'low');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+
+    el.innerHTML = Object.keys(groups).map(function(key) {
+      return '<div class="sk-task-group__head">' + escHtml(key) + '</div>' +
+        '<ul class="sk-task-list" role="list">' + groups[key].map(taskRow).join('') + '</ul>';
+    }).join('');
+  }
+
   /* ── Opportunity Dashboard view ──────────────────────────────────────── */
   function renderOpportunities() {
     const el = document.getElementById('opp-content');
@@ -475,11 +646,11 @@
     const declined  = OPPORTUNITIES.filter(function(o) { return o.status === 'declined'; });
 
     function renderCard(opp) {
-      const isPending = opp.status === 'pending-cam-decision';
-      const prestige  = opp.prestige ? '<div class="sk-opp-card__meta-item"><strong>Prestige</strong> ' + escHtml(opp.prestige) + '</div>' : '';
-      const req       = opp.requirement ? '<p class="sk-opp-card__requirement">' + escHtml(opp.requirement.slice(0, 80)) + (opp.requirement.length > 80 ? '…' : '') + '</p>' : '';
-      const badgeClass = isPending ? 'sk-badge--pending' : (opp.status === 'confirmed-pursuing' ? 'sk-badge--confirmed' : 'sk-badge--declined');
-      const badgeLabel = isPending ? 'pending decision' : (opp.status === 'confirmed-pursuing' ? 'confirmed' : 'declined');
+      const isPending   = opp.status === 'pending-cam-decision';
+      const prestige    = opp.prestige ? '<div class="sk-opp-card__meta-item"><strong>Prestige</strong> ' + escHtml(opp.prestige) + '</div>' : '';
+      const req         = opp.requirement ? '<p class="sk-opp-card__requirement">' + escHtml(opp.requirement.slice(0, 80)) + (opp.requirement.length > 80 ? '…' : '') + '</p>' : '';
+      const badgeClass  = isPending ? 'sk-badge--pending' : (opp.status === 'confirmed-pursuing' ? 'sk-badge--confirmed' : 'sk-badge--declined');
+      const badgeLabel  = isPending ? 'pending decision' : (opp.status === 'confirmed-pursuing' ? 'confirmed' : 'declined');
 
       const actions = isPending
         ? '<div class="sk-opp-card__actions" id="actions-' + opp.slug + '">' +
@@ -498,30 +669,25 @@
           '<div class="sk-opp-card__meta-item"><strong>Deadline</strong> ' + escHtml(opp.deadline) + '</div>' +
           prestige +
         '</div>' +
-        req +
-        actions +
+        req + actions +
       '</div>';
     }
 
     let html = '';
-
     if (pending.length > 0) {
       html += '<h2 class="sk-section-head" data-section="§I">Pending Decision</h2>';
       html += pending.map(renderCard).join('');
     }
-
     if (confirmed.length > 0) {
       html += '<h2 class="sk-section-head" data-section="§II">Confirmed Pursuing</h2>';
       html += confirmed.map(renderCard).join('');
     }
-
     if (declined.length > 0) {
       html += '<details class="sk-collapsed" style="margin-top:var(--section-margin)">' +
         '<summary>Declined (' + declined.length + ')</summary>' +
         declined.map(renderCard).join('') +
         '</details>';
     }
-
     el.innerHTML = html;
   }
 
@@ -530,7 +696,6 @@
     const actionsEl = document.getElementById('actions-' + slug);
     if (!actionsEl) return;
 
-    /* Disable buttons */
     actionsEl.querySelectorAll('button').forEach(function(btn) { btn.disabled = true; });
     actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
 
@@ -585,12 +750,18 @@
       .replace(/"/g, '&quot;');
   }
 
+  function capitalize(s) {
+    return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+  }
+
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
     renderStats();
     renderHeatmap();
     renderDensity();
-    renderManifest();
+    renderSnapshots();
+    renderProjects();
+    renderTasks();
     renderOpportunities();
     renderInventory();
     initRouter();
