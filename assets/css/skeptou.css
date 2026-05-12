@@ -844,6 +844,54 @@ details.sk-collapsed[open] > summary::before {
   color: var(--color-wine, #722f37);
 }
 
+/* ── Viz legend (type filter swatches) ── */
+.sk-viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.sk-legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.12s ease, border-color 0.12s ease;
+  font-family: inherit;
+  font-size: 0.71rem;
+  line-height: 1;
+}
+
+.sk-legend-swatch.active {
+  opacity: 1;
+}
+
+.sk-legend-swatch:hover {
+  opacity: 0.8;
+  border-color: rgba(145, 95, 109, 0.3);
+}
+
+.sk-legend-color {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sk-legend-label {
+  font-variant-caps: small-caps;
+  color: var(--color-quartz, #51414f);
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
 /* ── Mobile responsive ── */
 @media (max-width: 600px) {
   .sk-nav {

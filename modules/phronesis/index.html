@@ -60,6 +60,9 @@
         <button class="sk-viz-btn active" data-target="heatmap" onclick="switchViz('heatmap')">Heatmap</button>
         <button class="sk-viz-btn"        data-target="density" onclick="switchViz('density')">Density</button>
       </div>
+      <div class="sk-viz-legend" id="sk-viz-legend" role="group" aria-label="Filter by event type">
+        <!-- Populated by renderVizLegend() -->
+      </div>
       <div class="sk-viz" id="sk-viz-heatmap" role="img" aria-label="Workload heatmap — 52-week calendar grid">
         <!-- Heatmap SVG injected by renderHeatmap() -->
       </div>
@@ -181,26 +184,77 @@
 
   'use strict';
 
+  /* ── Event type definitions (mirrors aggregate-busy.js + generate-viz.js) */
+  var EVENT_TYPES = [
+    { key: 'teaching',  label: 'Teaching',  color: '#4682b4' },
+    { key: 'research',  label: 'Research',  color: '#722f37' },
+    { key: 'fitness',   label: 'Fitness',   color: '#915f6d' },
+    { key: 'admin',     label: 'Admin',     color: '#51414f' },
+    { key: 'personal',  label: 'Personal',  color: '#b0c4de' },
+    { key: 'travel',    label: 'Travel',    color: '#f08080' },
+    { key: 'deadlines', label: 'Deadlines', color: '#301934' },
+    { key: 'untyped',   label: 'Untyped',   color: '#999999' }
+  ];
+
+  /* Active filter set — all types on by default */
+  var activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
+
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
   const BUSY_SCORES = (function() {
-    const scores = {};
-    const today = new Date();
-    const start = new Date(today);
+    var TYPE_KEYS = EVENT_TYPES.map(function(t) { return t.key; });
+    var scores = {};
+    var today = new Date();
+    var start = new Date(today);
     start.setDate(start.getDate() - 364);
-    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().slice(0, 10);
-      const dow = d.getDay();
-      const base = (dow === 0 || dow === 6) ? 0 : Math.random();
-      if (base > 0.3) scores[key] = Math.round(base * 8);
+
+    function randType(dow) {
+      if (dow === 0 || dow === 6) { return Math.random() < 0.3 ? 'fitness' : null; }
+      var r = Math.random();
+      if (r < 0.28) return 'teaching';
+      if (r < 0.48) return 'research';
+      if (r < 0.58) return 'fitness';
+      if (r < 0.73) return 'admin';
+      if (r < 0.82) return 'personal';
+      if (r < 0.88) return 'travel';
+      if (r < 0.93) return 'deadlines';
+      return 'untyped';
     }
+
+    function emptyDay() {
+      var d = {};
+      TYPE_KEYS.forEach(function(k) { d[k] = 0; });
+      d.total = 0;
+      return d;
+    }
+
+    for (var cur = new Date(start); cur <= today; cur.setDate(cur.getDate() + 1)) {
+      var key = cur.toISOString().slice(0, 10);
+      var dow = cur.getDay();
+      var prob = (dow === 0 || dow === 6) ? 0.25 : 0.72;
+      if (Math.random() > prob) continue;
+      var count = 1 + Math.floor(Math.random() * 4);
+      var day = emptyDay();
+      for (var i = 0; i < count; i++) {
+        var t = randType(dow);
+        if (t) { day[t]++; day.total++; }
+      }
+      if (day.total > 0) scores[key] = day;
+    }
+
+    /* Busy periods — extra admin + deadlines load */
     ['2026-01', '2026-03', '2026-05'].forEach(function(month) {
-      for (let d = 1; d <= 10; d++) {
-        const key = month + '-' + String(d).padStart(2, '0');
-        if (scores[key] !== undefined) scores[key] = Math.min(12, (scores[key] || 0) + 4);
+      for (var dd = 1; dd <= 10; dd++) {
+        var k = month + '-' + String(dd).padStart(2, '0');
+        if (!scores[k]) scores[k] = emptyDay();
+        scores[k].admin++;
+        scores[k].deadlines++;
+        scores[k].total += 2;
       }
     });
-    return { scores: scores, max_score: 12 };
+
+    var maxTotal = Object.values(scores).reduce(function(m, v) { return Math.max(m, v.total); }, 0);
+    return { scores: scores, max_total: maxTotal };
   })();
 
   const MANIFEST_STATS = {
@@ -389,6 +443,31 @@
   /* ── Client-side router ──────────────────────────────────────────────── */
   const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory'];
 
+  /* Parse '#view?t=teaching,research' → { viewId, typeFilter: Set | null } */
+  function parseHash(raw) {
+    var parts   = raw.split('?');
+    var viewId  = parts[0] || 'dashboard';
+    var typeFilter = null;
+    if (parts[1]) {
+      parts[1].split('&').forEach(function(pair) {
+        var kv = pair.split('=');
+        if (kv[0] === 't' && kv[1]) {
+          var keys = decodeURIComponent(kv[1]).split(',')
+            .filter(function(k) { return EVENT_TYPES.some(function(et) { return et.key === k; }); });
+          if (keys.length > 0) typeFilter = new Set(keys);
+        }
+      });
+    }
+    return { viewId: viewId, typeFilter: typeFilter };
+  }
+
+  function buildHash(viewId, types) {
+    var allKeys = EVENT_TYPES.map(function(t) { return t.key; });
+    if (types.size === allKeys.length) return '#' + viewId;
+    var active = allKeys.filter(function(k) { return types.has(k); });
+    return '#' + viewId + '?t=' + encodeURIComponent(active.join(','));
+  }
+
   function navigate(viewId) {
     if (!VIEWS.includes(viewId)) viewId = 'dashboard';
 
@@ -401,18 +480,31 @@
       link.classList.toggle('active', link.dataset.view === viewId);
     });
 
-    if (location.hash !== '#' + viewId) {
-      history.replaceState(null, '', '#' + viewId);
+    var newHash = buildHash(viewId, activeTypes);
+    if (location.hash !== newHash) {
+      history.replaceState(null, '', newHash);
     }
   }
 
   function initRouter() {
-    const hash = (location.hash || '#dashboard').slice(1);
-    navigate(VIEWS.includes(hash) ? hash : 'dashboard');
+    var parsed = parseHash((location.hash || '#dashboard').slice(1));
+    if (parsed.typeFilter) {
+      activeTypes = parsed.typeFilter;
+      renderVizLegend();
+    }
+    navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
 
     window.addEventListener('hashchange', function() {
-      const h = location.hash.slice(1);
-      navigate(VIEWS.includes(h) ? h : 'dashboard');
+      var p = parseHash(location.hash.slice(1));
+      if (p.typeFilter) {
+        activeTypes = p.typeFilter;
+      } else {
+        activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
+      }
+      renderVizLegend();
+      renderHeatmap();
+      renderDensity();
+      navigate(VIEWS.includes(p.viewId) ? p.viewId : 'dashboard');
     });
   }
 
@@ -425,6 +517,35 @@
     document.querySelectorAll('.sk-viz-btn').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.target === target);
     });
+  }
+
+  /* ── Legend (type filter) ─────────────────────────────────────────────── */
+  function renderVizLegend() {
+    var container = document.getElementById('sk-viz-legend');
+    if (!container) return;
+    container.innerHTML = EVENT_TYPES.map(function(t) {
+      var on = activeTypes.has(t.key);
+      return '<button class="sk-legend-swatch' + (on ? ' active' : '') +
+        '" onclick="toggleLegendType(\'' + t.key + '\')" title="Toggle ' + t.label + '">' +
+        '<span class="sk-legend-color" style="background:' + t.color + '"></span>' +
+        '<span class="sk-legend-label">' + t.label + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function toggleLegendType(key) {
+    if (activeTypes.has(key)) {
+      if (activeTypes.size > 1) activeTypes.delete(key); /* prevent empty set */
+    } else {
+      activeTypes.add(key);
+    }
+    /* Persist filter in URL hash without triggering hashchange */
+    var currentView = (location.hash || '#dashboard').slice(1).split('?')[0];
+    if (!VIEWS.includes(currentView)) currentView = 'dashboard';
+    history.replaceState(null, '', buildHash(currentView, activeTypes));
+    renderVizLegend();
+    renderHeatmap();
+    renderDensity();
   }
 
   /* ── Status summary ──────────────────────────────────────────────────── */
@@ -522,64 +643,82 @@
   }
 
   /* ── Heatmap SVG ─────────────────────────────────────────────────────── */
+  /* Cell color = dominant active type; opacity = activeTotal / max_total.   */
   function renderHeatmap() {
-    const container = document.getElementById('sk-viz-heatmap');
+    var container = document.getElementById('sk-viz-heatmap');
     if (!container) return;
 
-    const CELL = 12, GAP = 2, STEP = CELL + GAP;
-    const COLS = 52, ROWS = 7;
-    const LEFT_MARGIN = 18, TOP_MARGIN = 22;
-    const W = LEFT_MARGIN + COLS * STEP + 4;
-    const H = TOP_MARGIN + ROWS * STEP + 4;
+    var CELL = 12, GAP = 2, STEP = CELL + GAP;
+    var COLS = 52, ROWS = 7;
+    var LEFT_MARGIN = 18, TOP_MARGIN = 22;
+    var W = LEFT_MARGIN + COLS * STEP + 4;
+    var H = TOP_MARGIN + ROWS * STEP + 4;
 
-    const COLORS = ['#fcf5e5', '#b0c4de', '#4682b4', '#301934'];
-    const scores = BUSY_SCORES.scores;
-    const maxScore = BUSY_SCORES.max_score || 1;
+    var scores   = BUSY_SCORES.scores;
+    var maxTotal = BUSY_SCORES.max_total || 1;
 
-    function colorFor(score) {
-      if (!score || score === 0) return COLORS[0];
-      const ratio = score / maxScore;
-      if (ratio < 0.25) return COLORS[0];
-      if (ratio < 0.5)  return COLORS[1];
-      if (ratio < 0.75) return COLORS[2];
-      return COLORS[3];
-    }
-
-    const today = new Date();
-    const startDate = new Date(today);
+    var today = new Date();
+    var startDate = new Date(today);
     startDate.setDate(startDate.getDate() - (364 + startDate.getDay()));
 
-    const cells = [];
-    const monthLabels = {};
-    let d = new Date(startDate);
+    var cells = [], monthLabels = {};
+    var d = new Date(startDate);
 
-    for (let col = 0; col < COLS; col++) {
-      for (let row = 0; row < ROWS; row++) {
-        const key = d.toISOString().slice(0, 10);
-        const score = scores[key] || 0;
-        const x = LEFT_MARGIN + col * STEP;
-        const y = TOP_MARGIN + row * STEP;
+    for (var col = 0; col < COLS; col++) {
+      for (var row = 0; row < ROWS; row++) {
+        var key = d.toISOString().slice(0, 10);
+        var day = scores[key];
+        var x   = LEFT_MARGIN + col * STEP;
+        var y   = TOP_MARGIN  + row * STEP;
+
+        var fill, opacity;
+        if (!day || day.total === 0) {
+          fill = '#fcf5e5'; opacity = 1;
+        } else {
+          /* Dominant type among active types */
+          var dom = null, domCount = 0, activeTotal = 0;
+          EVENT_TYPES.forEach(function(t) {
+            if (!activeTypes.has(t.key)) return;
+            var v = day[t.key] || 0;
+            activeTotal += v;
+            if (v > domCount) { domCount = v; dom = t; }
+          });
+          if (dom && domCount > 0) {
+            fill    = dom.color;
+            opacity = Math.max(0.12, activeTotal / maxTotal);
+          } else {
+            fill = '#fcf5e5'; opacity = 1;
+          }
+        }
+
+        /* Tooltip: full per-type breakdown */
+        var tipParts = EVENT_TYPES.filter(function(t) { return day && day[t.key] > 0; })
+          .map(function(t) { return t.label + ': ' + day[t.key]; });
+        var tip = key + (tipParts.length ? ' — ' + tipParts.join(', ') : '');
+
         cells.push('<rect x="' + x + '" y="' + y + '" width="' + CELL +
-          '" height="' + CELL + '" rx="1" fill="' + colorFor(score) + '">' +
-          '<title>' + key + ' — Score: ' + score + '</title></rect>');
+          '" height="' + CELL + '" rx="1" fill="' + fill +
+          '" fill-opacity="' + opacity.toFixed(2) + '">' +
+          '<title>' + tip + '</title></rect>');
+
         if (row === 0) {
-          const monthKey = d.getFullYear() + '-' + d.getMonth();
-          if (!monthLabels[monthKey]) {
-            monthLabels[monthKey] = { x: x, label: d.toLocaleDateString('en-US', { month: 'short' }) };
+          var mk = d.getFullYear() + '-' + d.getMonth();
+          if (!monthLabels[mk]) {
+            monthLabels[mk] = { x: x, label: d.toLocaleDateString('en-US', { month: 'short' }) };
           }
         }
         d.setDate(d.getDate() + 1);
       }
     }
 
-    const DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
-    const dowSvg = DOW_LABELS.map(function(lbl, i) {
+    var DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
+    var dowSvg = DOW_LABELS.map(function(lbl, i) {
       if (!lbl) return '';
       return '<text x="' + (LEFT_MARGIN - 4) + '" y="' + (TOP_MARGIN + i * STEP + CELL - 2) +
         '" text-anchor="end" font-size="8" fill="#51414f" font-family="Cinzel,serif">' + lbl + '</text>';
     }).join('');
 
-    const monthSvg = Object.values(monthLabels).map(function(m) {
+    var monthSvg = Object.values(monthLabels).map(function(m) {
       return '<text x="' + m.x + '" y="' + (TOP_MARGIN - 6) +
         '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" font-variant="small-caps">' +
         m.label + '</text>';
@@ -590,62 +729,99 @@
       monthSvg + dowSvg + cells.join('') + '</svg>';
   }
 
-  /* ── Density gradient SVG ─────────────────────────────────────────────── */
+  /* ── Density (stacked area) SVG ──────────────────────────────────────── */
+  /* One band per active type, sorted by yearly total desc (largest at base).*/
+  /* Mauve stroke on topline.                                                 */
   function renderDensity() {
-    const container = document.getElementById('sk-viz-density');
+    var container = document.getElementById('sk-viz-density');
     if (!container) return;
 
-    const W = 780, H = 140;
-    const MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
-    const chartW = W - MARGIN_L - MARGIN_R;
-    const chartH = H - MARGIN_T - MARGIN_B;
+    var W = 780, H = 140;
+    var MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
+    var chartW = W - MARGIN_L - MARGIN_R;
+    var chartH = H - MARGIN_T - MARGIN_B;
 
-    const today = new Date();
-    const startDate = new Date(today);
+    var scores = BUSY_SCORES.scores;
+    var today = new Date();
+    var startDate = new Date(today);
     startDate.setDate(startDate.getDate() - 364);
 
-    const weeks = [];
-    let d = new Date(startDate);
-    const scores = BUSY_SCORES.scores;
-
-    for (let w = 0; w < 52; w++) {
-      let sum = 0;
-      const weekStart = d.toLocaleDateString('en-US', { month: 'short' });
-      for (let day = 0; day < 7; day++) {
-        const key = d.toISOString().slice(0, 10);
-        sum += scores[key] || 0;
+    /* Build 52 weekly buckets with per-type counts */
+    var weeks = [];
+    var d = new Date(startDate);
+    for (var w = 0; w < 52; w++) {
+      var wd = {}, total = 0;
+      EVENT_TYPES.forEach(function(t) { wd[t.key] = 0; });
+      var label = d.toLocaleDateString('en-US', { month: 'short' });
+      for (var day = 0; day < 7; day++) {
+        var key = d.toISOString().slice(0, 10);
+        var ds  = scores[key];
+        if (ds) {
+          EVENT_TYPES.forEach(function(t) { wd[t.key] += ds[t.key] || 0; });
+          total += ds.total || 0;
+        }
         d.setDate(d.getDate() + 1);
       }
-      weeks.push({ week: w, sum: sum, label: weekStart });
+      wd.total = total;
+      weeks.push({ wd: wd, label: label });
     }
 
-    const maxWeek = Math.max.apply(null, weeks.map(function(w) { return w.sum; }).concat([1]));
+    /* Active types sorted by yearly total descending */
+    var active = EVENT_TYPES.filter(function(t) { return activeTypes.has(t.key); });
+    var yearly = {};
+    active.forEach(function(t) {
+      yearly[t.key] = weeks.reduce(function(s, w) { return s + w.wd[t.key]; }, 0);
+    });
+    active.sort(function(a, b) { return yearly[b.key] - yearly[a.key]; });
+
+    var maxWeek = Math.max.apply(null, weeks.map(function(w) {
+      return active.reduce(function(s, t) { return s + w.wd[t.key]; }, 0);
+    }).concat([1]));
 
     function xFor(i) { return MARGIN_L + (i / 51) * chartW; }
     function yFor(v) { return MARGIN_T + chartH - (v / maxWeek) * chartH; }
 
-    const pts = weeks.map(function(w, i) { return xFor(i) + ',' + yFor(w.sum); });
-    const areaPath = 'M ' + xFor(0) + ',' + (MARGIN_T + chartH) +
-      ' L ' + pts.join(' L ') +
-      ' L ' + xFor(51) + ',' + (MARGIN_T + chartH) + ' Z';
-    const linePath = 'M ' + pts.join(' L ');
+    /* Stacked area paths */
+    var paths = [];
+    active.forEach(function(t, ti) {
+      if (yearly[t.key] === 0) return;
+      var upper = weeks.map(function(w, i) {
+        var cum = 0;
+        for (var j = 0; j <= ti; j++) cum += w.wd[active[j].key];
+        return xFor(i).toFixed(1) + ',' + yFor(cum).toFixed(1);
+      });
+      var lower = weeks.map(function(w, i) {
+        var cum = 0;
+        for (var j = 0; j < ti; j++) cum += w.wd[active[j].key];
+        return xFor(i).toFixed(1) + ',' + yFor(cum).toFixed(1);
+      });
+      var area = 'M ' + upper.join(' L ') + ' L ' + lower.slice().reverse().join(' L ') + ' Z';
+      paths.push('<path d="' + area + '" fill="' + t.color + '" fill-opacity="0.75" />');
+    });
 
-    const seenMonths = {};
-    const monthLabels = weeks.map(function(w, i) {
+    /* Topline: sum of all active types with Mauve stroke */
+    var topPts = weeks.map(function(w, i) {
+      var sum = active.reduce(function(s, t) { return s + w.wd[t.key]; }, 0);
+      return xFor(i).toFixed(1) + ',' + yFor(sum).toFixed(1);
+    });
+    var topLine = '<path d="M ' + topPts.join(' L ') +
+      '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />';
+
+    /* Month labels */
+    var seenMonths = {};
+    var monthSvg = weeks.map(function(w, i) {
       if (!seenMonths[w.label]) {
         seenMonths[w.label] = true;
-        return '<text x="' + xFor(i) + '" y="' + (H - 4) +
-          '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" text-anchor="middle">' +
-          w.label + '</text>';
+        return '<text x="' + xFor(i).toFixed(1) + '" y="' + (H - 4) +
+          '" font-size="8" fill="#915f6d" font-family="Cinzel,serif"' +
+          ' text-anchor="middle" font-variant="small-caps">' + w.label + '</text>';
       }
       return '';
     }).join('');
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
       '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload density chart">' +
-      '<path d="' + areaPath + '" fill="#4682b4" fill-opacity="0.25" />' +
-      '<path d="' + linePath + '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />' +
-      monthLabels + '</svg>';
+      paths.join('') + topLine + monthSvg + '</svg>';
   }
 
   /* ── Projects view ───────────────────────────────────────────────────── */
@@ -872,6 +1048,7 @@
   document.addEventListener('DOMContentLoaded', function() {
     computeTaskIds();   /* must run before any render that uses task IDs */
     renderStats();
+    renderVizLegend();
     renderHeatmap();
     renderDensity();
     renderSnapshots();
