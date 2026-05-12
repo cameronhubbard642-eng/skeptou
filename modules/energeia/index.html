@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Energeia — Sképtou</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#301934" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Energeia" />
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/skeptou.css" />
+
+  <!-- Cinzel for ornamental elements -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+  /* ── Energeia-specific component styles ─────────────────────────────── */
+  /* Extends skeptou.css. body.private already sets Borges + Purple/Parchment. */
+
+  /* Breadcrumb ── */
+  .sk-breadcrumb {
+    font-size: .78rem;
+    color: var(--color-quartz, #51414f);
+    margin-bottom: var(--section-margin, 1.75rem);
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+  .sk-breadcrumb a {
+    color: var(--color-mauve, #915f6d);
+    text-decoration: none;
+    font-variant-caps: small-caps;
+    letter-spacing: .04em;
+  }
+  .sk-breadcrumb a:hover { color: var(--color-wine, #722f37); }
+  .sk-breadcrumb__sep { color: var(--color-quartz, #51414f); opacity: .5; }
+
+  /* Filter bar ── */
+  .sk-filter-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: var(--section-margin, 1.75rem);
+  }
+  .sk-filter-btn {
+    font-family: inherit;
+    font-variant-caps: small-caps;
+    letter-spacing: .08em;
+    font-size: .72rem;
+    font-weight: 300;
+    padding: .2em .85em;
+    border: 1px solid rgba(145,95,109,.35);
+    background: transparent;
+    color: var(--color-quartz, #51414f);
+    cursor: pointer;
+    transition: background .14s, color .14s, border-color .14s;
+  }
+  .sk-filter-btn.active,
+  .sk-filter-btn:hover {
+    background: var(--color-mauve, #915f6d);
+    color: var(--color-parchment, #fcf5e5);
+    border-color: var(--color-mauve, #915f6d);
+  }
+
+  /* Paper status badges ── */
+  .sk-badge--drafting  { color: var(--color-wine, #722f37);   border-color: var(--color-wine, #722f37);   background: rgba(114,47,55,.06); }
+  .sk-badge--revising  { color: var(--color-mauve, #915f6d);  border-color: var(--color-mauve, #915f6d);  background: rgba(145,95,109,.06); }
+  .sk-badge--submitted { color: var(--color-steel, #4682b4);  border-color: var(--color-steel, #4682b4);  background: rgba(70,130,180,.06); }
+  .sk-badge--published { color: var(--color-quartz, #51414f); border-color: var(--color-quartz, #51414f); background: rgba(81,65,79,.06); }
+  .sk-badge--archived  { color: var(--color-light-steel, #b0c4de); border-color: var(--color-light-steel, #b0c4de); background: rgba(176,196,222,.06); }
+
+  /* Paper card ── */
+  .sk-paper-card {
+    border: 1px solid rgba(145,95,109,.25);
+    border-left: 3px solid var(--color-mauve, #915f6d);
+    padding: 1.25rem 1.375rem;
+    margin-bottom: 1rem;
+    background: rgba(252,245,229,.4);
+  }
+  .sk-paper-card[data-status="drafting"]  { border-left-color: var(--color-wine, #722f37); }
+  .sk-paper-card[data-status="submitted"] { border-left-color: var(--color-steel, #4682b4); }
+  .sk-paper-card[data-status="published"] { border-left-color: var(--color-quartz, #51414f); }
+  .sk-paper-card[data-status="archived"]  { border-left-color: var(--color-light-steel, #b0c4de); opacity: .75; }
+
+  .sk-paper-card__row1 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .4rem;
+  }
+  .sk-paper-card__title {
+    font-variant-caps: small-caps;
+    letter-spacing: .04em;
+    color: var(--color-purple, #301934);
+    font-size: 1rem;
+  }
+  .sk-paper-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    font-size: .78rem;
+    color: var(--color-quartz, #51414f);
+    margin-bottom: .6rem;
+  }
+  .sk-paper-card__meta-item strong {
+    font-family: inherit;
+    font-weight: 300;
+    font-variant-caps: small-caps;
+    color: var(--color-mauve, #915f6d);
+    font-size: .7rem;
+    letter-spacing: .06em;
+  }
+  .sk-paper-card__abstract {
+    font-size: .83rem;
+    color: var(--color-quartz, #51414f);
+    line-height: 1.5;
+    margin-bottom: .75rem;
+    max-width: 66ch;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .sk-paper-card__directions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-bottom: .75rem;
+  }
+  .sk-paper-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+  }
+
+  /* Direction pills ── */
+  .sk-dir-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: .68rem;
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    padding: .12em .55em;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+  }
+  .sk-dir-pill--active  { color: var(--color-steel, #4682b4); }
+  .sk-dir-pill--archived { color: var(--color-light-steel, #b0c4de); }
+  .sk-dir-pill__dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor;
+    margin-right: .3em;
+    flex-shrink: 0;
+  }
+
+  /* Overview group header ── */
+  .sk-group-head {
+    font-variant-caps: small-caps;
+    letter-spacing: .08em;
+    color: var(--color-mauve, #915f6d);
+    font-size: .78rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(145,95,109,.25);
+    margin-bottom: .875rem;
+    margin-top: var(--section-margin, 1.75rem);
+  }
+  .sk-group-head:first-child { margin-top: 0; }
+
+  /* Version timeline ── */
+  .sk-version-table {
+    width: 100%;
+    font-size: .82rem;
+    border-collapse: collapse;
+    margin-bottom: var(--section-margin, 1.75rem);
+  }
+  .sk-version-table thead th {
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    color: var(--color-mauve, #915f6d);
+    font-weight: 300;
+    text-align: left;
+    padding: .35rem .5rem .35rem 0;
+    border-bottom: 1px solid rgba(145,95,109,.4);
+    white-space: nowrap;
+  }
+  .sk-version-table td {
+    padding: .4rem .5rem .4rem 0;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(145,95,109,.1);
+    color: var(--color-purple, #301934);
+  }
+  .sk-version-row--major td { font-weight: 300; }
+  .sk-version-row--major td:first-child {
+    font-variant-caps: small-caps;
+    letter-spacing: .04em;
+    color: var(--color-wine, #722f37);
+    font-family: var(--font-display, serif);
+  }
+  .sk-version-row--minor td:first-child {
+    padding-left: 1.25rem;
+    color: var(--color-quartz, #51414f);
+    font-size: .78rem;
+  }
+  .sk-version-row--minor td { font-size: .78rem; color: var(--color-quartz, #51414f); }
+  .sk-version-minors summary {
+    font-size: .72rem;
+    font-variant-caps: small-caps;
+    color: var(--color-quartz, #51414f);
+    cursor: pointer;
+    list-style: none;
+    padding: .2rem 0 .2rem .5rem;
+  }
+  .sk-version-minors summary::before { content: '▸ '; }
+  .sk-version-minors[open] summary::before { content: '▾ '; }
+  .sk-class-major { color: var(--color-wine, #722f37);   font-variant-caps: small-caps; font-size: .72rem; }
+  .sk-class-minor { color: var(--color-steel, #4682b4);  font-variant-caps: small-caps; font-size: .72rem; }
+  .sk-pdf-link    { color: var(--color-mauve, #915f6d);  font-size: .75rem; text-decoration: none; }
+  .sk-pdf-link:hover { color: var(--color-wine, #722f37); }
+
+  /* Paper detail sections ── */
+  .sk-paper-detail__abstract {
+    font-size: .9rem;
+    line-height: 1.65;
+    max-width: 66ch;
+    margin-bottom: var(--section-margin, 1.75rem);
+    color: var(--color-purple, #301934);
+  }
+  .sk-directions-list { list-style: none; margin: 0 0 var(--section-margin) 0; padding: 0; }
+  .sk-direction-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid rgba(145,95,109,.12);
+    font-size: .85rem;
+  }
+  .sk-direction-item:last-child { border-bottom: none; }
+  .sk-direction-item__name {
+    font-variant-caps: small-caps;
+    color: var(--color-purple, #301934);
+    letter-spacing: .04em;
+  }
+  .sk-direction-item__branch {
+    font-size: .72rem;
+    color: var(--color-quartz, #51414f);
+    font-family: 'Courier New', monospace;
+  }
+  .sk-direction-item__actions { display: flex; gap: .5rem; flex-shrink: 0; }
+
+  /* Working docs ── */
+  .sk-working-list { list-style: none; margin: 0; padding: 0; }
+  .sk-working-item {
+    padding: .75rem 0;
+    border-bottom: 1px solid rgba(145,95,109,.12);
+  }
+  .sk-working-item:last-child { border-bottom: none; }
+  .sk-working-item__name {
+    font-variant-caps: small-caps;
+    letter-spacing: .04em;
+    color: var(--color-purple, #301934);
+    font-size: .9rem;
+    margin-bottom: .25rem;
+  }
+  .sk-working-item__updated { font-size: .72rem; color: var(--color-quartz, #51414f); }
+  .sk-working-item__preview {
+    font-size: .8rem;
+    color: var(--color-quartz, #51414f);
+    font-style: italic;
+    margin-top: .2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60ch;
+  }
+
+  /* Branch list ── */
+  .sk-branch-group-head {
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    color: var(--color-mauve, #915f6d);
+    font-size: .78rem;
+    margin-top: var(--section-margin, 1.75rem);
+    margin-bottom: .5rem;
+    padding-bottom: .35rem;
+    border-bottom: 1px solid rgba(145,95,109,.25);
+  }
+  .sk-branch-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid rgba(145,95,109,.1);
+    font-size: .85rem;
+  }
+  .sk-branch-item:last-child { border-bottom: none; }
+  .sk-branch-item__name {
+    font-family: 'Courier New', monospace;
+    font-size: .78rem;
+    color: var(--color-purple, #301934);
+  }
+  .sk-branch-item__meta {
+    font-size: .72rem;
+    color: var(--color-quartz, #51414f);
+  }
+  .sk-branch-item__actions { display: flex; gap: .5rem; flex-shrink: 0; }
+
+  /* Modal overlay ── */
+  .sk-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(48,25,52,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 1rem;
+  }
+  .sk-modal-overlay[hidden] { display: none; }
+  .sk-modal {
+    background: var(--color-parchment, #fcf5e5);
+    border: 1px solid rgba(145,95,109,.4);
+    border-top: 3px solid var(--color-mauve, #915f6d);
+    padding: 1.75rem;
+    max-width: 540px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .sk-modal__title {
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    color: var(--color-mauve, #915f6d);
+    font-size: 1rem;
+    margin-bottom: var(--section-margin, 1.75rem);
+  }
+  .sk-modal__body { margin-bottom: 1.5rem; }
+  .sk-modal__footer { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+  .sk-modal__close {
+    position: absolute;
+    top: .75rem; right: .75rem;
+    font-family: inherit; font-size: 1.2rem; line-height: 1;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--color-quartz, #51414f);
+  }
+
+  /* Classify box (promote modal result) ── */
+  .sk-classify-box {
+    border: 1px solid currentColor;
+    padding: .875rem 1rem;
+    margin: 1rem 0;
+    font-size: .85rem;
+  }
+  .sk-classify-box--major { color: var(--color-wine, #722f37); background: rgba(114,47,55,.04); }
+  .sk-classify-box--minor { color: var(--color-steel, #4682b4); background: rgba(70,130,180,.04); }
+  .sk-classify-box--analyzing { color: var(--color-quartz, #51414f); background: rgba(81,65,79,.04); border-color: rgba(81,65,79,.3); }
+  .sk-classify-box__verdict {
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    font-size: 1rem;
+    display: block;
+    margin-bottom: .35rem;
+  }
+  .sk-classify-box__detail { font-size: .78rem; opacity: .85; }
+  .sk-classify-box__next-tag {
+    font-family: var(--font-display, serif);
+    font-size: 1.1rem;
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    display: block;
+    margin-top: .35rem;
+  }
+  .sk-override-row {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    margin-top: .75rem;
+    font-size: .75rem;
+    color: var(--color-quartz, #51414f);
+    flex-wrap: wrap;
+  }
+  .sk-override-row span { font-variant-caps: small-caps; }
+
+  /* Form fields in modals ── */
+  .sk-form-group { margin-bottom: 1rem; }
+  .sk-form-label {
+    display: block;
+    font-variant-caps: small-caps;
+    letter-spacing: .06em;
+    font-size: .72rem;
+    color: var(--color-mauve, #915f6d);
+    margin-bottom: .35rem;
+  }
+  .sk-form-input,
+  .sk-form-select,
+  .sk-form-textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: .85rem;
+    font-weight: 300;
+    background: var(--color-parchment, #fcf5e5);
+    border: 1px solid rgba(145,95,109,.4);
+    color: var(--color-purple, #301934);
+    padding: .4em .65em;
+    border-radius: 2px;
+  }
+  .sk-form-input:focus,
+  .sk-form-select:focus,
+  .sk-form-textarea:focus {
+    outline: none;
+    border-color: var(--color-mauve, #915f6d);
+  }
+  .sk-form-textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+  .sk-slug-preview {
+    font-size: .72rem;
+    color: var(--color-quartz, #51414f);
+    margin-top: .25rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Settings view ── */
+  .sk-settings-section {
+    max-width: 56ch;
+    margin-bottom: var(--section-margin-lg, 2.25rem);
+  }
+  .sk-settings-section p { max-width: 56ch; }
+  .sk-token-display {
+    font-family: 'Courier New', monospace;
+    font-size: .8rem;
+    background: rgba(145,95,109,.08);
+    border: 1px solid rgba(145,95,109,.25);
+    padding: .5rem .75rem;
+    word-break: break-all;
+    color: var(--color-purple, #301934);
+    margin: .5rem 0 1rem 0;
+  }
+  .sk-code-block {
+    font-family: 'Courier New', monospace;
+    font-size: .78rem;
+    background: rgba(48,25,52,.05);
+    border: 1px solid rgba(48,25,52,.12);
+    padding: .75rem 1rem;
+    margin: .5rem 0;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--color-purple, #301934);
+  }
+
+  /* Misc ── */
+  .sk-page-actions {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--section-margin, 1.75rem);
+  }
+  .sk-btn--primary {
+    color: var(--color-mauve, #915f6d);
+    border-color: var(--color-mauve, #915f6d);
+  }
+  .sk-btn--primary:hover {
+    background: var(--color-mauve, #915f6d);
+    color: var(--color-parchment, #fcf5e5);
+  }
+  .sk-btn--danger { color: var(--color-wine, #722f37); border-color: var(--color-wine, #722f37); }
+  .sk-btn--danger:hover { background: var(--color-wine, #722f37); color: var(--color-parchment, #fcf5e5); }
+  .sk-btn--sm { font-size: .7rem; padding: .22em .75em; }
+  .sk-empty-state {
+    font-size: .85rem;
+    color: var(--color-quartz, #51414f);
+    font-style: italic;
+    padding: 1.5rem 0;
+  }
+  .sk-inline-feedback {
+    font-size: .82rem;
+    color: var(--color-quartz, #51414f);
+    font-style: italic;
+  }
+
+  @media (max-width: 600px) {
+    .sk-version-table { font-size: .74rem; }
+    .sk-version-table td, .sk-version-table th { padding-right: .25rem; }
+    .sk-paper-card__actions { gap: .4rem; }
+    .sk-modal { padding: 1.25rem; }
+  }
+  </style>
+</head>
+
+<!-- body.private activates Borges font stack -->
+<body class="private">
+
+  <!-- Navigation ── -->
+  <nav class="sk-nav" role="navigation" aria-label="Energeia navigation">
+    <a href="#overview" class="sk-nav__title" onclick="navigate('overview')">Energeia</a>
+    <ul class="sk-nav__links" role="list">
+      <li><a href="#overview"  class="sk-nav__link" data-view="overview"  onclick="navigate('overview')">Papers</a></li>
+      <li><a href="#branches"  class="sk-nav__link" data-view="branches"  onclick="navigate('branches')">Branches</a></li>
+      <li><a href="#settings"  class="sk-nav__link" data-view="settings"  onclick="navigate('settings')">Settings</a></li>
+    </ul>
+  </nav>
+
+  <main class="sk-main" id="sk-main">
+
+    <!-- ── §I  Papers Overview ── -->
+    <section id="view-overview" class="sk-view" role="main" aria-label="Papers overview">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:var(--section-margin);">
+        <h1>Papers</h1>
+        <button class="sk-btn sk-btn--primary sk-btn--sm" onclick="openNewPaperModal()">+ New Paper</button>
+      </div>
+      <div class="sk-filter-bar" id="overview-filter-bar" role="group" aria-label="Filter by status">
+        <!-- Injected by renderFilterBar() -->
+      </div>
+      <div id="overview-content">
+        <!-- Injected by renderOverview() -->
+      </div>
+    </section>
+
+    <!-- ── §II  Paper Detail ── -->
+    <section id="view-paper" class="sk-view" role="main" aria-label="Paper detail">
+      <div id="paper-content">
+        <!-- Injected by renderPaperDetail(slug) -->
+      </div>
+    </section>
+
+    <!-- ── §III  Working Documents ── -->
+    <section id="view-working" class="sk-view" role="main" aria-label="Working documents">
+      <div id="working-content">
+        <!-- Injected by renderWorkingDocs(slug) -->
+      </div>
+    </section>
+
+    <!-- ── §IV  Branches ── -->
+    <section id="view-branches" class="sk-view" role="main" aria-label="Branch list">
+      <h1 style="margin-bottom:var(--section-margin);">Branches</h1>
+      <p class="sk-secondary" style="font-size:.82rem;margin-bottom:var(--section-margin);">
+        All active and archived dunamis drafting branches. Each branch represents one
+        <em>direction</em> of a paper; only one direction at a time promotes to canonical.
+      </p>
+      <div id="branches-content">
+        <!-- Injected by renderBranches() -->
+      </div>
+    </section>
+
+    <!-- ── §V  Settings ── -->
+    <section id="view-settings" class="sk-view" role="main" aria-label="Settings">
+      <h1 style="margin-bottom:var(--section-margin);">Settings</h1>
+
+      <div class="sk-settings-section">
+        <h2 class="sk-section-head" data-section="§I">Agora Repository</h2>
+        <p class="sk-secondary" style="font-size:.85rem;">
+          The agora repo holds all paper content, templates, and branch history.
+          Create it (private) then configure the GitHub Actions secrets below.
+        </p>
+        <div class="sk-code-block">gh repo create cameronhubbard642-eng/agora --private --clone</div>
+        <p class="sk-secondary" style="font-size:.82rem;margin-top:.75rem;">
+          After creation, copy the four <code>agora-workflows/*.yml</code> files from
+          <code>modules/energeia/agora-workflows/</code> into the agora repo's
+          <code>.github/workflows/</code> and push.
+        </p>
+      </div>
+
+      <hr class="sk-rule" />
+
+      <div class="sk-settings-section">
+        <h2 class="sk-section-head" data-section="§II">Connect Local Daemon</h2>
+        <p class="sk-secondary" style="font-size:.85rem;margin-bottom:.75rem;">
+          The local daemon watches your agora worktrees for file changes and handles
+          Scrivener project operations. Run the installer on your Mac, then paste
+          your daemon token here to register it.
+        </p>
+        <div id="daemon-status" class="sk-inline-feedback">Daemon: not connected (token not registered)</div>
+        <div class="sk-form-group" style="margin-top:.875rem;max-width:38ch;">
+          <label class="sk-form-label" for="daemon-token-input">Daemon token</label>
+          <input id="daemon-token-input" class="sk-form-input"
+                 type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                 autocomplete="off" spellcheck="false" />
+          <div class="sk-slug-preview">From: ~/Library/Application Support/energeia/… or printed by install.command</div>
+        </div>
+        <button class="sk-btn sk-btn--primary sk-btn--sm" onclick="registerDaemonToken()" style="margin-top:.4rem;">
+          Register token
+        </button>
+        <div id="daemon-register-feedback" style="margin-top:.5rem;"></div>
+      </div>
+
+      <hr class="sk-rule" />
+
+      <div class="sk-settings-section">
+        <h2 class="sk-section-head" data-section="§III">Secrets Reference</h2>
+        <p class="sk-secondary" style="font-size:.85rem;">Required secrets for Cloudflare Pages + GitHub Actions:</p>
+        <ul class="sk-secondary" style="font-size:.8rem;margin-top:.5rem;padding-left:1.25rem;">
+          <li><code>AGORA_DISPATCH_PAT</code> — GitHub classic PAT, repo scope, on agora repo</li>
+          <li><code>AGORA_REPO</code> — <code>owner/repo</code> for agora (e.g. <code>cameronhubbard642-eng/agora</code>)</li>
+          <li><code>CLOUDFLARE_API_TOKEN</code> — Pages deploy permission</li>
+          <li><code>CLOUDFLARE_ACCOUNT_ID</code> — Cloudflare account ID</li>
+          <li><code>CF_ACCESS_AUD</code> — Cloudflare Access audience tag (CF Pages secret)</li>
+          <li><code>ENERGEIA_ACTIONS</code> — KV namespace binding name (CF Pages binding)</li>
+        </ul>
+      </div>
+    </section>
+
+  </main><!-- /.sk-main -->
+
+  <!-- Modal overlay ── -->
+  <div id="sk-modal-overlay" class="sk-modal-overlay" hidden
+       role="dialog" aria-modal="true" aria-labelledby="sk-modal-title"
+       onclick="handleOverlayClick(event)">
+    <div id="sk-modal" class="sk-modal">
+      <div id="sk-modal-content">
+        <!-- Injected by modal functions -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PWA install toast ── -->
+  <div id="sk-install-toast" class="sk-install-toast" hidden aria-live="polite" role="status">
+    <span class="sk-install-toast__text">Install Energeia for offline access</span>
+    <button class="sk-btn sk-btn--accept sk-install-toast__install" id="sk-install-btn">Install</button>
+    <button class="sk-install-toast__dismiss" id="sk-install-dismiss" aria-label="Dismiss">×</button>
+  </div>
+
+  <script>
+  'use strict';
+
+  /* ── Sample data (replaced by CI build: sync-agora.js writes src/data/papers.json) ── */
+  const PAPERS = [
+    {
+      slug: 'epistemic-akrasia',
+      title: 'Epistemic Akrasia and the Norms of Credence',
+      status: 'drafting',
+      currentTag: 'style-II',
+      format: 'article',
+      created: '2026-01-15',
+      mockDiffPct: 24,
+      abstract: 'This paper examines the tension between what an agent believes they ought to believe and what they actually believe, arguing that epistemic akrasia is possible but always irrational. The paper develops a novel account of the relationship between higher-order evidence and doxastic norms.',
+      directions: [
+        { name: 'alpha', branch: 'dunamis/epistemic-akrasia-alpha', status: 'archived', lastCommit: '2026-03-01' },
+        { name: 'beta',  branch: 'dunamis/epistemic-akrasia-beta',  status: 'active',   lastCommit: '2026-05-10' }
+      ],
+      versions: [
+        { tag: 'style-I',  date: '2026-02-01', note: 'Initial canonical',                  lineage: 'dunamis/epistemic-akrasia-alpha', classification: 'major', minors: [] },
+        { tag: 'style-II', date: '2026-04-15', note: 'Referee revisions — restructured §§III-V', lineage: 'dunamis/epistemic-akrasia-beta',  classification: 'major', minors: [] },
+      ]
+    },
+    {
+      slug: 'testimony-trust',
+      title: 'Testimony, Trust, and the Transfer of Epistemic Authority',
+      status: 'submitted',
+      currentTag: 'style-III',
+      format: 'article',
+      created: '2025-08-01',
+      mockDiffPct: 4,
+      abstract: 'I argue against transmissive views of testimonial knowledge, defending instead a generative account on which testimony is a source of knowledge in its own right. The paper identifies a structural asymmetry between transmission and generation that has been overlooked in the literature.',
+      directions: [
+        { name: 'alpha', branch: 'dunamis/testimony-trust-alpha', status: 'archived', lastCommit: '2025-12-01' },
+        { name: 'beta',  branch: 'dunamis/testimony-trust-beta',  status: 'archived', lastCommit: '2026-02-15' },
+        { name: 'gamma', branch: 'dunamis/testimony-trust-gamma', status: 'active',   lastCommit: '2026-04-01' }
+      ],
+      versions: [
+        { tag: 'style-I',   date: '2025-10-01', note: 'First complete draft',             lineage: 'dunamis/testimony-trust-alpha', classification: 'major',
+          minors: [] },
+        { tag: 'style-II',  date: '2025-12-15', note: 'Major restructure §§III-IV',       lineage: 'dunamis/testimony-trust-beta',  classification: 'major',
+          minors: [
+            { tag: 'style-II.1', date: '2026-01-10', note: 'Footnote cleanup + bibliography', lineage: 'dunamis/testimony-trust-beta', classification: 'minor' }
+          ]
+        },
+        { tag: 'style-III', date: '2026-03-01', note: 'Final revision — submitted to BJPS', lineage: 'dunamis/testimony-trust-gamma', classification: 'major',
+          minors: [] },
+      ]
+    },
+    {
+      slug: 'epistemic-cowardice',
+      title: 'Against Epistemic Cowardice',
+      status: 'published',
+      currentTag: 'style-IV',
+      format: 'article',
+      created: '2024-05-01',
+      mockDiffPct: 0,
+      abstract: 'I defend the claim that epistemic cowardice — the deliberate assertion of vague or uncommitted claims to avoid controversy — is a distinct epistemic vice with characteristic features distinguishing it from ordinary epistemic failure.',
+      directions: [
+        { name: 'alpha', branch: 'dunamis/epistemic-cowardice-alpha', status: 'archived', lastCommit: '2025-04-01' }
+      ],
+      versions: [
+        { tag: 'style-I',   date: '2024-07-01', note: 'First draft',                        lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
+        { tag: 'style-II',  date: '2024-10-15', note: 'Phil Studies R1 revisions',          lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
+        { tag: 'style-III', date: '2025-01-20', note: 'R2 revisions',                       lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
+        { tag: 'style-IV',  date: '2025-04-01', note: 'Accepted version (Phil Studies 2025)', lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
+      ]
+    }
+  ];
+
+  const WORKING_DOCS = {
+    'epistemic-akrasia': [
+      { name: 'outline.md',      updated: '2026-05-08', preview: '# Outline\n\n§I Introduction — akrasia and epistemic norms...' },
+      { name: 'notes.md',        updated: '2026-05-10', preview: '# Working notes — ongoing annotations and quotes...' },
+      { name: 'bibliography.md', updated: '2026-04-20', preview: '# Bibliography\n\nBonJour, L. (1980). Externalist theories...' }
+    ],
+    'testimony-trust': [
+      { name: 'outline.md',       updated: '2026-03-20', preview: '# Outline (submitted version)\n\n§I Framing...' },
+      { name: 'referee-notes.md', updated: '2026-03-25', preview: '# Notes for R&R response\n\nReferee A: concerns about...' }
+    ],
+    'epistemic-cowardice': []
+  };
+
+  const DIFF_THRESHOLD = 10; /* % — must match Worker default */
+
+  /* ── State ───────────────────────────────────────────────────────────── */
+  let currentView   = 'overview';
+  let currentSlug   = null;
+  let filterStatus  = 'all';
+
+  /* ── Hash router ─────────────────────────────────────────────────────── */
+  const ALL_VIEWS = ['overview', 'paper', 'working', 'branches', 'settings'];
+
+  function navigate(path) {
+    const parts  = path.split('/');
+    const view   = parts[0];
+    const slug   = parts[1] || null;
+
+    if (!ALL_VIEWS.includes(view)) return navigate('overview');
+
+    currentView = view;
+    currentSlug = slug;
+
+    ALL_VIEWS.forEach(function(v) {
+      var el = document.getElementById('view-' + v);
+      if (el) el.classList.toggle('active', v === view);
+    });
+
+    document.querySelectorAll('.sk-nav__link').forEach(function(link) {
+      var lv = link.dataset.view;
+      link.classList.toggle('active',
+        lv === view || (view === 'paper' && lv === 'overview') || (view === 'working' && lv === 'overview')
+      );
+    });
+
+    /* Render the activated view */
+    if (view === 'overview')  renderOverview();
+    if (view === 'paper' && slug)   renderPaperDetail(slug);
+    if (view === 'working' && slug) renderWorkingDocs(slug);
+    if (view === 'branches') renderBranches();
+
+    var hash = slug ? '#' + view + '/' + slug : '#' + view;
+    if (location.hash !== hash) history.pushState(null, '', hash);
+
+    window.scrollTo(0, 0);
+  }
+
+  function initRouter() {
+    var raw  = (location.hash || '#overview').slice(1);
+    var parts = raw.split('/');
+    var view = parts[0] || 'overview';
+    var slug = parts[1] || null;
+    navigate(slug ? view + '/' + slug : view);
+
+    window.addEventListener('popstate', function() {
+      var r = (location.hash || '#overview').slice(1);
+      var p = r.split('/');
+      navigate(p[1] ? p[0] + '/' + p[1] : p[0] || 'overview');
+    });
+  }
+
+  /* ── Filter bar ──────────────────────────────────────────────────────── */
+  function renderFilterBar() {
+    var bar = document.getElementById('overview-filter-bar');
+    if (!bar) return;
+    var statuses = ['all', 'drafting', 'revising', 'submitted', 'published', 'archived'];
+    bar.innerHTML = statuses.map(function(s) {
+      return '<button class="sk-filter-btn' + (filterStatus === s ? ' active' : '') + '"' +
+        ' onclick="setFilter(\'' + s + '\')">' + (s === 'all' ? 'All' : capitalize(s)) + '</button>';
+    }).join('');
+  }
+
+  function setFilter(status) {
+    filterStatus = status;
+    renderFilterBar();
+    renderOverview();
+  }
+
+  /* ── Papers Overview ─────────────────────────────────────────────────── */
+  const STATUS_ORDER = ['drafting', 'revising', 'submitted', 'published', 'archived'];
+
+  function renderOverview() {
+    renderFilterBar();
+    var el = document.getElementById('overview-content');
+    if (!el) return;
+
+    var papers = filterStatus === 'all'
+      ? PAPERS.slice()
+      : PAPERS.filter(function(p) { return p.status === filterStatus; });
+
+    if (papers.length === 0) {
+      el.innerHTML = '<p class="sk-empty-state">No papers with status "' + escHtml(filterStatus) + '".</p>';
+      return;
+    }
+
+    /* Group by status in canonical order */
+    var groups = {};
+    papers.forEach(function(p) {
+      if (!groups[p.status]) groups[p.status] = [];
+      groups[p.status].push(p);
+    });
+
+    var html = '';
+    STATUS_ORDER.forEach(function(status) {
+      if (!groups[status]) return;
+      html += '<div class="sk-group-head">' + capitalize(status) + '</div>';
+      html += groups[status].map(renderPaperCard).join('');
+    });
+
+    el.innerHTML = html;
+  }
+
+  function renderPaperCard(paper) {
+    var activeDirs = paper.directions.filter(function(d) { return d.status === 'active'; });
+    var allDirs    = paper.directions;
+
+    var dirPills = allDirs.map(function(d) {
+      return '<span class="sk-dir-pill sk-dir-pill--' + d.status + '">' +
+        '<span class="sk-dir-pill__dot"></span>' + escHtml(d.name) + '</span>';
+    }).join('');
+
+    var canPromote = activeDirs.length > 0 && paper.status !== 'published';
+
+    return '<div class="sk-paper-card" data-status="' + paper.status + '" id="card-' + paper.slug + '">' +
+      '<div class="sk-paper-card__row1">' +
+        '<span class="sk-paper-card__title">' + escHtml(paper.title) + '</span>' +
+        '<span class="sk-badge sk-badge--' + paper.status + '">' + escHtml(paper.status) + '</span>' +
+      '</div>' +
+      '<div class="sk-paper-card__meta">' +
+        (paper.currentTag ? '<div class="sk-paper-card__meta-item"><strong>Tag</strong> ' + escHtml(paper.currentTag) + '</div>' : '') +
+        '<div class="sk-paper-card__meta-item"><strong>Format</strong> ' + escHtml(paper.format) + '</div>' +
+        '<div class="sk-paper-card__meta-item"><strong>Created</strong> ' + escHtml(paper.created) + '</div>' +
+      '</div>' +
+      '<p class="sk-paper-card__abstract">' + escHtml(paper.abstract) + '</p>' +
+      (allDirs.length ? '<div class="sk-paper-card__directions">' + dirPills + '</div>' : '') +
+      '<div class="sk-paper-card__actions">' +
+        '<button class="sk-btn sk-btn--sm sk-btn--accept" onclick="navigate(\'paper/' + paper.slug + '\')">View →</button>' +
+        (canPromote ? '<button class="sk-btn sk-btn--sm sk-btn--primary" onclick="openPromoteModal(\'' + paper.slug + '\')">Promote</button>' : '') +
+        (paper.status !== 'published' && paper.status !== 'archived'
+          ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + paper.slug + '\')">New Direction</button>'
+          : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  /* ── Paper Detail ────────────────────────────────────────────────────── */
+  function renderPaperDetail(slug) {
+    var el = document.getElementById('paper-content');
+    if (!el) return;
+    var paper = PAPERS.find(function(p) { return p.slug === slug; });
+    if (!paper) {
+      el.innerHTML = '<p class="sk-error">Paper not found: ' + escHtml(slug) + '</p>';
+      return;
+    }
+
+    var activeDirs = paper.directions.filter(function(d) { return d.status === 'active'; });
+    var canPromote = activeDirs.length > 0 && paper.status !== 'published';
+
+    /* Breadcrumb */
+    var breadcrumb = '<nav class="sk-breadcrumb">' +
+      '<a href="#overview" onclick="navigate(\'overview\')">Papers</a>' +
+      '<span class="sk-breadcrumb__sep">›</span>' +
+      '<span>' + escHtml(paper.title) + '</span>' +
+    '</nav>';
+
+    /* Page actions */
+    var actions = '<div class="sk-page-actions">' +
+      (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
+      (paper.status !== 'published' && paper.status !== 'archived'
+        ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
+        : '') +
+      '<a class="sk-btn sk-btn--sm sk-btn--accept" href="#working/' + slug + '" onclick="navigate(\'working/' + slug + '\')">Working docs</a>' +
+    '</div>';
+
+    /* §I Abstract */
+    var abstractSec = '<h2 class="sk-section-head" data-section="§I">Abstract</h2>' +
+      '<p class="sk-paper-detail__abstract">' + escHtml(paper.abstract) + '</p>' +
+      '<hr class="sk-rule" />';
+
+    /* §II Version Timeline */
+    var timelineRows = '';
+    paper.versions.slice().reverse().forEach(function(v) {
+      timelineRows += '<tr class="sk-version-row--major">' +
+        '<td>' + escHtml(v.tag) + '</td>' +
+        '<td>' + escHtml(v.date) + '</td>' +
+        '<td>' + escHtml(v.note) + '</td>' +
+        '<td style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(v.lineage) + '</td>' +
+        '<td><span class="sk-class-' + v.classification + '">' + v.classification + '</span></td>' +
+        '<td>' +
+          (v.tag === paper.currentTag
+            ? '<span class="sk-secondary" style="font-size:.72rem;">current</span>'
+            : '<a class="sk-pdf-link" href="#" onclick="return false;" title="PDF not yet linked">PDF</a>') +
+        '</td>' +
+      '</tr>';
+
+      if (v.minors && v.minors.length > 0) {
+        /* Minors collapsed in a details row */
+        var minorRows = v.minors.map(function(m) {
+          return '<tr class="sk-version-row--minor">' +
+            '<td>' + escHtml(m.tag) + '</td>' +
+            '<td>' + escHtml(m.date) + '</td>' +
+            '<td>' + escHtml(m.note) + '</td>' +
+            '<td style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(m.lineage) + '</td>' +
+            '<td><span class="sk-class-minor">minor</span></td>' +
+            '<td><a class="sk-pdf-link" href="#" onclick="return false;">PDF</a></td>' +
+          '</tr>';
+        }).join('');
+
+        /* Wrap in a <tr><td colspan> containing a <details> */
+        timelineRows += '<tr><td colspan="6" style="padding:0;">' +
+          '<details class="sk-version-minors"><summary>' + v.minors.length + ' minor patch' +
+          (v.minors.length > 1 ? 'es' : '') + ' under ' + escHtml(v.tag) + '</summary>' +
+          '<table class="sk-version-table" style="margin-top:.25rem;">' +
+          minorRows + '</table></details></td></tr>';
+      }
+    });
+
+    var timeline = '<h2 class="sk-section-head" data-section="§II">Version Timeline</h2>' +
+      '<div style="overflow-x:auto;">' +
+      '<table class="sk-version-table" role="table" aria-label="Version history">' +
+      '<thead><tr>' +
+        '<th>Version</th><th>Date</th><th>Note</th><th>Source branch</th><th>Class.</th><th>PDF</th>' +
+      '</tr></thead><tbody>' + timelineRows + '</tbody></table></div>' +
+      '<hr class="sk-rule" />';
+
+    /* §III Directions */
+    var dirItems = paper.directions.map(function(d) {
+      var isActive = d.status === 'active';
+      return '<li class="sk-direction-item">' +
+        '<div>' +
+          '<div class="sk-direction-item__name">' +
+            '<span class="sk-dir-pill sk-dir-pill--' + d.status + '" style="margin-right:.5rem;">' +
+              '<span class="sk-dir-pill__dot"></span>' + escHtml(d.name) +
+            '</span>' +
+          '</div>' +
+          '<div class="sk-direction-item__branch">' + escHtml(d.branch) + '</div>' +
+          '<div style="font-size:.72rem;color:#51414f;margin-top:.15rem;">Last commit: ' + escHtml(d.lastCommit) + '</div>' +
+        '</div>' +
+        '<div class="sk-direction-item__actions">' +
+          (isActive
+            ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+                'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
+                'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
+                '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
+                'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')" ' +
+                'id="archive-' + slug + '-' + d.name + '">Archive</button>'
+            : '<span class="sk-secondary" style="font-size:.72rem;font-variant:small-caps;">archived</span>') +
+        '</div>' +
+      '</li>';
+    }).join('');
+
+    var directionsSec = '<h2 class="sk-section-head" data-section="§III">Directions</h2>' +
+      (dirItems ? '<ul class="sk-directions-list">' + dirItems + '</ul>' : '<p class="sk-empty-state">No directions yet.</p>') +
+      '<hr class="sk-rule" />';
+
+    /* §IV Working documents preview */
+    var workingDocs = (WORKING_DOCS[slug] || []).slice(0, 3);
+    var workingPreview = workingDocs.length
+      ? workingDocs.map(function(f) {
+          return '<li class="sk-working-item">' +
+            '<div class="sk-working-item__name">' + escHtml(f.name) + '</div>' +
+            '<div class="sk-working-item__updated">Updated ' + escHtml(f.updated) + '</div>' +
+            '<div class="sk-working-item__preview">' + escHtml(f.preview.split('\n')[0]) + '</div>' +
+          '</li>';
+        }).join('')
+      : '<li class="sk-empty-state" style="list-style:none;">No working documents.</li>';
+
+    var workingSec = '<h2 class="sk-section-head" data-section="§IV">Working Documents</h2>' +
+      '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:.75rem;">' +
+        'Directly-edited notes, outlines, and reference materials on the energeia branch.' +
+      '</p>' +
+      '<ul class="sk-working-list">' + workingPreview + '</ul>' +
+      (workingDocs.length
+        ? '<a class="sk-snapshot__more" href="#working/' + slug + '" onclick="navigate(\'working/' + slug + '\')">All working docs →</a>'
+        : '');
+
+    el.innerHTML = breadcrumb +
+      '<div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:var(--section-margin);">' +
+        '<div>' +
+          '<h1 style="margin-bottom:.35rem;">' + escHtml(paper.title) + '</h1>' +
+          '<span class="sk-badge sk-badge--' + paper.status + '">' + paper.status + '</span>' +
+          (paper.currentTag ? '<span class="sk-secondary" style="font-size:.78rem;margin-left:.75rem;">' + escHtml(paper.currentTag) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      actions +
+      abstractSec +
+      timeline +
+      directionsSec +
+      workingSec;
+  }
+
+  /* ── Working Documents ───────────────────────────────────────────────── */
+  function renderWorkingDocs(slug) {
+    var el = document.getElementById('working-content');
+    if (!el) return;
+    var paper = PAPERS.find(function(p) { return p.slug === slug; });
+    var docs  = WORKING_DOCS[slug] || [];
+
+    var breadcrumb = '<nav class="sk-breadcrumb">' +
+      '<a href="#overview" onclick="navigate(\'overview\')">Papers</a>' +
+      '<span class="sk-breadcrumb__sep">›</span>' +
+      '<a href="#paper/' + slug + '" onclick="navigate(\'paper/' + slug + '\')">' + escHtml(paper ? paper.title : slug) + '</a>' +
+      '<span class="sk-breadcrumb__sep">›</span>' +
+      '<span>Working</span>' +
+    '</nav>';
+
+    var items = docs.length
+      ? docs.map(function(f) {
+          return '<li class="sk-working-item">' +
+            '<div class="sk-working-item__name">' + escHtml(f.name) + '</div>' +
+            '<div class="sk-working-item__updated">Updated ' + escHtml(f.updated) + '</div>' +
+            '<pre class="sk-working-item__preview" style="white-space:pre-wrap;font-family:inherit;margin-top:.4rem;">' +
+              escHtml(f.preview.slice(0, 280)) + (f.preview.length > 280 ? '…' : '') +
+            '</pre>' +
+          '</li>';
+        }).join('')
+      : '<li class="sk-empty-state" style="list-style:none;">No working documents for this paper. Files in <code>working/' + escHtml(slug) + '/</code> on the energeia branch will appear here after the next build.</li>';
+
+    el.innerHTML = breadcrumb +
+      '<h1 style="margin-bottom:.25rem;">Working Documents</h1>' +
+      '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:var(--section-margin);">' +
+        'Direct-edit these files in <code>working/' + escHtml(slug) + '/</code> on the energeia branch. ' +
+        'Changes are committed to energeia directly — no dunamis cycle required.' +
+      '</p>' +
+      '<ul class="sk-working-list">' + items + '</ul>';
+  }
+
+  /* ── Branch list ─────────────────────────────────────────────────────── */
+  function renderBranches() {
+    var el = document.getElementById('branches-content');
+    if (!el) return;
+
+    var byPaper = {};
+    PAPERS.forEach(function(p) {
+      byPaper[p.slug] = { title: p.title, directions: p.directions };
+    });
+
+    var html = '';
+    Object.keys(byPaper).forEach(function(slug) {
+      var grp = byPaper[slug];
+      html += '<div class="sk-branch-group-head">' + escHtml(grp.title) + '</div>';
+      if (grp.directions.length === 0) {
+        html += '<p class="sk-empty-state">No branches.</p>';
+        return;
+      }
+      grp.directions.forEach(function(d) {
+        var isActive = d.status === 'active';
+        html += '<div class="sk-branch-item">' +
+          '<div>' +
+            '<div class="sk-branch-item__name">' + escHtml(d.branch) + '</div>' +
+            '<div class="sk-branch-item__meta">Last commit: ' + escHtml(d.lastCommit) +
+              ' · <span class="sk-dir-pill sk-dir-pill--' + d.status + '" style="font-size:.68rem;">' +
+                '<span class="sk-dir-pill__dot"></span>' + d.status + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sk-branch-item__actions">' +
+            (isActive
+              ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+                  'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
+                '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
+                  'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')">Archive</button>'
+              : '<span class="sk-secondary" style="font-size:.7rem;font-variant:small-caps;">archived</span>') +
+          '</div>' +
+        '</div>';
+      });
+    });
+
+    el.innerHTML = html;
+  }
+
+  /* ── Promote modal ───────────────────────────────────────────────────── */
+  var promoteState = { slug: null, direction: null, classification: null, nextTag: null, override: null };
+
+  function openPromoteModal(slug) {
+    var paper = PAPERS.find(function(p) { return p.slug === slug; });
+    if (!paper) return;
+    var activeDirs = paper.directions.filter(function(d) { return d.status === 'active'; });
+    if (activeDirs.length === 0) {
+      alert('No active directions to promote from.');
+      return;
+    }
+
+    promoteState = { slug: slug, direction: activeDirs[0].branch, classification: null, nextTag: null, override: null };
+
+    var dirOptions = activeDirs.length > 1
+      ? '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="promote-dir">Direction to promote</label>' +
+          '<select class="sk-form-select" id="promote-dir" onchange="promoteState.direction=this.value">' +
+          activeDirs.map(function(d) {
+            return '<option value="' + escHtml(d.branch) + '">' + escHtml(d.name) + ' (' + escHtml(d.branch) + ')</option>';
+          }).join('') +
+          '</select>' +
+        '</div>'
+      : '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:.75rem;">' +
+          'Direction: <strong>' + escHtml(activeDirs[0].name) + '</strong> · ' + escHtml(activeDirs[0].branch) +
+        '</p>';
+
+    var content = '<h2 class="sk-modal__title" id="sk-modal-title">Promote — ' + escHtml(paper.title) + '</h2>' +
+      '<div class="sk-modal__body">' +
+        dirOptions +
+        '<div id="promote-classify" class="sk-classify-box sk-classify-box--analyzing">' +
+          '<span class="sk-classify-box__verdict">Analyzing differences…</span>' +
+          '<span class="sk-classify-box__detail">Computing diff against current canonical (' + escHtml(paper.currentTag || 'none') + ')</span>' +
+        '</div>' +
+        '<div id="promote-override-row" class="sk-override-row" hidden>' +
+          '<span>Override:</span>' +
+          '<button class="sk-btn sk-btn--sm" id="force-major-btn" onclick="setPromoteOverride(\'major\')">Force Major</button>' +
+          '<button class="sk-btn sk-btn--sm" id="force-minor-btn" onclick="setPromoteOverride(\'minor\')">Force Minor</button>' +
+          '<button class="sk-btn sk-btn--sm" id="force-auto-btn"  onclick="setPromoteOverride(null)">Auto</button>' +
+        '</div>' +
+        '<div class="sk-form-group" id="promote-note-group" style="margin-top:1rem;">' +
+          '<label class="sk-form-label" for="promote-note">Tag annotation note (optional)</label>' +
+          '<input type="text" class="sk-form-input" id="promote-note" placeholder="e.g. Referee revisions §§III-V" />' +
+        '</div>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--primary" id="promote-confirm-btn" disabled onclick="confirmPromotion()">Confirm Promotion</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+        '<span id="promote-feedback" class="sk-inline-feedback" style="margin-left:.5rem;"></span>' +
+      '</div>';
+
+    openModal(content);
+
+    /* Mock diff analysis with 800ms delay */
+    setTimeout(function() { showPromoteClassification(paper); }, 800);
+  }
+
+  function showPromoteClassification(paper) {
+    var pct            = paper.mockDiffPct;
+    var autoClass      = pct > DIFF_THRESHOLD ? 'major' : 'minor';
+    var effectiveClass = promoteState.override || autoClass;
+
+    /* Compute next tag from current tag */
+    var nextTag = computeNextTagFromCurrent(paper.currentTag, effectiveClass);
+    promoteState.classification = effectiveClass;
+    promoteState.nextTag = nextTag;
+
+    var classBox   = document.getElementById('promote-classify');
+    var overrideRow = document.getElementById('promote-override-row');
+    var confirmBtn  = document.getElementById('promote-confirm-btn');
+
+    if (!classBox) return;
+
+    var isMajor = effectiveClass === 'major';
+    classBox.className = 'sk-classify-box sk-classify-box--' + (isMajor ? 'major' : 'minor');
+    classBox.innerHTML =
+      '<span class="sk-classify-box__verdict">' + (isMajor ? 'Major promotion' : 'Minor patch') + '</span>' +
+      '<span class="sk-classify-box__detail">' +
+        'Estimated diff: <strong>' + pct + '%</strong> changed lines ' +
+        '(threshold: ' + DIFF_THRESHOLD + '%) · ' +
+        (promoteState.override ? 'Override: ' + promoteState.override : 'Auto-classified') +
+      '</span>' +
+      '<span class="sk-classify-box__next-tag">→ ' + escHtml(nextTag) + '</span>';
+
+    if (overrideRow) overrideRow.hidden = false;
+    if (confirmBtn)  confirmBtn.disabled = false;
+  }
+
+  function setPromoteOverride(override) {
+    promoteState.override = override;
+    var paper = PAPERS.find(function(p) { return p.slug === promoteState.slug; });
+    if (paper) showPromoteClassification(paper);
+    /* Highlight the active override button */
+    ['force-major-btn','force-minor-btn','force-auto-btn'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    var active = override === 'major' ? 'force-major-btn' : override === 'minor' ? 'force-minor-btn' : 'force-auto-btn';
+    var btn = document.getElementById(active);
+    if (btn) btn.style.background = 'var(--color-quartz)';
+  }
+
+  async function confirmPromotion() {
+    var btn = document.getElementById('promote-confirm-btn');
+    var fb  = document.getElementById('promote-feedback');
+    if (btn) btn.disabled = true;
+    if (fb)  fb.textContent = 'Dispatching…';
+
+    var note = (document.getElementById('promote-note') || {}).value || '';
+
+    try {
+      var resp = await fetch('/api/energeia/promote/' + encodeURIComponent(promoteState.slug), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branch:   promoteState.direction,
+          note:     note,
+          override: promoteState.override
+        })
+      });
+
+      if (resp.ok || resp.status === 202) {
+        var data = await resp.json().catch(function() { return {}; });
+        if (fb) fb.textContent = data.message || 'Dispatched — workflow running on agora.';
+        setTimeout(closeModal, 2500);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+        if (btn) btn.disabled = false;
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* ── New Paper modal ─────────────────────────────────────────────────── */
+  function openNewPaperModal() {
+    var content = '<h2 class="sk-modal__title" id="sk-modal-title">New Paper</h2>' +
+      '<div class="sk-modal__body">' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-paper-title">Title <span style="color:var(--color-wine)">*</span></label>' +
+          '<input type="text" class="sk-form-input" id="new-paper-title" ' +
+                 'placeholder="e.g. Knowledge, Credence, and the Norm of Assertion" ' +
+                 'oninput="updateSlugPreview()" autocomplete="off" />' +
+          '<div class="sk-slug-preview" id="new-paper-slug-preview">slug: —</div>' +
+        '</div>' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-paper-abstract">Abstract</label>' +
+          '<textarea class="sk-form-textarea" id="new-paper-abstract" ' +
+                    'placeholder="One to two paragraph abstract…"></textarea>' +
+        '</div>' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-paper-format">Document format</label>' +
+          '<select class="sk-form-select" id="new-paper-format">' +
+            '<option value="article">Article</option>' +
+            '<option value="handout">Handout</option>' +
+            '<option value="abstract">Abstract</option>' +
+            '<option value="chapter">Chapter</option>' +
+            '<option value="cv">CV</option>' +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--primary" onclick="submitNewPaper()">Create Paper</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+        '<span id="new-paper-feedback" class="sk-inline-feedback" style="margin-left:.5rem;"></span>' +
+      '</div>';
+
+    openModal(content);
+  }
+
+  function updateSlugPreview() {
+    var titleEl = document.getElementById('new-paper-title');
+    var prevEl  = document.getElementById('new-paper-slug-preview');
+    if (!titleEl || !prevEl) return;
+    var slug = titleEl.value.toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    prevEl.textContent = 'slug: ' + (slug || '—');
+  }
+
+  async function submitNewPaper() {
+    var titleEl  = document.getElementById('new-paper-title');
+    var abstractEl = document.getElementById('new-paper-abstract');
+    var formatEl = document.getElementById('new-paper-format');
+    var fb       = document.getElementById('new-paper-feedback');
+
+    if (!titleEl || !titleEl.value.trim()) {
+      if (fb) fb.textContent = 'Title is required.';
+      return;
+    }
+
+    if (fb) fb.textContent = 'Creating…';
+
+    try {
+      var resp = await fetch('/api/energeia/papers', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:    titleEl.value.trim(),
+          abstract: abstractEl ? abstractEl.value.trim() : '',
+          format:   formatEl  ? formatEl.value : 'article'
+        })
+      });
+
+      if (resp.ok || resp.status === 202) {
+        var data = await resp.json().catch(function() { return {}; });
+        if (fb) fb.textContent = data.message || 'Paper created.';
+        setTimeout(closeModal, 2000);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+    }
+  }
+
+  /* ── New Direction modal ─────────────────────────────────────────────── */
+  var GREEK_NAMES = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta',
+                     'iota','kappa','lambda','mu','nu','xi','omicron','pi'];
+
+  function openDirectionModal(slug) {
+    var paper = PAPERS.find(function(p) { return p.slug === slug; });
+    if (!paper) return;
+    var existing = new Set(paper.directions.map(function(d) { return d.name; }));
+    var available = GREEK_NAMES.filter(function(n) { return !existing.has(n); });
+
+    var content = '<h2 class="sk-modal__title" id="sk-modal-title">New Direction</h2>' +
+      '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
+        'Creates a new dunamis branch for <em>' + escHtml(paper.title) + '</em>. ' +
+        'Each direction is an independent path toward promotion.' +
+      '</p>' +
+      '<div class="sk-modal__body">' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-dir-name">Direction name</label>' +
+          '<select class="sk-form-select" id="new-dir-name">' +
+          available.map(function(n) {
+            return '<option value="' + n + '">' + n + ' (dunamis/' + escHtml(slug) + '-' + n + ')</option>';
+          }).join('') +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--primary" onclick="submitNewDirection(\'' + slug + '\')">Create Direction</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+        '<span id="new-dir-feedback" class="sk-inline-feedback" style="margin-left:.5rem;"></span>' +
+      '</div>';
+
+    openModal(content);
+  }
+
+  async function submitNewDirection(slug) {
+    var nameEl = document.getElementById('new-dir-name');
+    var fb     = document.getElementById('new-dir-feedback');
+    if (!nameEl || !nameEl.value) return;
+    if (fb) fb.textContent = 'Creating…';
+
+    try {
+      var resp = await fetch('/api/energeia/directions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, name: nameEl.value })
+      });
+
+      if (resp.ok || resp.status === 202) {
+        var data = await resp.json().catch(function() { return {}; });
+        if (fb) fb.textContent = data.message || 'Direction created.';
+        setTimeout(closeModal, 2000);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+    }
+  }
+
+  /* ── Compile draft ───────────────────────────────────────────────────── */
+  async function compileDraft(slug, direction) {
+    var btnId = 'compile-' + slug + '-' + direction;
+    var btn   = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+
+    try {
+      var resp = await fetch('/api/energeia/compile-draft/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      if (resp.ok || resp.status === 202) {
+        if (btn) btn.textContent = 'Dispatched ✓';
+      } else {
+        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      }
+    } catch (e) {
+      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+    }
+  }
+
+  /* ── Archive direction ───────────────────────────────────────────────── */
+  async function archiveDirection(slug, direction) {
+    if (!confirm('Archive direction "' + direction + '"? The branch is kept; the worktree and Scrivener project will be moved to archive.')) return;
+
+    var btnId = 'archive-' + slug + '-' + direction;
+    var btn   = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.textContent = 'Archiving…'; }
+
+    try {
+      var resp = await fetch('/api/energeia/archive/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      if (resp.ok || resp.status === 202) {
+        if (btn) btn.textContent = 'Queued ✓';
+      } else {
+        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      }
+    } catch (e) {
+      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+    }
+  }
+
+  /* ── Settings: Register daemon token ────────────────────────────────── */
+  async function registerDaemonToken() {
+    var input = document.getElementById('daemon-token-input');
+    var fb    = document.getElementById('daemon-register-feedback');
+    if (!input || !input.value.trim()) {
+      if (fb) fb.textContent = 'Enter a token first.';
+      return;
+    }
+    var token = input.value.trim();
+    if (!/^[0-9a-f-]{36}$/.test(token)) {
+      if (fb) fb.textContent = 'Token must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).';
+      return;
+    }
+    if (fb) fb.textContent = 'Registering…';
+
+    try {
+      var resp = await fetch('/api/energeia/daemon/register', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, mac_id: navigator.userAgent.slice(0, 40) })
+      });
+      if (resp.ok || resp.status === 201) {
+        if (fb) fb.textContent = 'Token registered. Daemon should connect within ~10s.';
+        var statusEl = document.getElementById('daemon-status');
+        if (statusEl) statusEl.textContent = 'Daemon: token registered — waiting for first connection';
+        input.value = '';
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+    }
+  }
+
+  /* ── Modal system ────────────────────────────────────────────────────── */
+  function openModal(html) {
+    var overlay = document.getElementById('sk-modal-overlay');
+    var content = document.getElementById('sk-modal-content');
+    if (!overlay || !content) return;
+    content.innerHTML = html;
+    overlay.hidden = false;
+    /* Trap focus */
+    var firstFocusable = overlay.querySelector('input, select, textarea, button');
+    if (firstFocusable) firstFocusable.focus();
+  }
+
+  function closeModal() {
+    var overlay = document.getElementById('sk-modal-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('sk-modal-overlay')) closeModal();
+  }
+
+  /* ── Tag computation ─────────────────────────────────────────────────── */
+  function computeNextTagFromCurrent(currentTag, classification) {
+    if (!currentTag || currentTag === 'null') {
+      return classification === 'major' ? 'style-I' : 'style-I.1';
+    }
+    var majorRE = /^style-([IVXLCDM]+)$/;
+    var minorRE = /^style-([IVXLCDM]+)\.(\d+)$/;
+
+    if (classification === 'major') {
+      /* Find the latest major tag across all papers' versions */
+      var latestMajorTag = currentTag;
+      PAPERS.forEach(function(p) {
+        p.versions.forEach(function(v) {
+          if (majorRE.test(v.tag)) latestMajorTag = v.tag;
+        });
+      });
+      var m = majorRE.exec(latestMajorTag);
+      if (m) return 'style-' + intToRoman(romanToInt(m[1]) + 1);
+      return 'style-I';
+    } else {
+      /* Minor: add .N under currentTag */
+      var majorMatch = majorRE.exec(currentTag);
+      if (!majorMatch) {
+        var mm = minorRE.exec(currentTag);
+        if (mm) return 'style-' + mm[1] + '.' + (parseInt(mm[2], 10) + 1);
+        return currentTag + '.1';
+      }
+      /* Look for existing minors under this major */
+      var existingMinors = [];
+      PAPERS.forEach(function(p) {
+        p.versions.forEach(function(v) {
+          (v.minors || []).forEach(function(min) {
+            var mx = minorRE.exec(min.tag);
+            if (mx && mx[1] === majorMatch[1]) existingMinors.push(parseInt(mx[2], 10));
+          });
+        });
+      });
+      var maxMinor = existingMinors.length ? Math.max.apply(null, existingMinors) : 0;
+      return 'style-' + majorMatch[1] + '.' + (maxMinor + 1);
+    }
+  }
+
+  function romanToInt(s) {
+    var V = { I:1, V:5, X:10, L:50, C:100, D:500, M:1000 };
+    var val = 0;
+    for (var i = 0; i < s.length; i++) {
+      var cur = V[s[i]] || 0, nxt = V[s[i+1]] || 0;
+      val += cur < nxt ? -cur : cur;
+    }
+    return val;
+  }
+
+  function intToRoman(n) {
+    var map = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],
+               [50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+    var out = '';
+    map.forEach(function(pair) { while (n >= pair[0]) { out += pair[1]; n -= pair[0]; } });
+    return out;
+  }
+
+  /* ── Utilities ───────────────────────────────────────────────────────── */
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function capitalize(s) {
+    return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+  }
+
+  /* ── Keyboard accessibility ──────────────────────────────────────────── */
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  /* ── Service worker ──────────────────────────────────────────────────── */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/sw.js').catch(function(err) {
+        console.warn('energeia: SW registration failed —', err);
+      });
+    });
+  }
+
+  /* ── PWA install prompt ──────────────────────────────────────────────── */
+  var deferredInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    var toast = document.getElementById('sk-install-toast');
+    if (toast) toast.hidden = false;
+  });
+
+  window.addEventListener('appinstalled', function() {
+    deferredInstallPrompt = null;
+    var toast = document.getElementById('sk-install-toast');
+    if (toast) toast.hidden = true;
+  });
+
+  /* ── Init ────────────────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', function() {
+    initRouter();
+
+    var installBtn = document.getElementById('sk-install-btn');
+    var dismissBtn = document.getElementById('sk-install-dismiss');
+    var toast      = document.getElementById('sk-install-toast');
+
+    if (installBtn) {
+      installBtn.addEventListener('click', function() {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then(function() {
+          deferredInstallPrompt = null;
+          if (toast) toast.hidden = true;
+        });
+      });
+    }
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', function() { if (toast) toast.hidden = true; });
+    }
+  });
+  </script>
+</body>
+</html>

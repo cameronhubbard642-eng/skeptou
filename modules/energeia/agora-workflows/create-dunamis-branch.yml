@@ -1,0 +1,55 @@
+name: Create dunamis branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Paper slug (e.g. epistemic-akrasia)
+        required: true
+        type: string
+      direction_name:
+        description: Greek direction name (e.g. alpha, beta, gamma)
+        required: true
+        type: string
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agora
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch energeia branch
+        run: git fetch origin energeia
+
+      - name: Validate inputs
+        run: |
+          SLUG="${{ inputs.slug }}"
+          DIR="${{ inputs.direction_name }}"
+          if ! echo "$SLUG" | grep -qE '^[a-z0-9][a-z0-9-]{0,59}$'; then
+            echo "Invalid slug: $SLUG" && exit 1
+          fi
+          if ! echo "$DIR" | grep -qE '^[a-z]+$'; then
+            echo "Invalid direction name: $DIR" && exit 1
+          fi
+          BRANCH="dunamis/${SLUG}-${DIR}"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Check branch does not already exist
+        run: |
+          if git ls-remote --exit-code origin "$BRANCH" 2>/dev/null; then
+            echo "Branch $BRANCH already exists — skipping creation"
+            exit 0
+          fi
+
+      - name: Create branch from energeia
+        run: |
+          git checkout -b "$BRANCH" origin/energeia
+          git push origin "$BRANCH"
+          echo "Created branch $BRANCH from origin/energeia"

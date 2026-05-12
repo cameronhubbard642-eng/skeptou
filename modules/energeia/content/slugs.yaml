@@ -1,0 +1,25 @@
+# slugs.yaml — Energeia canonical paper registry
+# Lives on agora:energeia branch. Authoritative list of all papers + metadata.
+# Updated by Workers on paper creation; committed to energeia branch.
+
+papers:
+  - slug: epistemic-akrasia
+    title: "Epistemic Akrasia and the Norms of Credence"
+    status: drafting
+    current_tag: style-II
+    formats: [article]
+    created: "2026-01-15"
+
+  - slug: testimony-trust
+    title: "Testimony, Trust, and the Transfer of Epistemic Authority"
+    status: submitted
+    current_tag: style-III
+    formats: [article]
+    created: "2025-08-01"
+
+  - slug: epistemic-cowardice
+    title: "Against Epistemic Cowardice"
+    status: published
+    current_tag: style-IV
+    formats: [article]
+    created: "2024-05-01"

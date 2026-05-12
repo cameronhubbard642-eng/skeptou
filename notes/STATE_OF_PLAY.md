@@ -13,6 +13,16 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 
 - `CLAUDE.md` authored and placed at project root
 - `ARCHITECTURE.md` filed at project root covering all six Phase 0 topics:
+- `modules/energeia/` baseline implementation filed (2026-05-12):
+  - 4-view SPA (`index.html`): Papers overview, Paper detail, Working docs, Branches + Settings
+  - Hash router: `#overview`, `#paper/<slug>`, `#working/<slug>`, `#branches`, `#settings`
+  - Promote modal with diff-percentage classifier preview (10% threshold; Force Major/Minor override)
+  - 8 Cloudflare Pages Function Workers (new paper, promote, new direction, archive, compile-draft, actions/next, actions/complete, daemon/register)
+  - 4 agora GitHub Actions workflows (promote-paper, compile-draft, compile-canonical, create-dunamis-branch)
+  - Local Python daemon (file watcher + action polling + Scrivener stubs)
+  - macOS `install.command` installer (launchd plist + pip deps + agora clone + token generation)
+  - `deploy-energeia.yml` CI workflow
+  - PWA manifest + service worker + ε icons
   - Monorepo decision (recommendation: monorepo, pending Cam approval)
   - Branch / PR / tag conventions for `energeia`
   - Cloudflare Access policy patterns (per-subdomain; Service Tokens for Worker-to-Worker)
@@ -25,6 +35,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 
 - Cam review of `ARCHITECTURE.md`
 - `specs/phronesis.md` finalized (2026-05-12); all Cam decisions resolved; ready for engineer brief
+- `modules/energeia/` baseline implementation (PR open); awaiting Cam review before Phase 3+ polish
 
 ## What is blocked
 
