@@ -225,58 +225,85 @@ async function main() {
   console.log('sync-vault: done');
 }
 
-/* ── Task extraction from projects/*.md plan files ─────────────────────── */
+/* ── Git Trees API — single call returns full recursive tree ─────────────── */
+function ghGetTree() {
+  return new Promise((resolve, reject) => {
+    const url  = `https://api.github.com/repos/${REPO}/git/trees/HEAD?recursive=1`;
+    const opts = {
+      headers: {
+        'Authorization': `Bearer ${PAT}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'phronesis-sync'
+      }
+    };
+    https.get(url, opts, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error(`GET git/trees: ${res.statusCode}`));
+        try { resolve(JSON.parse(body)); }
+        catch (e) { reject(new Error('JSON parse error for git/trees: ' + e.message)); }
+      });
+    }).on('error', reject);
+  });
+}
+
+/* ── Task extraction — full subtree walk via Git Trees API ─────────────── */
 /* Convention:
- *   - Tasks are `- [ ]` / `- [x]` lines in projects/<slug>-plan.md files
- *   - Priority prefix: 🔺 high · ⏫ medium · 🔼 low
- *   - Due date: `(due: YYYY-MM-DD)` inline annotation
+ *   - Tasks are `- [ ]` / `- [x]` / `- [/]` lines in any .md file
+ *   - Priority emojis anywhere in title: 🔺 high · ⏫ medium · 🔼 low
+ *   - Due date: `📅 YYYY-MM-DD` or `(due: YYYY-MM-DD)` inline
  *   - Task ID = base64url(vaultRelativePath + '\x00' + title)
- *     where vaultRelativePath does NOT include VAULT_SUBTREE prefix —
- *     the accept/complete Workers apply VAULT_SUBTREE themselves.
+ *     vaultRelativePath does NOT include VAULT_SUBTREE — Workers apply it.
  */
 async function extractTasks() {
-  const projectsVaultPath = vaultPath('projects');
-  const listing = await fetchDirListing(projectsVaultPath);
-  const planFiles = listing.filter(f => f.name && f.name.endsWith('-plan.md'));
+  const treeData      = await ghGetTree();
+  const subtreePrefix = VAULT_SUBTREE ? VAULT_SUBTREE + '/' : '';
+
+  const mdFiles = (treeData.tree || []).filter(function(item) {
+    if (item.type !== 'blob') return false;
+    if (!item.path.endsWith('.md')) return false;
+    if (subtreePrefix && !item.path.startsWith(subtreePrefix)) return false;
+    return !item.path.split('/').some(function(seg) { return seg.startsWith('.'); });
+  });
 
   const tasks = [];
 
-  for (const f of planFiles) {
+  for (const item of mdFiles) {
     try {
-      const content = await fetchFile(f.path);
+      const content = await fetchFile(item.path);
       if (!content) continue;
 
-      /* vaultRelativePath is always projects/<name>, regardless of VAULT_SUBTREE */
-      const vaultRelativePath = 'projects/' + f.name;
-      const slug = f.name.replace(/-plan\.md$/, '');
+      const vaultRelativePath = subtreePrefix ? item.path.slice(subtreePrefix.length) : item.path;
+      const fileName = vaultRelativePath.split('/').pop().replace(/\.md$/, '');
+      const project  = humanizeSlug(fileName.replace(/-plan$/, '').replace(/^opp-/, ''));
 
       const lines = content.split('\n');
       for (const line of lines) {
-        const m = /^- \[([ x])\] (.+)$/.exec(line.trim());
+        const m = /^- \[([ x\/])\] (.+)$/.exec(line.trim());
         if (!m) continue;
 
         const complete = m[1] === 'x';
         let titleRaw   = m[2].trim();
 
-        /* Strip priority emoji prefix */
-        let priority = 'low';
-        if (titleRaw.startsWith('🔺'))      { priority = 'high';   titleRaw = titleRaw.slice('🔺'.length).trim(); }
-        else if (titleRaw.startsWith('⏫')) { priority = 'medium'; titleRaw = titleRaw.slice('⏫'.length).trim(); }
-        else if (titleRaw.startsWith('🔼')) { priority = 'low';    titleRaw = titleRaw.slice('🔼'.length).trim(); }
-
-        /* Strip due date annotation */
+        /* Due date: 📅 YYYY-MM-DD or (due: YYYY-MM-DD) */
         let due = null;
-        const dueM = /\(due:\s*(\d{4}-\d{2}-\d{2})\)/.exec(titleRaw);
+        const dueM = /(?:📅\s*|\(due:\s*)(\d{4}-\d{2}-\d{2})\)?/.exec(titleRaw);
         if (dueM) { due = dueM[1]; titleRaw = titleRaw.replace(dueM[0], '').trim(); }
 
-        /* ID matches client-side taskId() and Worker decodeTaskId() */
+        /* Priority detection (anywhere in title) then strip emojis */
+        let priority = 'low';
+        if (/🔺/.test(titleRaw))      priority = 'high';
+        else if (/⏫/.test(titleRaw)) priority = 'medium';
+        titleRaw = titleRaw.replace(/[🔺⏫🔼]/gu, '').trim();
+
         const id = Buffer.from(vaultRelativePath + '\x00' + titleRaw).toString('base64url');
 
-        tasks.push({ id, title: titleRaw, project: humanizeSlug(slug),
-                     filePath: vaultRelativePath, due, priority, complete });
+        tasks.push({ id, title: titleRaw, project, filePath: vaultRelativePath,
+                     due, priority, complete });
       }
     } catch (e) {
-      console.error(`sync-vault: task parse error ${f.path} —`, e.message);
+      console.error(`sync-vault: task parse error ${item.path} —`, e.message);
     }
   }
 

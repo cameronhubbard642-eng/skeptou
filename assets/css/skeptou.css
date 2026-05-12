@@ -752,6 +752,41 @@ details.sk-collapsed[open] > summary::before {
   opacity: 0.35;
 }
 
+/* ── Task priority / due icons ─────────────────────────────────────────── */
+.sk-icon-priority-high  { color: var(--color-wine);       }
+.sk-icon-priority-med   { color: var(--color-mauve);      }
+.sk-icon-priority-low   { color: var(--color-lightSteel); }
+
+.sk-icon-priority-high svg,
+.sk-icon-priority-med  svg,
+.sk-icon-priority-low  svg {
+  display: inline-block;
+  vertical-align: -0.15em;
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+}
+
+.sk-icon-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  color: var(--color-quartz);
+  font-size: 0.8em;
+}
+
+.sk-icon-due svg {
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+  flex-shrink: 0;
+}
+
+.sk-icon-due--overdue {
+  color: var(--color-wine);
+  font-weight: 600;
+}
+
 /* Snapshot items with checkbox */
 .sk-snapshot__check {
   display: flex;

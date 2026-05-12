@@ -121,9 +121,9 @@
     <section id="view-tasks" class="sk-view" role="main" aria-label="Tasks">
       <h1 style="margin-bottom: var(--section-margin);">Tasks</h1>
       <p class="sk-secondary" style="font-size:.82rem;margin-bottom:var(--section-margin);">
-        Sourced from <code>- [ ]</code> items in vault project plan files
-        (<code>projects/&lt;slug&gt;-plan.md</code>). Priority prefix: 🔺 high · ⏫ medium · 🔼 low.
-        Due date annotation: <code>(due: YYYY-MM-DD)</code>.
+        Sourced from <code>- [ ]</code> items across the O&amp;P vault.
+        Priority emoji (anywhere in title): 🔺 high · ⏫ medium · 🔼 low.
+        Due date: <code>📅 YYYY-MM-DD</code> inline.
       </p>
       <div class="sk-sort-bar" role="toolbar" aria-label="Sort and group tasks">
         <label class="sk-smallcaps">Sort
@@ -183,6 +183,33 @@
   /* In production, busy-scores.json and manifest-stats.json are fetched at load.    */
 
   'use strict';
+
+  /* ── Heroicons inline SVGs ────────────────────────────────────────────── */
+  var ICONS = {
+    /* calendar outline 24px — due date */
+    calendar: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="13" height="13" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>',
+    /* exclamation-triangle solid 24px — high priority */
+    high: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /></svg>',
+    /* chevrons-up solid 24px — medium priority */
+    medium: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M11.47 7.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /><path fill-rule="evenodd" d="M11.47 3.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /></svg>',
+    /* chevron-up solid 24px — low priority */
+    low: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M11.47 7.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /></svg>'
+  };
+
+  /* ── Task icon helpers (module-scope so both renderTasks + renderSnapshots can use them) */
+  function taskPriIcon(priority) {
+    var iconKey = (priority === 'high' || priority === 'medium') ? priority : 'low';
+    var cls     = 'sk-icon-priority-' + iconKey;
+    return '<span class="' + cls + '" title="' + (priority || 'low') + ' priority">' + ICONS[iconKey] + '</span>';
+  }
+
+  function taskDueIcon(due) {
+    if (!due) return '';
+    var today   = new Date().toISOString().slice(0, 10);
+    var overdue = due < today;
+    return '<span class="sk-icon-due' + (overdue ? ' sk-icon-due--overdue' : '') + '" title="Due ' + due + '">' +
+      ICONS.calendar + ' ' + due + '</span>';
+  }
 
   /* ── Event type definitions (mirrors aggregate-busy.js + generate-viz.js) */
   var EVENT_TYPES = [
@@ -588,7 +615,7 @@
               '</label>' +
               '<a class="sk-snapshot__item-link" href="#tasks" onclick="navigate(\'tasks\')">' +
                 '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
-                '<span class="sk-snapshot__item-meta">' + escHtml(t.due) + '</span>' +
+                '<span class="sk-snapshot__item-meta">' + taskDueIcon(t.due) + '</span>' +
               '</a>' +
             '</div>';
           }).join('')
@@ -864,20 +891,18 @@
     });
 
     function taskRow(t) {
-      var done     = !!completedTasks[t.id];
-      var glyph    = t.priority === 'high' ? '🔺' : t.priority === 'medium' ? '⏫' : '🔼';
-      var priClass = 'sk-priority-' + (t.priority || 'low');
+      var done = !!completedTasks[t.id];
       return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
         '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
           '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
             ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
         '</label>' +
         '<span class="sk-task-item__title">' +
-          '<span class="' + priClass + '" aria-label="' + escHtml(t.priority) + ' priority">' + glyph + '</span> ' +
+          taskPriIcon(t.priority || 'low') + ' ' +
           escHtml(t.title) +
           (t.project ? ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>' : '') +
         '</span>' +
-        '<span class="sk-task-item__due">' + escHtml(t.due || '') + '</span>' +
+        '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
       '</li>';
     }
 

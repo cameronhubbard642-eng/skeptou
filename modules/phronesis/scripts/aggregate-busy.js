@@ -239,6 +239,21 @@ function unfoldICS(raw) {
     .filter(Boolean);
 }
 
+/* ── Markdown calendar parser ────────────────────────────────────────────── */
+/* Format: ## Section\n- YYYY-MM-DD (Day)  [HH:MM–HH:MM  ]Title            */
+/* Section headings are ignored; type classification uses keyword inference.  */
+function parseCalendarSync(raw) {
+  const lines = raw.split('\n');
+  for (const line of lines) {
+    const m = /^-\s+(\d{4}-\d{2}-\d{2})\s+\([^)]+\)\s+(?:\d{1,2}:\d{2}[–\-]\d{1,2}:\d{2}\s+)?(.+)$/.exec(line.trim());
+    if (!m) continue;
+    const dateStr = m[1];
+    const title   = m[2].trim();
+    const type    = categorize({ title, categories: [] });
+    addTypedScore(dateStr, type, 1);
+  }
+}
+
 /* ── COMMITMENTS.md parser ───────────────────────────────────────────────── */
 /* Format: markdown with date headings (## YYYY-MM-DD or ## [[YYYY-MM-DD]])  */
 /* and task lines: - [ ] task text [priority emoji]                           */
@@ -255,8 +270,8 @@ function parseCommitments(raw) {
       continue;
     }
 
-    /* Task line: - [ ] text or - [x] text */
-    const taskMatch = /^-\s+\[( |x)\]\s+(.*)$/.exec(line);
+    /* Task line: - [ ] text, - [x] text, or - [/] (in-progress, treated as incomplete) */
+    const taskMatch = /^-\s+\[([ x\/])\]\s+(.*)$/.exec(line);
     if (!taskMatch) continue;
 
     const done = taskMatch[1] === 'x';
@@ -286,12 +301,10 @@ function priorityWeight(text) {
 /* ── Main ────────────────────────────────────────────────────────────────── */
 let parsed = 0;
 
-/* TODO(pending-cam-confirm): parseICS() does not handle the markdown calendar
- * format.  Replace with parseCalendarSync() once Cam confirms (ambiguity A).
- * For now, skip silently if calendar-sync.md is present rather than crashing. */
 if (fs.existsSync(CAL_PATH)) {
   try {
-    console.warn('aggregate-busy: calendar-sync.md found but markdown parser not yet implemented — skipping calendar scores (see ambiguity A)');
+    parseCalendarSync(fs.readFileSync(CAL_PATH, 'utf8'));
+    console.log('aggregate-busy: parsed calendar-sync.md');
     parsed++;
   } catch (e) {
     console.error('aggregate-busy: calendar-sync.md parse error —', e.message);

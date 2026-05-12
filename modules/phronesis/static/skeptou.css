@@ -752,6 +752,41 @@ details.sk-collapsed[open] > summary::before {
   opacity: 0.35;
 }
 
+/* ── Task priority / due icons ─────────────────────────────────────────── */
+.sk-icon-priority-high  { color: var(--color-wine);       }
+.sk-icon-priority-med   { color: var(--color-mauve);      }
+.sk-icon-priority-low   { color: var(--color-lightSteel); }
+
+.sk-icon-priority-high svg,
+.sk-icon-priority-med  svg,
+.sk-icon-priority-low  svg {
+  display: inline-block;
+  vertical-align: -0.15em;
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+}
+
+.sk-icon-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  color: var(--color-quartz);
+  font-size: 0.8em;
+}
+
+.sk-icon-due svg {
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+  flex-shrink: 0;
+}
+
+.sk-icon-due--overdue {
+  color: var(--color-wine);
+  font-weight: 600;
+}
+
 /* Snapshot items with checkbox */
 .sk-snapshot__check {
   display: flex;
@@ -842,6 +877,54 @@ details.sk-collapsed[open] > summary::before {
 
 .sk-install-toast__dismiss:hover {
   color: var(--color-wine, #722f37);
+}
+
+/* ── Viz legend (type filter swatches) ── */
+.sk-viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.sk-legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.12s ease, border-color 0.12s ease;
+  font-family: inherit;
+  font-size: 0.71rem;
+  line-height: 1;
+}
+
+.sk-legend-swatch.active {
+  opacity: 1;
+}
+
+.sk-legend-swatch:hover {
+  opacity: 0.8;
+  border-color: rgba(145, 95, 109, 0.3);
+}
+
+.sk-legend-color {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sk-legend-label {
+  font-variant-caps: small-caps;
+  color: var(--color-quartz, #51414f);
+  letter-spacing: 0.04em;
+  user-select: none;
 }
 
 /* ── Mobile responsive ── */
