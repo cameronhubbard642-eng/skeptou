@@ -117,19 +117,22 @@ jobs:
       # ── Step 7: Deploy to Cloudflare Pages ───────────────────────────────
       # Requires: CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID repo secrets.
       # Provision via: GitHub repo → Settings → Secrets and variables → Actions.
+      #
+      # NOTE: cloudflare/pages-action@v1 is intentionally NOT used here.
+      # The action hard-codes `wrangler pages publish` regardless of wranglerVersion,
+      # and `pages publish` does not bundle a functions/ directory inside the upload
+      # directory — the JS files end up as static assets instead of Pages Functions,
+      # causing POST /api/* to return 405 from the static file server.
+      #
+      # Running `wrangler pages deploy .` with working-directory: dist/ means
+      # wrangler's CWD is dist/, so it finds ./functions/ right there and bundles
+      # the three ES-module handlers as Pages Functions before uploading.
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: phronesis
-          directory: modules/phronesis/dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          # wrangler 3 required: v2 (action default) treats functions/ as static
-          # files and skips bundling entirely — POST /api/* returns 405 from the
-          # static file server.  wrangler 3 (`pages deploy`) correctly detects
-          # functions/ inside the upload directory and compiles them as Pages Functions.
-          wranglerVersion: '3'
+        working-directory: modules/phronesis/dist
+        run: npx wrangler@3 pages deploy . --project-name phronesis --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     # ── Secrets registry ────────────────────────────────────────────────────
     # GitHub Actions repo secrets (Settings → Secrets → Actions):
