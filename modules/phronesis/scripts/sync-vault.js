@@ -395,16 +395,14 @@ function parsePriority(raw) {
   return 'medium';
 }
 
-/* ── Project extraction (proj-*.md files from vault) ─────────────────────── */
+/* ── Project extraction (non-opp .md files from vault projects/ dir) ─────── */
 /* Builds src/data/manifest.json: { active: [{title, type, status, ...}] }   */
-/* Only `proj-*.md` files are included. Cam confirmed: advance-to-candidacy   */
-/* and similar files without type: project are tracked separately.            */
+/* All non-opp-*.md files are candidates; status: done|reference are skipped. */
 async function extractProjects() {
   const listing = await fetchDirListing(vaultPath(OPP_VAULT_DIR));
   const allMd     = listing.filter(f => f.name && f.name.endsWith('.md'));
-  const projFiles = allMd.filter(f => f.name.startsWith('proj-'));
-  const otherMd   = allMd.filter(f => !f.name.startsWith('opp-') && !f.name.startsWith('proj-'));
-  if (otherMd.length) console.log(`sync-vault: non-opp non-proj .md files in projects/ — ${otherMd.map(f => f.name).join(', ')}`);
+  /* Include every non-opp .md file; opp-*.md are handled by extractOpportunities() */
+  const projFiles = allMd.filter(f => !f.name.startsWith('opp-'));
 
   console.log(`sync-vault: found ${projFiles.length} proj-*.md files in vault`);
   const projects = [];
