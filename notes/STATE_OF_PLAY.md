@@ -1,7 +1,7 @@
 # STATE_OF_PLAY — Sképtou
 
 **Authoritative project state. Updated by Lead Dev / Architect after each phase milestone.**  
-**Last updated:** 2026-05-11
+**Last updated:** 2026-05-12
 
 ---
 
@@ -13,18 +13,8 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 
 - `CLAUDE.md` authored and placed at project root
 - `ARCHITECTURE.md` filed at project root covering all six Phase 0 topics:
-- `modules/energeia/` baseline implementation filed (2026-05-12):
-  - 4-view SPA (`index.html`): Papers overview, Paper detail, Working docs, Branches + Settings
-  - Hash router: `#overview`, `#paper/<slug>`, `#working/<slug>`, `#branches`, `#settings`
-  - Promote modal with diff-percentage classifier preview (10% threshold; Force Major/Minor override)
-  - 8 Cloudflare Pages Function Workers (new paper, promote, new direction, archive, compile-draft, actions/next, actions/complete, daemon/register)
-  - 4 agora GitHub Actions workflows (promote-paper, compile-draft, compile-canonical, create-dunamis-branch)
-  - Local Python daemon (file watcher + action polling + Scrivener stubs)
-  - macOS `install.command` installer (launchd plist + pip deps + agora clone + token generation)
-  - `deploy-energeia.yml` CI workflow
-  - PWA manifest + service worker + ε icons
   - Monorepo decision (recommendation: monorepo, pending Cam approval)
-  - Branch / PR / tag conventions for `energeia`
+  - Branch / PR / tag conventions for `energeia` (superseded by `specs/energeia.md` §II — worktree model)
   - Cloudflare Access policy patterns (per-subdomain; Service Tokens for Worker-to-Worker)
   - `graphe` as shared bibliography resource
   - CSS design-token sharing strategy
@@ -35,7 +25,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 
 - Cam review of `ARCHITECTURE.md`
 - `specs/phronesis.md` finalized (2026-05-12); all Cam decisions resolved; ready for engineer brief
-- `modules/energeia/` baseline implementation (PR open); awaiting Cam review before Phase 3+ polish
+- `specs/energeia.md` finalized at rev 4 (2026-05-12); mirror-back eliminated; major/minor promotion classifier; working/ auto-commit; all Cam decisions resolved; ready for engineer brief
 
 ## What is blocked
 
@@ -54,7 +44,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 3. DevOps: `phronesis.skeptou.com` empty placeholder deploy + Access policy attached
 4. QA: Verify Access gating blocks unauthenticated requests from all device/browser combos
 5. QA: Verify iCloud email flows post-migration (send + receive from `@skeptou.com`)
-6. Lead Dev: Write `specs/phronesis.md` after Phase 1 infrastructure clears
+6. Dispatch: Fire PM-O&P sub-routing action (opp-*.md schema extension) per `specs/phronesis.md §IX`
 
 ## Standing constraints active
 
@@ -71,7 +61,9 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 | 3 | Cloudflare Access identity provider | Phase 1 |
 | 4 | iCloud .ics export: filename + vault path | Phase 2 build script |
 | 5 | Canonical plan-file directory in O&P vault (assumed: projects/) | Phase 2 Worker |
-| 6 | Slot 15 name and function | Phase 5+ |
-| 5 | Borges public-web licensing | Phase 3 (apex) |
-| 6 | Parchment contrast adjustment needed? | Phase 3 QA |
-| 7 | Line-height by medium adjustments | Module specs |
+| 6 | energeia: bibliography option A (main:vault/ sparse checkout) vs B (energeia branch master.bib) | Phase 4 compile pipeline |
+| 7 | energeia: Cam's active papers need migrating to agora/papers/ before Phase 4 ships | Phase 4 pre-condition |
+| 8 | Slot 15 name and function | Phase 5+ |
+| 9 | Borges public-web licensing | Phase 3 (apex) |
+| 10 | Parchment contrast adjustment needed? | Phase 3 QA |
+| 11 | Line-height by medium adjustments | Module specs |

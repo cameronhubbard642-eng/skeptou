@@ -188,70 +188,91 @@ async function main() {
     console.error('sync-vault: error listing vault root —', e.message);
   }
 
-  /* Write manifest-stats.json from opp frontmatter for dashboard counts */
+  /* Write manifest-stats.json + opportunities.json from synced opp markdown */
+  /* Agora status conventions for opp files:
+   *   "active"             → Cam hasn't decided yet   → pending-cam-decision
+   *   "confirmed-pursuing" → Cam accepted via Worker  → confirmed-pursuing
+   *   "declined"           → Cam rejected via Worker  → declined           */
   try {
     const oppDir = path.join(ROOT, OPP_DIR);
     if (fs.existsSync(oppDir)) {
       const oppFiles = fs.readdirSync(oppDir).filter(f => f.endsWith('.md'));
       let pending = 0, confirmed = 0, active = 0;
+      const opportunities = [];
 
       for (const f of oppFiles) {
-        const raw = fs.readFileSync(path.join(oppDir, f), 'utf8');
-        const status = extractFrontmatterField(raw, 'status');
+        const raw    = fs.readFileSync(path.join(oppDir, f), 'utf8');
+        const rawStatus = extractFrontmatterField(raw, 'status') || 'active';
+        /* Map vault status → phronesis decision status */
+        const status = rawStatus === 'active'             ? 'pending-cam-decision'
+                     : rawStatus === 'confirmed-pursuing' ? 'confirmed-pursuing'
+                     : rawStatus === 'declined'           ? 'declined'
+                     :                                     'pending-cam-decision';
+
+        /* Slug: derive from filename, never from frontmatter slug field which
+         * includes the opp- prefix (frontmatter slug = "opp-apa-central-2027"
+         * but the accept/reject Workers expect slug WITHOUT the prefix). */
+        const slug = f.replace(/^opp-/, '').replace(/\.md$/, '');
+
+        /* Prestige: agora stores a 0-100 score; convert to label for the card */
+        const prestigeScore = Number(extractFrontmatterField(raw, 'prestige') || 0);
+        const prestige = prestigeText(prestigeScore);
+
+        opportunities.push({
+          slug,
+          title:       extractFrontmatterField(raw, 'title') || humanizeSlug(slug),
+          /* opportunity_class is more descriptive than generic "opportunity" */
+          type:        extractFrontmatterField(raw, 'opportunity_class') ||
+                       extractFrontmatterField(raw, 'type') || 'opportunity',
+          status,
+          deadline:    extractFrontmatterField(raw, 'deadline') || null,
+          prestige,
+          requirement: extractFrontmatterField(raw, 'requirement') || '',
+          /* agora opp files have no description field; use next_action as proxy */
+          description: extractFrontmatterField(raw, 'next_action') || ''
+        });
+
         if (status === 'pending-cam-decision') pending++;
         if (status === 'confirmed-pursuing')   { confirmed++; active++; }
       }
 
-      const statsPath = path.join(ROOT, 'src', 'data', 'manifest-stats.json');
-      fs.mkdirSync(path.dirname(statsPath), { recursive: true });
-      fs.writeFileSync(statsPath, JSON.stringify({
+      const dataDir = path.join(ROOT, 'src', 'data');
+      fs.mkdirSync(dataDir, { recursive: true });
+
+      fs.writeFileSync(path.join(dataDir, 'manifest-stats.json'), JSON.stringify({
         active_projects: active,
         pending_decisions: pending,
         confirmed_pursuing: confirmed
       }, null, 2));
       console.log('sync-vault: wrote manifest-stats.json');
-    }
-  } catch (e) {
-    console.error('sync-vault: manifest-stats error —', e.message);
-  }
 
-  /* Write opportunities.json from synced opp markdown frontmatter */
-  try {
-    const oppDir = path.join(ROOT, OPP_DIR);
-    if (fs.existsSync(oppDir)) {
-      const oppFiles = fs.readdirSync(oppDir).filter(f => f.endsWith('.md'));
-      const opportunities = [];
-
-      for (const f of oppFiles) {
-        const raw = fs.readFileSync(path.join(oppDir, f), 'utf8');
-        const slug = extractFrontmatterField(raw, 'slug') ||
-          f.replace(/^opp-/, '').replace(/\.md$/, '');
-        opportunities.push({
-          slug:        slug,
-          title:       extractFrontmatterField(raw, 'title') || humanizeSlug(slug),
-          type:        extractFrontmatterField(raw, 'type') || 'opportunity',
-          status:      extractFrontmatterField(raw, 'status') || 'pending-cam-decision',
-          deadline:    extractFrontmatterField(raw, 'deadline') || null,
-          prestige:    extractFrontmatterField(raw, 'prestige') || '',
-          requirement: extractFrontmatterField(raw, 'requirement') || '',
-          description: extractFrontmatterField(raw, 'description') || ''
-        });
-      }
-
-      const oppsPath = path.join(ROOT, 'src', 'data', 'opportunities.json');
-      fs.mkdirSync(path.dirname(oppsPath), { recursive: true });
-      fs.writeFileSync(oppsPath, JSON.stringify(opportunities, null, 2));
+      fs.writeFileSync(path.join(dataDir, 'opportunities.json'),
+        JSON.stringify(opportunities, null, 2));
       console.log(`sync-vault: wrote ${opportunities.length} opportunities → src/data/opportunities.json`);
     }
   } catch (e) {
-    console.error('sync-vault: opportunities.json error —', e.message);
+    console.error('sync-vault: opp data error —', e.message);
   }
 
-  /* Extract tasks from project plan files */
+  /* Extract tasks from all vault markdown files */
   try {
     await extractTasks();
   } catch (e) {
     console.error('sync-vault: task extraction error —', e.message);
+  }
+
+  /* Build manifest.json from proj-*.md project files */
+  try {
+    await extractProjects();
+  } catch (e) {
+    console.error('sync-vault: project extraction error —', e.message);
+  }
+
+  /* Build inventory.json from inventory/ category files */
+  try {
+    await extractInventory();
+  } catch (e) {
+    console.error('sync-vault: inventory extraction error —', e.message);
   }
 
   console.log('sync-vault: done');
@@ -353,6 +374,114 @@ function extractFrontmatterField(raw, field) {
   const re = new RegExp(`^${field}:\\s*(.+)$`, 'm');
   const m = re.exec(raw);
   return m ? m[1].trim().replace(/^["']|["']$/g, '') : null;
+}
+
+/* Map a 0-100 prestige score to a human label for display */
+function prestigeText(score) {
+  if (!score || score <= 0) return '';
+  if (score >= 80) return `Very high (${score}/100)`;
+  if (score >= 60) return `High (${score}/100)`;
+  if (score >= 40) return `Medium (${score}/100)`;
+  return `Low (${score}/100)`;
+}
+
+/* Extract priority from agora rich-text priority strings.
+ * Patterns: "🔺 P1 ...", "⏫ P1 (proposed)...", "🔼 P2...", "Highest..." */
+function parsePriority(raw) {
+  if (!raw) return 'medium';
+  if (/🔺/.test(raw) || /highest/i.test(raw)) return 'high';
+  if (/⏫/.test(raw)) return 'medium';
+  if (/🔼/.test(raw)) return 'low';
+  return 'medium';
+}
+
+/* ── Project extraction (proj-*.md files from vault) ─────────────────────── */
+/* Builds src/data/manifest.json: { active: [{title, type, status, ...}] }   */
+/* Only `proj-*.md` files are included. Cam confirmed: advance-to-candidacy   */
+/* and similar files without type: project are tracked separately.            */
+async function extractProjects() {
+  const listing = await fetchDirListing(vaultPath(OPP_VAULT_DIR));
+  const projFiles = listing.filter(f => f.name && f.name.startsWith('proj-') && f.name.endsWith('.md'));
+
+  const projects = [];
+  for (const f of projFiles) {
+    try {
+      const content = await fetchFile(f.path);
+      if (!content) continue;
+      const status   = extractFrontmatterField(content, 'status') || 'active';
+      if (status === 'done' || status === 'reference') continue;
+      const priority = parsePriority(extractFrontmatterField(content, 'priority') || '');
+      const title    = extractFrontmatterField(content, 'title') ||
+        humanizeSlug(f.name.replace(/^proj-/, '').replace(/\.md$/, ''));
+      projects.push({
+        title,
+        type:     extractFrontmatterField(content, 'type')   || 'project',
+        status,
+        priority,
+        deadline: extractFrontmatterField(content, 'deadline') || null,
+        domain:   extractFrontmatterField(content, 'domain')   || ''
+      });
+    } catch (e) {
+      console.error(`sync-vault: project parse error ${f.name} —`, e.message);
+    }
+  }
+
+  const manifestPath = path.join(ROOT, 'src', 'data', 'manifest.json');
+  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+  fs.writeFileSync(manifestPath, JSON.stringify({ active: projects }, null, 2));
+  console.log(`sync-vault: wrote ${projects.length} projects → src/data/manifest.json`);
+}
+
+/* ── Inventory extraction (inventory/ category files) ────────────────────── */
+/* Builds src/data/inventory.json: { sections: [{title, items:[{name,note}]}] }
+ * Format: each entry is a ### heading followed by bullet-list fields.         */
+async function extractInventory() {
+  const categories = [
+    { title: 'Books',         rel: 'inventory/books.md' },
+    { title: 'Papers',        rel: 'inventory/papers.md' },
+    { title: 'Software',      rel: 'inventory/software.md' },
+    { title: 'Subscriptions', rel: 'inventory/subscriptions.md' }
+  ];
+
+  const sections = [];
+  for (const cat of categories) {
+    let items = [];
+    try {
+      const content = await fetchFile(vaultPath(cat.rel));
+      if (content) items = parseInventoryEntries(content);
+    } catch (_) { /* category file not yet created — treat as empty */ }
+    sections.push({ title: cat.title, items });
+  }
+
+  const invPath = path.join(ROOT, 'src', 'data', 'inventory.json');
+  fs.mkdirSync(path.dirname(invPath), { recursive: true });
+  fs.writeFileSync(invPath, JSON.stringify({ sections }, null, 2));
+  const total = sections.reduce((n, s) => n + s.items.length, 0);
+  console.log(`sync-vault: wrote ${total} inventory items → src/data/inventory.json`);
+}
+
+/* Parse ### Name entries + bullet fields from inventory category markdown */
+function parseInventoryEntries(raw) {
+  const items = [];
+  let currentName = null;
+  let note = '';
+
+  for (const line of raw.split('\n')) {
+    const h3 = /^### (.+)$/.exec(line);
+    if (h3) {
+      if (currentName) items.push({ name: currentName, note: note.trim() });
+      currentName = h3[1].trim();
+      note = '';
+      continue;
+    }
+    if (!currentName) continue;
+    const notesM  = /^- \*\*Notes\*\*:\s*(.+)$/.exec(line);
+    const statusM = /^- \*\*Status\*\*:\s*(.+)$/.exec(line);
+    if (notesM && notesM[1].trim())   note = notesM[1].trim();
+    else if (!note && statusM && statusM[1].trim()) note = statusM[1].trim();
+  }
+  if (currentName) items.push({ name: currentName, note: note.trim() });
+  return items;
 }
 
 main().catch(e => {

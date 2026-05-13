@@ -344,8 +344,8 @@
     }
   ];
 
-  /* Sample project data */
-  const MANIFEST_DATA = {
+  /* Sample project data — replaced at load by /data/manifest.json when available */
+  var MANIFEST_DATA = {
     active: [
       { title: 'Epistemic Akrasia paper',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high' },
       { title: 'Dissertation Ch. 5 revision',  type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high' },
@@ -368,7 +368,8 @@
     { title: 'Update CV and publications list',                    project: 'Admin',                      due: '2026-08-01', priority: 'low'    }
   ];
 
-  const INVENTORY_DATA = {
+  /* Sample inventory — replaced at load by /data/inventory.json when available */
+  var INVENTORY_DATA = {
     sections: [
       {
         title: 'Papers',
@@ -854,11 +855,17 @@
   function renderProjects() {
     const el = document.getElementById('projects-content');
     if (!el) return;
-    const rows = MANIFEST_DATA.active.map(function(p) {
+    var isSample = MANIFEST_DATA === /* identity check for the fallback object */ MANIFEST_DATA &&
+      MANIFEST_DATA.active.length > 0 && MANIFEST_DATA.active[0].title === 'Epistemic Akrasia paper';
+    var rows = MANIFEST_DATA.active.map(function(p) {
+      var badgeCls = p.status === 'active'  ? 'sk-badge--confirmed'
+                   : p.status === 'paused'  ? 'sk-badge--pending'
+                   : p.status === 'blocked' ? 'sk-badge--declined'
+                   :                          'sk-badge--confirmed';
       return '<tr>' +
         '<td>' + escHtml(p.title) + '</td>' +
         '<td><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
-        '<td><span class="sk-badge sk-badge--confirmed">' + escHtml(p.status) + '</span></td>' +
+        '<td><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status) + '</span></td>' +
         '<td>' + escHtml(p.deadline) + '</td>' +
         '</tr>';
     }).join('');
@@ -867,9 +874,11 @@
       'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>' +
       '<table role="table" aria-label="Active projects"><thead><tr>' +
       '<th>Project</th><th>Type</th><th>Status</th><th>Deadline</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table>';
-    const bt = document.getElementById('build-time');
-    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' (sample)';
+      '</tr></thead><tbody>' + rows + (rows ? '' : '<tr><td colspan="4" class="sk-secondary">No active projects.</td></tr>') +
+      '</tbody></table>';
+    var bt = document.getElementById('build-time');
+    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      (isSample ? ' (sample)' : '');
   }
 
   /* ── Tasks view ──────────────────────────────────────────────────────── */
@@ -1014,15 +1023,16 @@
     const el = document.getElementById('inventory-content');
     if (!el) return;
 
-    const html = INVENTORY_DATA.sections.map(function(section, i) {
-      const sectionNum = ['§I', '§II', '§III', '§IV'][i] || '§' + (i + 1);
-      const items = section.items.map(function(item) {
+    var html = INVENTORY_DATA.sections.map(function(section, i) {
+      var sectionNum = ['§I', '§II', '§III', '§IV'][i] || '§' + (i + 1);
+      var items = section.items.map(function(item) {
         return '<li><span>' + escHtml(item.name) + '</span>' +
           (item.note ? ' <span class="sk-secondary" style="font-size:.8rem;">— ' + escHtml(item.note) + '</span>' : '') +
           '</li>';
       }).join('');
+      var emptyNote = items ? '' : '<li class="sk-secondary" style="font-size:.82rem;">No entries yet.</li>';
       return '<h2 class="sk-section-head" data-section="' + sectionNum + '">' + escHtml(section.title) + '</h2>' +
-        '<ul class="sk-inventory-list" role="list">' + items + '</ul>';
+        '<ul class="sk-inventory-list" role="list">' + items + emptyNote + '</ul>';
     }).join('');
 
     el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
@@ -1079,14 +1089,19 @@
       tryFetch('/data/tasks.json'),
       tryFetch('/data/manifest-stats.json'),
       tryFetch('/data/opportunities.json'),
-      tryFetch('/data/busy-scores.json')
+      tryFetch('/data/busy-scores.json'),
+      tryFetch('/data/manifest.json'),
+      tryFetch('/data/inventory.json')
     ]).then(function(results) {
-      var tasks = results[0], stats = results[1], opps = results[2], busy = results[3];
+      var tasks = results[0], stats = results[1], opps  = results[2],
+          busy  = results[3], mfst  = results[4], inv   = results[5];
       var changed = false;
-      if (tasks && Array.isArray(tasks) && tasks.length > 0)  { TASKS_DATA = tasks;    changed = true; }
-      if (stats && typeof stats === 'object')                  { MANIFEST_STATS = stats; changed = true; }
-      if (opps  && Array.isArray(opps)  && opps.length > 0)   { OPPORTUNITIES = opps;  changed = true; }
-      if (busy  && busy.scores)                                { BUSY_SCORES = busy;    changed = true; }
+      if (tasks && Array.isArray(tasks) && tasks.length > 0)       { TASKS_DATA = tasks;         changed = true; }
+      if (stats && typeof stats === 'object')                       { MANIFEST_STATS = stats;      changed = true; }
+      if (opps  && Array.isArray(opps)  && opps.length  > 0)       { OPPORTUNITIES = opps;        changed = true; }
+      if (busy  && busy.scores)                                     { BUSY_SCORES = busy;          changed = true; }
+      if (mfst  && mfst.active && Array.isArray(mfst.active))      { MANIFEST_DATA = mfst;        changed = true; }
+      if (inv   && inv.sections && Array.isArray(inv.sections))     { INVENTORY_DATA = inv;        changed = true; }
       return changed;
     });
   }
@@ -1117,6 +1132,7 @@
       renderProjects();
       renderTasks();
       renderOpportunities();
+      renderInventory();
     });
 
     /* Install toast wiring */
