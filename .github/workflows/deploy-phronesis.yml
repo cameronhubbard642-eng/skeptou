@@ -42,6 +42,7 @@ jobs:
         env:
           VAULT_GITHUB_PAT: ${{ secrets.VAULT_GITHUB_PAT }}
           VAULT_REPO: ${{ secrets.VAULT_REPO }}
+          VAULT_SUBTREE: ${{ secrets.VAULT_SUBTREE }}
         run: node modules/phronesis/scripts/sync-vault.js
 
       # ── Step 2: Aggregate busy-period data ─────────────────────────────
@@ -92,6 +93,9 @@ jobs:
           # Pages Functions in upload (Cloudflare Pages Direct Upload reads functions/
           # from the upload directory)
           cp -r modules/phronesis/functions modules/phronesis/dist/functions
+          # Deploy data JSON files produced by sync-vault.js + aggregate-busy.js
+          mkdir -p modules/phronesis/dist/data
+          cp modules/phronesis/src/data/*.json modules/phronesis/dist/data/ 2>/dev/null || true
           echo "dist/ contents:"
           find modules/phronesis/dist -not -type d | sort
 
@@ -120,10 +124,13 @@ jobs:
     # GitHub Actions repo secrets (Settings → Secrets → Actions):
     #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED for deploy]
     #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED for deploy]
-    #   VAULT_GITHUB_PAT       — O&P vault, contents:read+write [needed for vault sync]
+    #   VAULT_GITHUB_PAT       — O&P vault PAT, contents:read   [needed for vault sync]
     #   VAULT_REPO             — "owner/repo" for O&P vault     [needed for vault sync]
+    #   VAULT_SUBTREE          — path prefix in vault repo       [needed for vault sync]
+    #                            e.g. "Organization & Planning"
     #
     # Cloudflare Pages secrets (CF dashboard → phronesis → Settings → Variables):
     #   VAULT_GITHUB_PAT       — same PAT, contents:write (Worker accept/reject)
     #   VAULT_REPO             — same "owner/repo"
+    #   VAULT_SUBTREE          — same path prefix
     #   CF_ACCESS_AUD          — Access audience tag (Worker JWT validation)

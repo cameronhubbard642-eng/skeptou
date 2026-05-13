@@ -215,6 +215,38 @@ async function main() {
     console.error('sync-vault: manifest-stats error —', e.message);
   }
 
+  /* Write opportunities.json from synced opp markdown frontmatter */
+  try {
+    const oppDir = path.join(ROOT, OPP_DIR);
+    if (fs.existsSync(oppDir)) {
+      const oppFiles = fs.readdirSync(oppDir).filter(f => f.endsWith('.md'));
+      const opportunities = [];
+
+      for (const f of oppFiles) {
+        const raw = fs.readFileSync(path.join(oppDir, f), 'utf8');
+        const slug = extractFrontmatterField(raw, 'slug') ||
+          f.replace(/^opp-/, '').replace(/\.md$/, '');
+        opportunities.push({
+          slug:        slug,
+          title:       extractFrontmatterField(raw, 'title') || humanizeSlug(slug),
+          type:        extractFrontmatterField(raw, 'type') || 'opportunity',
+          status:      extractFrontmatterField(raw, 'status') || 'pending-cam-decision',
+          deadline:    extractFrontmatterField(raw, 'deadline') || null,
+          prestige:    extractFrontmatterField(raw, 'prestige') || '',
+          requirement: extractFrontmatterField(raw, 'requirement') || '',
+          description: extractFrontmatterField(raw, 'description') || ''
+        });
+      }
+
+      const oppsPath = path.join(ROOT, 'src', 'data', 'opportunities.json');
+      fs.mkdirSync(path.dirname(oppsPath), { recursive: true });
+      fs.writeFileSync(oppsPath, JSON.stringify(opportunities, null, 2));
+      console.log(`sync-vault: wrote ${opportunities.length} opportunities → src/data/opportunities.json`);
+    }
+  } catch (e) {
+    console.error('sync-vault: opportunities.json error —', e.message);
+  }
+
   /* Extract tasks from project plan files */
   try {
     await extractTasks();

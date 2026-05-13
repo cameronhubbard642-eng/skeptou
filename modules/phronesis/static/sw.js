@@ -57,7 +57,7 @@ self.addEventListener('fetch', function(event) {
   if (url.pathname.startsWith('/api/')) return;
 
   /* Data files — network-first, cache fallback */
-  if (url.pathname.startsWith('/src/data/')) {
+  if (url.pathname.startsWith('/data/')) {
     event.respondWith(networkFirst(event.request));
     return;
   }

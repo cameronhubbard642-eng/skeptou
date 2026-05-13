@@ -228,7 +228,7 @@
 
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
-  const BUSY_SCORES = (function() {
+  var BUSY_SCORES = (function() {
     var TYPE_KEYS = EVENT_TYPES.map(function(t) { return t.key; });
     var scores = {};
     var today = new Date();
@@ -284,14 +284,14 @@
     return { scores: scores, max_total: maxTotal };
   })();
 
-  const MANIFEST_STATS = {
+  var MANIFEST_STATS = {
     active_projects: 3,
     pending_decisions: 2,
     confirmed_pursuing: 4
   };
 
-  /* Sample opportunity data */
-  const OPPORTUNITIES = [
+  /* Sample opportunity data — replaced at load by /data/opportunities.json when available */
+  var OPPORTUNITIES = [
     {
       slug: 'symposium-2026',
       title: 'Philosophy of Mind Symposium 2026',
@@ -353,12 +353,11 @@
     ]
   };
 
-  /* Sample task data
-   * Convention: sourced from `- [ ]` items in vault `projects/<slug>-plan.md` files.
-   * Priority: 🔺 high · ⏫ medium · 🔼 low (emoji prefix on the task line).
-   * Due date: `(due: YYYY-MM-DD)` inline annotation on the task line.
-   * CI build: sync-vault.js writes src/data/tasks.json; index.html reads it at load. */
-  const TASKS_DATA = [
+  /* Sample task data — replaced at load by /data/tasks.json when available.
+   * Convention: sourced from `- [ ]` items in any .md file in the vault subtree.
+   * Priority emojis (anywhere in title): 🔺 high · ⏫ medium · 🔼 low.
+   * Due date: 📅 YYYY-MM-DD or (due: YYYY-MM-DD) inline. */
+  var TASKS_DATA = [
     { title: 'Submit abstract for Philosophy of Mind Symposium',   project: 'Epistemic Akrasia paper',     due: '2026-06-01', priority: 'high'   },
     { title: 'Read Fantl & McGrath (2002) on pragmatic encroachment', project: 'Epistemic Akrasia paper', due: '2026-06-05', priority: 'medium' },
     { title: 'Send referee report — Episteme',                     project: 'Service',                    due: '2026-06-10', priority: 'high'   },
@@ -1069,9 +1068,33 @@
     if (toast) toast.hidden = true;
   });
 
+  /* ── Live data loader ────────────────────────────────────────────────── */
+  /* Fetches /data/*.json produced by sync-vault.js + aggregate-busy.js.    */
+  /* Gracefully falls back to inline sample data when files are absent.      */
+  function loadLiveData() {
+    function tryFetch(url) {
+      return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+    }
+    return Promise.all([
+      tryFetch('/data/tasks.json'),
+      tryFetch('/data/manifest-stats.json'),
+      tryFetch('/data/opportunities.json'),
+      tryFetch('/data/busy-scores.json')
+    ]).then(function(results) {
+      var tasks = results[0], stats = results[1], opps = results[2], busy = results[3];
+      var changed = false;
+      if (tasks && Array.isArray(tasks) && tasks.length > 0)  { TASKS_DATA = tasks;    changed = true; }
+      if (stats && typeof stats === 'object')                  { MANIFEST_STATS = stats; changed = true; }
+      if (opps  && Array.isArray(opps)  && opps.length > 0)   { OPPORTUNITIES = opps;  changed = true; }
+      if (busy  && busy.scores)                                { BUSY_SCORES = busy;    changed = true; }
+      return changed;
+    });
+  }
+
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
-    computeTaskIds();   /* must run before any render that uses task IDs */
+    /* Render immediately with inline fallback data */
+    computeTaskIds();
     renderStats();
     renderVizLegend();
     renderHeatmap();
@@ -1082,6 +1105,19 @@
     renderOpportunities();
     renderInventory();
     initRouter();
+
+    /* Async: fetch live vault data and re-render data-dependent views */
+    loadLiveData().then(function(changed) {
+      if (!changed) return;
+      computeTaskIds();
+      renderStats();
+      renderHeatmap();
+      renderDensity();
+      renderSnapshots();
+      renderProjects();
+      renderTasks();
+      renderOpportunities();
+    });
 
     /* Install toast wiring */
     var installBtn  = document.getElementById('sk-install-btn');
