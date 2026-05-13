@@ -155,6 +155,7 @@ function jsonResponse(body, status = 200) {
 }
 
 /* ── CF Access JWT validation ── */
+/* JWKS URL derived from token's iss claim — avoids hardcoding team domain. */
 async function validateCFAccess(request, audience) {
   if (!audience) return null;
 
@@ -162,11 +163,18 @@ async function validateCFAccess(request, audience) {
   if (!token) return 'Missing CF-Access-Jwt-Assertion header';
 
   try {
-    const [headerB64] = token.split('.');
-    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+    const [headerB64, payloadB64, sigB64] = token.split('.');
+    const header  = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
 
-    const certsResp = await fetch(`https://skeptou.cloudflareaccess.com/cdn-cgi/access/certs`);
-    if (!certsResp.ok) return 'Failed to fetch Access certs';
+    if (!payload.iss || !payload.iss.startsWith('https://')) {
+      return 'JWT missing or invalid issuer claim';
+    }
+    const certsUrl = `${payload.iss}/cdn-cgi/access/certs`;
+    const certsResp = await fetch(certsUrl);
+    if (!certsResp.ok) {
+      return `Failed to fetch Access certs (${certsResp.status} ${certsResp.statusText}) from ${certsUrl}`;
+    }
     const certs = await certsResp.json();
 
     const jwk = (certs.keys || []).find(k => k.kid === header.kid);
@@ -178,16 +186,14 @@ async function validateCFAccess(request, audience) {
       false, ['verify']
     );
 
-    const [, payloadB64, sigB64] = token.split('.');
     const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
     const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
 
     const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
     if (!valid) return 'Invalid JWT signature';
 
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
     const audMatch = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audMatch) return 'JWT audience mismatch';
+    if (!audMatch) return `JWT audience mismatch (token aud: ${JSON.stringify(payload.aud)})`;
 
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
 
