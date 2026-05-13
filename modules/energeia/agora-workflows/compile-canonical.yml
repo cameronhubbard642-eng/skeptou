@@ -1,0 +1,74 @@
+name: Compile canonical PDFs
+
+on:
+  push:
+    branches: [energeia]
+    paths:
+      - 'papers/**/main.tex'
+      - 'papers/**/**.tex'
+      - 'templates/**'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agora energeia branch
+        uses: actions/checkout@v4
+        with:
+          ref: energeia
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect changed papers
+        id: changed
+        run: |
+          # Find paper slugs with changed .tex files in this push
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'papers/**/**.tex' \
+            | sed 's|papers/||' | cut -d/ -f1 | sort -u | tr '\n' ' ')
+          echo "SLUGS=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed paper slugs: $CHANGED"
+
+      - name: Install TeX Live (XeLaTeX + latexmk)
+        if: steps.changed.outputs.SLUGS != ''
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
+
+      - name: Configure TEXINPUTS
+        if: steps.changed.outputs.SLUGS != ''
+        run: echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
+
+      - name: Compile each changed paper
+        if: steps.changed.outputs.SLUGS != ''
+        run: |
+          FAILED=""
+          for SLUG in ${{ steps.changed.outputs.SLUGS }}; do
+            TEX="papers/$SLUG/main.tex"
+            if [ ! -f "$TEX" ]; then
+              echo "Skipping $SLUG — no main.tex"
+              continue
+            fi
+            echo "=== Compiling papers/$SLUG/main.tex ==="
+            cd "papers/$SLUG"
+            latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || \
+              FAILED="$FAILED $SLUG"
+            cd ../..
+          done
+          if [ -n "$FAILED" ]; then
+            echo "The following papers failed to compile:$FAILED"
+            exit 1
+          fi
+
+      - name: Commit compiled PDFs
+        if: steps.changed.outputs.SLUGS != ''
+        run: |
+          git config user.name  "energeia-bot"
+          git config user.email "energeia@skeptou.com"
+          git add 'papers/**/main.pdf'
+          git diff --cached --quiet || \
+            git commit -m "energeia: compile canonical PDFs [automated]"
+          git push origin energeia

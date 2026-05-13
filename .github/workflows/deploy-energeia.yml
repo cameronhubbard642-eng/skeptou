@@ -1,0 +1,87 @@
+name: Deploy energeia
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/energeia/**'
+      - 'assets/branding/**'
+      - 'assets/fonts/**'
+      - 'assets/css/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: modules/energeia/package.json
+
+      - name: Install dependencies
+        run: cd modules/energeia && npm ci --ignore-scripts 2>/dev/null || true
+
+      # ── Step 1: Sync agora content (slugs.yaml + paper metadata) ────────
+      # Exits 0 gracefully when AGORA_DISPATCH_PAT / AGORA_REPO are not set.
+      - name: Sync agora content
+        env:
+          AGORA_DISPATCH_PAT: ${{ secrets.AGORA_DISPATCH_PAT }}
+          AGORA_REPO: ${{ secrets.AGORA_REPO }}
+        run: node modules/energeia/scripts/sync-agora.js || echo "Sync skipped — AGORA_REPO not configured"
+
+      # ── Step 2: Copy design assets ───────────────────────────────────────
+      - name: Copy design assets
+        run: |
+          cp assets/branding/tokens/design-tokens.css modules/energeia/static/design-tokens.css
+          cp assets/css/skeptou.css modules/energeia/static/skeptou.css
+          mkdir -p modules/energeia/static/fonts/borges
+          cp assets/fonts/Borges-*.ttf modules/energeia/static/fonts/borges/
+
+      # ── Step 3: Build dist ────────────────────────────────────────────────
+      - name: Build dist
+        run: |
+          rm -rf modules/energeia/dist
+          mkdir -p modules/energeia/dist
+          # App shell
+          cp modules/energeia/index.html modules/energeia/dist/
+          # Static assets (CSS, fonts, icons, SW, manifest)
+          cp -r modules/energeia/static/. modules/energeia/dist/
+          # Pages Functions
+          cp -r modules/energeia/functions modules/energeia/dist/functions
+          echo "=== dist/ ==="
+          find modules/energeia/dist -not -type d | sort
+
+      # ── Step 4: Deploy to Cloudflare Pages ───────────────────────────────
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: energeia
+          directory: modules/energeia/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+    # ── Secrets registry ──────────────────────────────────────────────────────
+    # GitHub Actions repo secrets (Settings → Secrets → Actions):
+    #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED]
+    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED]
+    #   AGORA_DISPATCH_PAT     — classic PAT, repo scope on agora repo
+    #   AGORA_REPO             — "owner/repo" for agora (e.g. cameronhubbard642-eng/agora)
+    #
+    # Cloudflare Pages secrets (CF dashboard → energeia → Settings → Variables):
+    #   AGORA_DISPATCH_PAT     — same PAT (used by Workers to dispatch workflows)
+    #   AGORA_REPO             — same "owner/repo"
+    #   CF_ACCESS_AUD          — Access audience tag (Worker JWT validation)
+    #   ENERGEIA_ACTIONS       — KV namespace binding name for daemon action queue

@@ -1,0 +1,177 @@
+name: Promote paper
+
+# Triggered by energeia Worker (POST /api/energeia/promote/:slug).
+# Copies papers/<slug>/ from a dunamis branch onto the energeia branch,
+# compiles new PDF, runs latexdiff against previous canonical, and tags.
+#
+# Inputs echo back what the Worker pre-computed so this workflow respects
+# the classification decision without re-computing from scratch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Source dunamis branch (e.g. dunamis/epistemic-akrasia-beta)
+        required: true
+        type: string
+      slug:
+        description: Paper slug
+        required: true
+        type: string
+      note:
+        description: Tag annotation note
+        required: false
+        default: ''
+        type: string
+      classification:
+        description: major or minor
+        required: true
+        type: choice
+        options: [major, minor]
+      class_source:
+        description: auto / forced-major / forced-minor
+        required: false
+        default: auto
+        type: string
+      next_tag:
+        description: Tag to apply (e.g. style-IV or style-III.2) — computed by Worker
+        required: true
+        type: string
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agora (energeia branch)
+        uses: actions/checkout@v4
+        with:
+          ref: energeia
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch dunamis branch
+        run: git fetch origin "${{ inputs.branch }}"
+
+      - name: Validate inputs
+        run: |
+          SLUG="${{ inputs.slug }}"
+          BRANCH="${{ inputs.branch }}"
+          TAG="${{ inputs.next_tag }}"
+
+          if ! echo "$BRANCH" | grep -qE "^dunamis/${SLUG}-[a-z]+$"; then
+            echo "Branch $BRANCH does not match expected pattern for slug $SLUG" && exit 1
+          fi
+          if ! echo "$TAG" | grep -qE '^style-[IVXLCDM]+(\.[0-9]+)?$'; then
+            echo "Invalid tag format: $TAG" && exit 1
+          fi
+          if git tag -l "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists — aborting to prevent duplicate" && exit 1
+          fi
+          echo "SLUG=$SLUG"       >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH"   >> $GITHUB_ENV
+          echo "NEXT_TAG=$TAG"    >> $GITHUB_ENV
+
+      # ── Step 1: Verify diff percentage (independent check) ──────────────
+      - name: Compute actual diff percentage
+        id: diff
+        run: |
+          TOTAL_CHANGED=$(git diff --numstat "origin/energeia...origin/$BRANCH" \
+            -- "papers/$SLUG/" | awk '{add+=$1; del+=$2} END {print add+del+0}')
+          CANONICAL_LINES=$(git show "origin/energeia:papers/$SLUG/" 2>/dev/null | \
+            xargs -I{} git show "origin/energeia:papers/$SLUG/{}" 2>/dev/null | \
+            wc -l || echo 1)
+          # Simpler approximation: count lines of all .tex files on energeia
+          CANONICAL_LINES=$(git ls-tree -r --name-only origin/energeia -- "papers/$SLUG/" \
+            | grep '\.tex$' \
+            | xargs -I{} git show "origin/energeia:{}" 2>/dev/null \
+            | wc -l)
+          CANONICAL_LINES=$([ "$CANONICAL_LINES" -lt 1 ] && echo 1 || echo "$CANONICAL_LINES")
+          PCT=$(( TOTAL_CHANGED * 100 / CANONICAL_LINES ))
+          echo "diff_pct=$PCT" >> $GITHUB_OUTPUT
+          echo "Diff: $TOTAL_CHANGED changed lines of $CANONICAL_LINES canonical = ${PCT}%"
+
+      # ── Step 2: Copy papers/<slug>/ from dunamis to energeia ────────────
+      - name: Copy paper files from dunamis branch
+        run: |
+          # Check out papers/<slug>/ from the dunamis branch onto the working tree
+          git checkout "origin/$BRANCH" -- "papers/$SLUG/"
+          echo "Copied papers/$SLUG/ from origin/$BRANCH"
+
+      # ── Step 3: Install TeX Live ─────────────────────────────────────────
+      - name: Install TeX Live (XeLaTeX + latexdiff)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex texlive-fonts-recommended texlive-latex-extra \
+            latexmk latexdiff
+
+      - name: Configure TEXINPUTS
+        run: echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
+
+      # ── Step 4: Compile new canonical PDF ───────────────────────────────
+      - name: Compile canonical PDF (new version)
+        run: |
+          if [ ! -f "papers/$SLUG/main.tex" ]; then
+            echo "No main.tex — skipping compile"
+          else
+            cd "papers/$SLUG"
+            latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || \
+              echo "WARNING: XeLaTeX failed — PDF may be missing or stale"
+            cd ../..
+          fi
+
+      # ── Step 5: Run latexdiff against previous canonical ────────────────
+      - name: Compute latexdiff against previous tag
+        run: |
+          PREV_TAG=$(git tag -l "style-*" | grep -vE '\.' | sort -t- -k2 | tail -1)
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous major tag found — skipping latexdiff"
+          elif [ ! -f "papers/$SLUG/main.tex" ]; then
+            echo "No main.tex — skipping latexdiff"
+          else
+            PREV_TEX=$(git show "${PREV_TAG}:papers/$SLUG/main.tex" 2>/dev/null)
+            if [ -n "$PREV_TEX" ]; then
+              echo "$PREV_TEX" > /tmp/prev-main.tex
+              latexdiff /tmp/prev-main.tex "papers/$SLUG/main.tex" > "papers/$SLUG/diff-${PREV_TAG}-${NEXT_TAG}.tex" || \
+                echo "WARNING: latexdiff failed"
+              if [ -f "papers/$SLUG/diff-${PREV_TAG}-${NEXT_TAG}.tex" ]; then
+                cp "papers/$SLUG/main.tex" "papers/$SLUG/main-orig.tex"
+                cp "papers/$SLUG/diff-${PREV_TAG}-${NEXT_TAG}.tex" "papers/$SLUG/main.tex"
+                cd "papers/$SLUG"
+                latexmk -xelatex -interaction=nonstopmode main.tex && \
+                  mv main.pdf "diff-${PREV_TAG}-${NEXT_TAG}.pdf" || \
+                  echo "WARNING: diff PDF compile failed"
+                mv main-orig.tex main.tex
+                cd ../..
+              fi
+            fi
+          fi
+
+      # ── Step 6: Commit and tag ───────────────────────────────────────────
+      - name: Commit promotion and apply tag
+        run: |
+          git config user.name  "energeia-bot"
+          git config user.email "energeia@skeptou.com"
+          git add "papers/$SLUG/"
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+
+          COMMIT_MSG="energeia: promote $SLUG → $NEXT_TAG (${{ inputs.classification }}) [automated]"
+          [ -n "${{ inputs.note }}" ] && COMMIT_MSG="$COMMIT_MSG
+${{ inputs.note }}"
+          git commit -m "$COMMIT_MSG"
+
+          TAG_MSG="${NEXT_TAG}
+slug: $SLUG
+source: $BRANCH
+classification: ${{ inputs.classification }}
+class_source: ${{ inputs.class_source }}
+diff_pct: ${{ steps.diff.outputs.diff_pct }}%
+note: ${{ inputs.note }}"
+
+          git tag -a "$NEXT_TAG" -m "$TAG_MSG"
+          git push origin energeia
+          git push origin "$NEXT_TAG"
+          echo "Tagged $NEXT_TAG and pushed to energeia"

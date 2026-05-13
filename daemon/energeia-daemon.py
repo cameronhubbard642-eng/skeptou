@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+"""
+energeia-daemon — local daemon for the Sképtou energeia module.
+
+Polls https://energeia.skeptou.com/api/energeia/actions/next every ~5 seconds
+and executes local actions (git worktree management, Scrivener project ops).
+File watcher auto-commits + pushes changes in agora worktree paper directories.
+
+Installed as a launchd job by install.command.
+Logs to ~/Library/Logs/energeia-daemon.log.
+
+Dependencies (installed by install.command):
+    pip3 install watchdog requests
+
+Environment (set in launchd plist):
+    ENERGEIA_TOKEN     — daemon auth token (registered with energeia API)
+    ENERGEIA_API_URL   — https://energeia.skeptou.com
+    AGORA_PATH         — ~/Documents/agora (git clone of agora repo)
+    WORKTREES_PATH     — ~/Documents/agora-worktrees/dunamis
+    SCRIVENER_PATH     — ~/Documents/agora-scriv
+"""
+
+import os
+import sys
+import time
+import json
+import logging
+import subprocess
+import shutil
+import hashlib
+import threading
+import platform
+from datetime import datetime
+from pathlib import Path
+
+# ── Dependency check ─────────────────────────────────────────────────────────
+try:
+    import requests
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+except ImportError as e:
+    sys.stderr.write(f"Missing dependency: {e}\nRun: pip3 install watchdog requests\n")
+    sys.exit(1)
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+API_URL       = os.environ.get('ENERGEIA_API_URL', 'https://energeia.skeptou.com')
+TOKEN         = os.environ.get('ENERGEIA_TOKEN', '')
+AGORA_PATH    = Path(os.environ.get('AGORA_PATH',
+                     os.path.expanduser('~/Documents/agora')))
+WORKTREES     = Path(os.environ.get('WORKTREES_PATH',
+                     os.path.expanduser('~/Documents/agora-worktrees/dunamis')))
+SCRIVENER_DIR = Path(os.environ.get('SCRIVENER_PATH',
+                     os.path.expanduser('~/Documents/agora-scriv')))
+POLL_INTERVAL = 5  # seconds
+
+LOG_PATH = Path.home() / 'Library' / 'Logs' / 'energeia-daemon.log'
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s  %(levelname)-8s  %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_PATH),
+        logging.StreamHandler(sys.stdout),
+    ]
+)
+log = logging.getLogger('energeia')
+
+# ── HTTP helpers ──────────────────────────────────────────────────────────────
+def api_get(path: str) -> dict | None:
+    try:
+        r = requests.get(
+            f'{API_URL}{path}',
+            headers={'Authorization': f'Bearer {TOKEN}'},
+            timeout=10
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception as exc:
+        log.warning('GET %s failed: %s', path, exc)
+        return None
+
+
+def api_post(path: str, body: dict) -> bool:
+    try:
+        r = requests.post(
+            f'{API_URL}{path}',
+            json=body,
+            headers={'Authorization': f'Bearer {TOKEN}'},
+            timeout=10
+        )
+        return r.ok
+    except Exception as exc:
+        log.warning('POST %s failed: %s', path, exc)
+        return False
+
+
+def report_complete(action_id: str, ok: bool, message: str = '') -> None:
+    api_post(f'/api/energeia/actions/{action_id}/complete', {
+        'status': 'success' if ok else 'error',
+        'message': message,
+    })
+
+# ── Git helpers ───────────────────────────────────────────────────────────────
+def run_git(args: list[str], cwd: Path) -> tuple[int, str]:
+    result = subprocess.run(
+        ['git'] + args,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return result.returncode, (result.stdout + result.stderr).strip()
+
+
+def git_auto_commit(worktree: Path, branch: str) -> None:
+    rc, out = run_git(['add', '-A'], worktree)
+    if rc != 0:
+        log.warning('git add failed in %s: %s', worktree, out)
+        return
+    rc, out = run_git(['diff', '--cached', '--quiet'], worktree)
+    if rc == 0:
+        return  # nothing staged
+    ts = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    rc, out = run_git(['commit', '-m', f'auto: save {ts} [daemon]'], worktree)
+    if rc != 0:
+        log.warning('git commit failed in %s: %s', worktree, out)
+        return
+    rc, out = run_git(['push', 'origin', branch], worktree)
+    if rc != 0:
+        log.warning('git push failed in %s: %s', worktree, out)
+    else:
+        log.info('auto-committed + pushed in %s', worktree)
+
+# ── Action handlers ───────────────────────────────────────────────────────────
+def handle_create_worktree(payload: dict) -> tuple[bool, str]:
+    branch = payload.get('branch', '')
+    slug   = payload.get('slug', '')
+    if not branch or not slug:
+        return False, 'Missing branch or slug'
+
+    target = WORKTREES / branch.replace('dunamis/', '')
+    if target.exists():
+        return True, f'Worktree already exists at {target}'
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Fetch the branch first
+    rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
+    if rc != 0:
+        return False, f'git fetch failed: {out}'
+
+    rc, out = run_git(['worktree', 'add', str(target), branch], AGORA_PATH)
+    if rc != 0:
+        return False, f'git worktree add failed: {out}'
+
+    log.info('Created worktree %s → %s', branch, target)
+    return True, f'Worktree created at {target}'
+
+
+def handle_remove_worktree(payload: dict) -> tuple[bool, str]:
+    branch = payload.get('branch', '')
+    if not branch:
+        return False, 'Missing branch'
+
+    target = WORKTREES / branch.replace('dunamis/', '')
+    if not target.exists():
+        return True, 'Worktree not found — already removed'
+
+    rc, out = run_git(['worktree', 'remove', '--force', str(target)], AGORA_PATH)
+    if rc != 0:
+        return False, f'git worktree remove failed: {out}'
+
+    log.info('Removed worktree %s', target)
+    return True, f'Worktree removed: {target}'
+
+
+def handle_scaffold_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug  = payload.get('slug', '')
+    title = payload.get('title', slug)
+    fmt   = payload.get('format', 'article')
+    if not slug:
+        return False, 'Missing slug'
+
+    dest = SCRIVENER_DIR / f'{slug}.scriv'
+    SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
+
+    if dest.exists():
+        return True, f'Scrivener project already exists at {dest}'
+
+    # Template project (if available), else create minimal stub
+    template = SCRIVENER_DIR / '_templates' / f'{fmt}.scriv'
+    if template.exists():
+        shutil.copytree(template, dest)
+        log.info('Created Scrivener project from template: %s', dest)
+    else:
+        # Minimal .scriv stub — Cam opens and configures manually
+        dest.mkdir(parents=True)
+        (dest / 'project.scrivx').write_text(
+            f'<?xml version="1.0" encoding="UTF-8"?>\n'
+            f'<ScrivenerProject Version="2.0">\n'
+            f'  <ProjectTarget Type="Words" Current="0">{title}</ProjectTarget>\n'
+            f'</ScrivenerProject>\n'
+        )
+        log.info('Created minimal Scrivener stub at %s — configure compile target manually', dest)
+
+    return True, f'Scrivener project scaffolded at {dest}'
+
+
+def handle_duplicate_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    if not slug or not direction:
+        return False, 'Missing slug or direction'
+
+    src  = SCRIVENER_DIR / f'{slug}.scriv'
+    dest = SCRIVENER_DIR / f'{slug}-{direction}.scriv'
+
+    if not src.exists():
+        return False, f'Source project not found: {src}'
+    if dest.exists():
+        return True, f'Direction project already exists: {dest}'
+
+    shutil.copytree(src, dest)
+    log.info('Duplicated Scrivener project %s → %s', src.name, dest.name)
+    return True, f'Duplicated to {dest}'
+
+
+def handle_archive_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    if not slug:
+        return False, 'Missing slug'
+
+    name = f'{slug}-{direction}.scriv' if direction else f'{slug}.scriv'
+    src  = SCRIVENER_DIR / name
+    if not src.exists():
+        return True, f'No Scrivener project found at {src} — nothing to archive'
+
+    archive_dir = SCRIVENER_DIR / 'archive'
+    archive_dir.mkdir(exist_ok=True)
+    dest = archive_dir / name
+    shutil.move(str(src), str(dest))
+    log.info('Archived Scrivener project %s → %s', src, dest)
+    return True, f'Archived to {dest}'
+
+
+def handle_configure_scrivener_compile_target(payload: dict) -> tuple[bool, str]:
+    # Scrivener compile configuration requires AppleScript on macOS.
+    # Auto-configuration via AppleScript is complex and fragile;
+    # surfacing a desktop notification for manual configuration instead.
+    slug   = payload.get('slug', '')
+    notify(
+        'Energeia — manual step required',
+        f'Configure Scrivener compile target for "{slug}" to output '
+        f'papers/{slug}/main.tex via XeLaTeX. See energeia docs.'
+    )
+    return True, f'Desktop notification shown for {slug} compile target setup'
+
+
+# ── Action dispatch ───────────────────────────────────────────────────────────
+HANDLERS = {
+    'create-worktree':                   handle_create_worktree,
+    'remove-worktree':                   handle_remove_worktree,
+    'scaffold-scrivener-project':        handle_scaffold_scrivener_project,
+    'duplicate-scrivener-project':       handle_duplicate_scrivener_project,
+    'archive-scrivener-project':         handle_archive_scrivener_project,
+    'configure-scrivener-compile-target': handle_configure_scrivener_compile_target,
+}
+
+
+def dispatch_action(action: dict) -> None:
+    action_id = action.get('id', 'unknown')
+    action_type = action.get('type', '')
+    payload = action.get('payload', {})
+
+    handler = HANDLERS.get(action_type)
+    if not handler:
+        log.warning('Unknown action type: %s', action_type)
+        report_complete(action_id, False, f'Unknown action type: {action_type}')
+        return
+
+    log.info('Executing action %s: %s', action_id[:8], action_type)
+    try:
+        ok, msg = handler(payload)
+        log.info('Action %s finished: ok=%s msg=%s', action_id[:8], ok, msg)
+        report_complete(action_id, ok, msg)
+    except Exception as exc:
+        log.error('Action %s raised exception: %s', action_id[:8], exc, exc_info=True)
+        report_complete(action_id, False, str(exc))
+
+# ── File watcher ──────────────────────────────────────────────────────────────
+class PaperWatcher(FileSystemEventHandler):
+    """Debounced watcher on ~/Documents/agora-worktrees/dunamis/*/papers/"""
+
+    def __init__(self):
+        self._pending: dict[str, float] = {}
+        self._lock = threading.Lock()
+        self._debounce_secs = 8.0
+
+    def on_any_event(self, event):
+        if event.is_directory:
+            return
+        # Only care about changes inside papers/ subdirectories
+        path = Path(event.src_path)
+        if 'papers' not in path.parts:
+            return
+        # Find the worktree root (agora-worktrees/dunamis/<slug>-<dir>/)
+        try:
+            idx = list(path.parts).index('dunamis') + 1
+            direction_dir = Path(*path.parts[:idx + 1])  # up to <slug>-<dir>
+        except (ValueError, IndexError):
+            return
+        key = str(direction_dir)
+        with self._lock:
+            self._pending[key] = time.time()
+
+    def flush_pending(self) -> None:
+        now = time.time()
+        with self._lock:
+            ready = [(k, v) for k, v in self._pending.items()
+                     if now - v >= self._debounce_secs]
+            for k, _ in ready:
+                del self._pending[k]
+
+        for worktree_str, _ in ready:
+            worktree = Path(worktree_str)
+            if not worktree.exists():
+                continue
+            # Derive branch name from directory structure
+            # Worktrees path: .../agora-worktrees/dunamis/<name>
+            # Branch: dunamis/<name>
+            branch = f'dunamis/{worktree.name}'
+            threading.Thread(
+                target=git_auto_commit, args=(worktree, branch), daemon=True
+            ).start()
+
+
+# ── macOS desktop notifications ───────────────────────────────────────────────
+def notify(title: str, message: str) -> None:
+    if platform.system() != 'Darwin':
+        return
+    script = f'display notification "{message}" with title "{title}"'
+    try:
+        subprocess.run(['osascript', '-e', script], timeout=5, capture_output=True)
+    except Exception:
+        pass
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
+def main() -> None:
+    if not TOKEN:
+        log.error('ENERGEIA_TOKEN is not set — daemon cannot authenticate. Exiting.')
+        sys.exit(1)
+
+    log.info('energeia-daemon starting up')
+    log.info('API: %s', API_URL)
+    log.info('Agora path: %s', AGORA_PATH)
+    log.info('Worktrees: %s', WORKTREES)
+
+    WORKTREES.mkdir(parents=True, exist_ok=True)
+
+    # Start file watcher
+    watcher = PaperWatcher()
+    observer = Observer()
+    if WORKTREES.exists():
+        observer.schedule(watcher, str(WORKTREES), recursive=True)
+    observer.start()
+    log.info('File watcher started on %s', WORKTREES)
+
+    notify('Energeia daemon', 'Started — watching for paper changes.')
+
+    try:
+        while True:
+            # Flush debounced auto-commits
+            watcher.flush_pending()
+
+            # Poll for next action
+            resp = api_get('/api/energeia/actions/next')
+            if resp and resp.get('action'):
+                dispatch_action(resp['action'])
+            else:
+                time.sleep(POLL_INTERVAL)
+
+    except KeyboardInterrupt:
+        log.info('Interrupted — shutting down')
+    finally:
+        observer.stop()
+        observer.join()
+        log.info('energeia-daemon stopped')
+
+
+if __name__ == '__main__':
+    main()

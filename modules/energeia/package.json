@@ -1,0 +1,17 @@
+{
+  "name": "energeia-skeptou",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Energeia — papers / writing pipeline for skeptou.com",
+  "scripts": {
+    "sync":  "node scripts/sync-agora.js",
+    "build": "npm run sync",
+    "icons": "node scripts/generate-icons.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0"
+  }
+}

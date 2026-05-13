@@ -1,0 +1,73 @@
+name: Compile draft PDF
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Dunamis branch (e.g. dunamis/epistemic-akrasia-alpha)
+        required: true
+        type: string
+      slug:
+        description: Paper slug
+        required: true
+        type: string
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout agora on dunamis branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          SLUG="${{ inputs.slug }}"
+          BRANCH="${{ inputs.branch }}"
+          if ! echo "$BRANCH" | grep -qE '^dunamis/[a-z0-9-]+-[a-z]+$'; then
+            echo "Invalid branch: $BRANCH" && exit 1
+          fi
+          TEX_FILE="papers/${SLUG}/main.tex"
+          if [ ! -f "$TEX_FILE" ]; then
+            echo "No main.tex found at $TEX_FILE — nothing to compile"
+            exit 0
+          fi
+          echo "TEX_FILE=$TEX_FILE" >> $GITHUB_ENV
+          echo "OUT_DIR=papers/$SLUG" >> $GITHUB_ENV
+
+      - name: Install TeX Live (XeLaTeX + latexmk)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
+
+      - name: Configure TEXINPUTS for ucr-borges templates
+        run: |
+          # agora/templates/<format>/ holds ucr-borges.cls and .sty files
+          echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
+
+      - name: Compile with XeLaTeX
+        run: |
+          cd "$OUT_DIR"
+          latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || {
+            echo "XeLaTeX compilation failed — see log above"
+            exit 1
+          }
+
+      - name: Commit compiled PDF
+        run: |
+          git config user.name  "energeia-bot"
+          git config user.email "energeia@skeptou.com"
+          PDF="papers/${{ inputs.slug }}/main.pdf"
+          if [ -f "$PDF" ]; then
+            git add "$PDF"
+            git diff --cached --quiet || \
+              git commit -m "energeia: compile draft ${{ inputs.slug }} [automated]"
+            git push origin "${{ inputs.branch }}"
+          fi
