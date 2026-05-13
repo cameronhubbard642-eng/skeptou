@@ -125,6 +125,11 @@ jobs:
           projectName: phronesis
           directory: modules/phronesis/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # wrangler 3 required: v2 (action default) treats functions/ as static
+          # files and skips bundling entirely — POST /api/* returns 405 from the
+          # static file server.  wrangler 3 (`pages deploy`) correctly detects
+          # functions/ inside the upload directory and compiles them as Pages Functions.
+          wranglerVersion: '3'
 
     # ── Secrets registry ────────────────────────────────────────────────────
     # GitHub Actions repo secrets (Settings → Secrets → Actions):
