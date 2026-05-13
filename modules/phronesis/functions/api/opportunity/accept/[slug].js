@@ -63,9 +63,16 @@ export async function onRequestPost(ctx) {
       console.error('Manifest update failed:', manifestErr.message);
     }
 
-    /* Step 6: create projects/<slug>-plan.md */
+    /* Step 6: upsert projects/<slug>-plan.md
+     * Pass existing SHA if file already exists (handles repeated accept on same slug).
+     * Passing null SHA on an existing file → GitHub 422 → 500; upsert avoids that. */
     const planContent = buildPlanFile(slug, parsed.frontmatter);
-    await gh.putFile(vp(`projects/${slug}-plan.md`), planContent, null,
+    let planSha = null;
+    try {
+      const existingPlan = await gh.getFile(vp(`projects/${slug}-plan.md`));
+      planSha = existingPlan.sha;
+    } catch (_) { /* file doesn't exist yet — create mode is correct */ }
+    await gh.putFile(vp(`projects/${slug}-plan.md`), planContent, planSha,
       `phronesis: accept ${slug} — scaffold plan [automated]`);
 
     return jsonResponse({

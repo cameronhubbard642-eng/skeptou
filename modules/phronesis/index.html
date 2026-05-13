@@ -1014,7 +1014,9 @@
           verb + ' — ' + (data.message || 'Rebuilding…') + '</span>';
       } else {
         const err = await resp.json().catch(function() { return { error: 'Unknown error' }; });
-        actionsEl.innerHTML = '<span class="sk-error">Error: ' + escHtml(err.error || resp.statusText) + '</span>';
+        var msg = err.error || resp.statusText;
+        if (err.detail) msg += ' — ' + err.detail;
+        actionsEl.innerHTML = '<span class="sk-error">Error ' + resp.status + ': ' + escHtml(msg) + '</span>';
       }
     } catch (e) {
       actionsEl.innerHTML = '<span class="sk-error">Network error — try again.</span>';
