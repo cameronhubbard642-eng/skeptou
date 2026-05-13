@@ -80,10 +80,6 @@ jobs:
         run: |
           TOTAL_CHANGED=$(git diff --numstat "origin/energeia...origin/$BRANCH" \
             -- "papers/$SLUG/" | awk '{add+=$1; del+=$2} END {print add+del+0}')
-          CANONICAL_LINES=$(git show "origin/energeia:papers/$SLUG/" 2>/dev/null | \
-            xargs -I{} git show "origin/energeia:papers/$SLUG/{}" 2>/dev/null | \
-            wc -l || echo 1)
-          # Simpler approximation: count lines of all .tex files on energeia
           CANONICAL_LINES=$(git ls-tree -r --name-only origin/energeia -- "papers/$SLUG/" \
             | grep '\.tex$' \
             | xargs -I{} git show "origin/energeia:{}" 2>/dev/null \
@@ -96,7 +92,6 @@ jobs:
       # ── Step 2: Copy papers/<slug>/ from dunamis to energeia ────────────
       - name: Copy paper files from dunamis branch
         run: |
-          # Check out papers/<slug>/ from the dunamis branch onto the working tree
           git checkout "origin/$BRANCH" -- "papers/$SLUG/"
           echo "Copied papers/$SLUG/ from origin/$BRANCH"
 
@@ -108,7 +103,12 @@ jobs:
             texlive-xetex texlive-fonts-recommended texlive-latex-extra \
             latexmk latexdiff
 
-      - name: Configure TEXINPUTS
+      - name: Link Cameron_Personal_Style into paper directory
+        run: |
+          ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
+                  "papers/$SLUG/personal_style"
+
+      - name: Configure TEXINPUTS for Cameron Personal Style
         run: echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
 
       # ── Step 4: Compile new canonical PDF ───────────────────────────────

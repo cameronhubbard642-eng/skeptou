@@ -493,11 +493,158 @@
     font-style: italic;
   }
 
-  @media (max-width: 600px) {
-    .sk-version-table { font-size: .74rem; }
-    .sk-version-table td, .sk-version-table th { padding-right: .25rem; }
-    .sk-paper-card__actions { gap: .4rem; }
-    .sk-modal { padding: 1.25rem; }
+  /* ── Tab icons + labels (base — desktop) ───────────────────────────── */
+  .sk-tab-icon {
+    display: none;
+    width: 24px; height: 24px;
+    flex-shrink: 0;
+  }
+  .sk-nav__item--home { display: none; }
+
+  /* ── Tablet 641–1024px: 2-col paper card grid ─────────────────────── */
+  @media (min-width: 641px) and (max-width: 1024px) {
+    #overview-content {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0;
+      column-gap: 1.25rem;
+    }
+    #overview-content .sk-group-head { grid-column: span 2; }
+  }
+
+  /* ── Phone portrait ≤ 640px ───────────────────────────────────────── */
+  @media (max-width: 640px) {
+
+    /* ── Show mobile-only home tab ── */
+    .sk-nav__item--home { display: flex; }
+
+    /* ── Icons + Cinzel small-caps labels ── */
+    .sk-tab-icon {
+      display: block;
+      width: 24px; height: 24px;
+      margin-bottom: 2px;
+    }
+    .sk-tab-label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      font-variant-caps: small-caps;
+      letter-spacing: .03em;
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    /* ── Active state: Wine (overrides skeptou.css mauve) ── */
+    .sk-nav__link.active {
+      color: var(--color-wine, #722f37);
+      border-top-color: var(--color-wine, #722f37);
+    }
+    .sk-nav__link:not(.active) {
+      color: var(--color-quartz, #51414f);
+      opacity: .6;
+    }
+
+    /* ── Paper cards: stacked + full-width actions ── */
+    .sk-paper-card { margin-bottom: .875rem; }
+    .sk-paper-card__row1 { flex-wrap: wrap; gap: .4rem; }
+    .sk-paper-card__actions {
+      flex-direction: column;
+      gap: .4rem;
+      align-items: stretch;
+    }
+    .sk-paper-card__actions .sk-btn {
+      width: 100%;
+      text-align: center;
+      min-height: 44px;
+    }
+
+    /* ── Direction items: wrap + 44px buttons ── */
+    .sk-direction-item { flex-wrap: wrap; gap: .5rem; }
+    .sk-direction-item__actions .sk-btn { min-height: 44px; }
+
+    /* ── Branch items: wrap + 44px buttons ── */
+    .sk-branch-item { flex-wrap: wrap; gap: .5rem; }
+    .sk-branch-item__actions .sk-btn { min-height: 44px; }
+
+    /* ── Version table → card layout ── */
+    .sk-version-table       { display: block; }
+    .sk-version-table thead { display: none; }
+    .sk-version-table tbody { display: block; }
+    .sk-version-table tr.sk-version-row--major {
+      display: block;
+      border: 1px solid rgba(145,95,109,.25);
+      border-top: 2px solid var(--color-mauve, #915f6d);
+      padding: .75rem .875rem;
+      margin-bottom: .625rem;
+    }
+    .sk-version-table tr.sk-version-row--major td {
+      display: flex;
+      align-items: baseline;
+      gap: .5rem;
+      padding: .2rem 0;
+      border-bottom: none;
+      font-size: .82rem;
+    }
+    .sk-version-table tr.sk-version-row--major td[data-label]::before {
+      content: attr(data-label);
+      font-size: .65rem;
+      font-variant-caps: small-caps;
+      letter-spacing: .07em;
+      color: var(--color-mauve, #915f6d);
+      flex-shrink: 0;
+      width: 4.5rem;
+    }
+    .sk-version-table td[data-label="Branch"] { display: none; }
+    .sk-version-table tr.sk-version-row--minors-wrapper {
+      display: block; padding: 0; border: none; margin-bottom: 0;
+    }
+    .sk-version-table tr.sk-version-row--minors-wrapper td {
+      display: block; padding: 0;
+    }
+    .sk-version-table tr.sk-version-row--minors-wrapper td::before { display: none; }
+    .sk-version-row--minor td { font-size: .8rem; }
+
+    /* ── Modal: full-screen bottom sheet ── */
+    .sk-modal-overlay {
+      padding: 0;
+      align-items: flex-end;
+    }
+    .sk-modal {
+      max-width: 100%;
+      width: 100%;
+      max-height: 92vh;
+      border-top: 3px solid var(--color-mauve, #915f6d);
+      border-left: none; border-right: none; border-bottom: none;
+      border-radius: 0;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.75rem);
+    }
+    .sk-modal__footer {
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .sk-modal__footer .sk-btn {
+      width: 100%;
+      text-align: center;
+      min-height: 44px;
+    }
+    .sk-modal__close { min-width: 44px; min-height: 44px; }
+
+    /* ── Form inputs: 44px touch targets ── */
+    .sk-form-input, .sk-form-select { min-height: 44px; font-size: 1rem; }
+
+    /* ── Filter buttons: larger tap area ── */
+    .sk-filter-btn { min-height: 36px; padding: .3em 1em; font-size: .75rem; }
+
+    /* ── Page actions ── */
+    .sk-page-actions .sk-btn { min-height: 44px; }
+
+    /* ── Install toast: above bottom tab bar ── */
+    .sk-install-toast {
+      bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 0.75rem);
+      right: 1rem;
+      left: 1rem;
+      max-width: calc(100% - 2rem);
+      flex-wrap: wrap;
+    }
   }
   </style>
 </head>
@@ -509,9 +656,40 @@
   <nav class="sk-nav" role="navigation" aria-label="Energeia navigation">
     <a href="#overview" class="sk-nav__title" onclick="navigate('overview')">Energeia</a>
     <ul class="sk-nav__links" role="list">
-      <li><a href="#overview"  class="sk-nav__link" data-view="overview"  onclick="navigate('overview')">Papers</a></li>
-      <li><a href="#branches"  class="sk-nav__link" data-view="branches"  onclick="navigate('branches')">Branches</a></li>
-      <li><a href="#settings"  class="sk-nav__link" data-view="settings"  onclick="navigate('settings')">Settings</a></li>
+      <!-- Mobile-only home tab (hidden on desktop via .sk-nav__item--home) -->
+      <li class="sk-nav__item--home">
+        <a href="#overview" class="sk-nav__link" data-view="overview-home" onclick="navigate('overview')">
+          <svg class="sk-tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+          </svg>
+          <span class="sk-tab-label">Energeia</span>
+        </a>
+      </li>
+      <li>
+        <a href="#overview" class="sk-nav__link" data-view="overview" onclick="navigate('overview')">
+          <svg class="sk-tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          </svg>
+          <span class="sk-tab-label">Papers</span>
+        </a>
+      </li>
+      <li>
+        <a href="#branches" class="sk-nav__link" data-view="branches" onclick="navigate('branches')">
+          <svg class="sk-tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3" />
+          </svg>
+          <span class="sk-tab-label">Branches</span>
+        </a>
+      </li>
+      <li>
+        <a href="#settings" class="sk-nav__link" data-view="settings" onclick="navigate('settings')">
+          <svg class="sk-tab-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          </svg>
+          <span class="sk-tab-label">Settings</span>
+        </a>
+      </li>
     </ul>
   </nav>
 
@@ -742,11 +920,23 @@
       if (el) el.classList.toggle('active', v === view);
     });
 
+    var isMobile = window.matchMedia('(max-width: 640px)').matches;
     document.querySelectorAll('.sk-nav__link').forEach(function(link) {
       var lv = link.dataset.view;
-      link.classList.toggle('active',
-        lv === view || (view === 'paper' && lv === 'overview') || (view === 'working' && lv === 'overview')
-      );
+      var isActive;
+      if (isMobile) {
+        /* Mobile: home tab active on overview; Papers tab active on paper/working */
+        isActive =
+          (lv === 'overview-home' && view === 'overview') ||
+          (lv === 'overview'      && (view === 'paper' || view === 'working')) ||
+          lv === view;
+      } else {
+        /* Desktop: Papers link covers overview + paper + working */
+        isActive =
+          lv === view ||
+          ((view === 'paper' || view === 'working') && lv === 'overview');
+      }
+      link.classList.toggle('active', isActive);
     });
 
     /* Render the activated view */
@@ -897,11 +1087,11 @@
     var timelineRows = '';
     paper.versions.slice().reverse().forEach(function(v) {
       timelineRows += '<tr class="sk-version-row--major">' +
-        '<td>' + escHtml(v.tag) + '</td>' +
-        '<td>' + escHtml(v.date) + '</td>' +
-        '<td>' + escHtml(v.note) + '</td>' +
-        '<td style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(v.lineage) + '</td>' +
-        '<td><span class="sk-class-' + v.classification + '">' + v.classification + '</span></td>' +
+        '<td data-label="Version">' + escHtml(v.tag) + '</td>' +
+        '<td data-label="Date">' + escHtml(v.date) + '</td>' +
+        '<td data-label="Note">' + escHtml(v.note) + '</td>' +
+        '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(v.lineage) + '</td>' +
+        '<td data-label="Class."><span class="sk-class-' + v.classification + '">' + v.classification + '</span></td>' +
         '<td>' +
           (v.tag === paper.currentTag
             ? '<span class="sk-secondary" style="font-size:.72rem;">current</span>'
@@ -913,17 +1103,17 @@
         /* Minors collapsed in a details row */
         var minorRows = v.minors.map(function(m) {
           return '<tr class="sk-version-row--minor">' +
-            '<td>' + escHtml(m.tag) + '</td>' +
-            '<td>' + escHtml(m.date) + '</td>' +
-            '<td>' + escHtml(m.note) + '</td>' +
-            '<td style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(m.lineage) + '</td>' +
-            '<td><span class="sk-class-minor">minor</span></td>' +
+            '<td data-label="Version">' + escHtml(m.tag) + '</td>' +
+            '<td data-label="Date">' + escHtml(m.date) + '</td>' +
+            '<td data-label="Note">' + escHtml(m.note) + '</td>' +
+            '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(m.lineage) + '</td>' +
+            '<td data-label="Class."><span class="sk-class-minor">minor</span></td>' +
             '<td><a class="sk-pdf-link" href="#" onclick="return false;">PDF</a></td>' +
           '</tr>';
         }).join('');
 
         /* Wrap in a <tr><td colspan> containing a <details> */
-        timelineRows += '<tr><td colspan="6" style="padding:0;">' +
+        timelineRows += '<tr class="sk-version-row--minors-wrapper"><td colspan="6" style="padding:0;">' +
           '<details class="sk-version-minors"><summary>' + v.minors.length + ' minor patch' +
           (v.minors.length > 1 ? 'es' : '') + ' under ' + escHtml(v.tag) + '</summary>' +
           '<table class="sk-version-table" style="margin-top:.25rem;">' +

@@ -38,7 +38,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
 
-      - name: Configure TEXINPUTS
+      - name: Configure TEXINPUTS for Cameron Personal Style
         if: steps.changed.outputs.SLUGS != ''
         run: echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
 
@@ -52,6 +52,10 @@ jobs:
               echo "Skipping $SLUG — no main.tex"
               continue
             fi
+            # Link template personal_style/ beside main.tex so relative font/image
+            # paths in Cameron_Personal_Style.sty resolve from the paper directory.
+            ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
+                    "papers/$SLUG/personal_style"
             echo "=== Compiling papers/$SLUG/main.tex ==="
             cd "papers/$SLUG"
             latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || \
