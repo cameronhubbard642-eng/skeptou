@@ -866,10 +866,10 @@
                    : p.status === 'blocked' ? 'sk-badge--declined'
                    :                          'sk-badge--confirmed';
       return '<tr>' +
-        '<td>' + escHtml(p.title) + '</td>' +
-        '<td><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
-        '<td><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status) + '</span></td>' +
-        '<td>' + escHtml(p.deadline) + '</td>' +
+        '<td data-label="Project">' + escHtml(p.title) + '</td>' +
+        '<td data-label="Type"><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
+        '<td data-label="Status"><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status) + '</span></td>' +
+        '<td data-label="Deadline">' + escHtml(p.deadline) + '</td>' +
         '</tr>';
     }).join('');
 
@@ -961,7 +961,7 @@
         : '';
 
       return '<div class="sk-opp-card" id="card-' + opp.slug + '" role="article">' +
-        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.5rem;">' +
+        '<div class="sk-opp-card__header">' +
           '<div class="sk-opp-card__title">' + escHtml(opp.title) + '</div>' +
           '<span class="sk-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
         '</div>' +
