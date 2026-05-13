@@ -231,12 +231,19 @@
 
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
+  /* ── Sample generates a FORWARD-LOOKING window (today → today+364).        */
+  /* This matches the forward orientation of the renderers so the live data   */
+  /* replacement looks similar in shape to the placeholder.                   */
   var BUSY_SCORES = (function() {
     var TYPE_KEYS = EVENT_TYPES.map(function(t) { return t.key; });
     var scores = {};
     var today = new Date();
+    /* Start at the Sunday of the current week (aligns with heatmap columns) */
     var start = new Date(today);
-    start.setDate(start.getDate() - 364);
+    start.setDate(start.getDate() - start.getDay());
+    /* End 364 days after the start of the current week */
+    var end = new Date(start);
+    end.setDate(start.getDate() + 364);
 
     function randType(dow) {
       if (dow === 0 || dow === 6) { return Math.random() < 0.3 ? 'fitness' : null; }
@@ -258,7 +265,7 @@
       return d;
     }
 
-    for (var cur = new Date(start); cur <= today; cur.setDate(cur.getDate() + 1)) {
+    for (var cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
       var key = cur.toISOString().slice(0, 10);
       var dow = cur.getDay();
       var prob = (dow === 0 || dow === 6) ? 0.25 : 0.72;
@@ -272,8 +279,8 @@
       if (day.total > 0) scores[key] = day;
     }
 
-    /* Busy periods — extra admin + deadlines load */
-    ['2026-01', '2026-03', '2026-05'].forEach(function(month) {
+    /* Busy periods — extra admin + deadlines load (upcoming months) */
+    ['2026-07', '2026-09', '2026-11'].forEach(function(month) {
       for (var dd = 1; dd <= 10; dd++) {
         var k = month + '-' + String(dd).padStart(2, '0');
         if (!scores[k]) scores[k] = emptyDay();
@@ -689,7 +696,9 @@
 
     var today = new Date();
     var startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - (364 + startDate.getDay()));
+    /* Forward-looking: start at Sunday of the current week so today appears in
+     * column 0 and the next 51 weeks show upcoming scheduled commitments. */
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
     var cells = [], monthLabels = {};
     var d = new Date(startDate);
@@ -774,7 +783,8 @@
     var scores = BUSY_SCORES.scores;
     var today = new Date();
     var startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 364);
+    /* Forward-looking: same Sunday-of-current-week origin as renderHeatmap */
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
     /* Build 52 weekly buckets with per-type counts */
     var weeks = [];

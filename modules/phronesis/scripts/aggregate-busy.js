@@ -41,17 +41,24 @@ const CAL_PATH    = path.join(ROOT, 'content', 'calendar-sync.md');
 const COMM_PATH   = path.join(ROOT, 'content', 'commitments.md');
 const CONFIG_PATH = path.join(ROOT, 'config', 'event-types.yaml');
 const OUT_PATH    = path.join(ROOT, 'src', 'data', 'busy-scores.json');
-const WINDOW_DAYS = 364;
+const WINDOW_DAYS  = 364; /* look back this many days for historical tasks */
+const FORWARD_DAYS = 120; /* look forward this many days for calendar events */
 
 /* ── Date window ─────────────────────────────────────────────────────────── */
+/* Both past tasks (commitments.md) and future calendar events (calendar-sync.md)
+ * should contribute to busy-scores.  calendar-sync.md exports today → +30 days,
+ * so any upper bound ≥ 30 days forward is sufficient; 120 provides headroom for
+ * further-out commitments.md tasks and future calendar-sync range expansions. */
 const today    = new Date();
 today.setHours(0, 0, 0, 0);
 const windowStart = new Date(today);
 windowStart.setDate(today.getDate() - WINDOW_DAYS);
+const windowEnd = new Date(today);
+windowEnd.setDate(today.getDate() + FORWARD_DAYS);
 
 function inWindow(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
-  return d >= windowStart && d <= today;
+  return d >= windowStart && d <= windowEnd;
 }
 
 /* ── Load event-types config (minimal inline YAML parser) ───────────────── */
@@ -327,11 +334,12 @@ if (fs.existsSync(COMM_PATH)) {
 
 const maxTotal = Object.values(scores).reduce((m, v) => Math.max(m, v.total), 0);
 const output = {
-  generated:   new Date().toISOString(),
-  window_days: WINDOW_DAYS,
-  types:       ALL_TYPES,
+  generated:    new Date().toISOString(),
+  window_days:  WINDOW_DAYS,
+  forward_days: FORWARD_DAYS,
+  types:        ALL_TYPES,
   scores,
-  max_total:   maxTotal
+  max_total:    maxTotal
 };
 
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
