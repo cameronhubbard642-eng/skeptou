@@ -1,0 +1,5 @@
+# Build output — generated at CI build time by sync-vault.js / aggregate-busy.js
+# Do not commit; these directories are recreated on every deploy.
+content/
+src/data/
+dist/

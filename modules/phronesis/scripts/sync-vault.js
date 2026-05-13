@@ -196,7 +196,10 @@ async function main() {
   try {
     const oppDir = path.join(ROOT, OPP_DIR);
     if (fs.existsSync(oppDir)) {
-      const oppFiles = fs.readdirSync(oppDir).filter(f => f.endsWith('.md'));
+      /* Only process opp-*.md files — guards against stale placeholder files
+       * (e.g. index.md, opp-sample.md) that were committed to the repo and
+       * would otherwise produce bogus slugs like "index" or "sample". */
+      const oppFiles = fs.readdirSync(oppDir).filter(f => f.startsWith('opp-') && f.endsWith('.md'));
       let pending = 0, confirmed = 0, active = 0;
       const opportunities = [];
 
