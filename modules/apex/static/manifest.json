@@ -1,14 +1,11 @@
 {
-  "name": "Phronesis — Sképtou",
-  "short_name": "Phronesis",
-  "description": "Private planning dashboard — Sképtou",
+  "name": "Sképtou",
+  "short_name": "Sképtou",
+  "description": "Sképtou — personal research and planning suite",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
   "background_color": "#fcf5e5",
   "theme_color": "#301934",
-  "lang": "en",
-  "scope": "/",
   "icons": [
     {
       "src": "/icons/icon-32.png",
