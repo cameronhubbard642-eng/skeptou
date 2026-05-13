@@ -47,9 +47,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
 
-      - name: Configure TEXINPUTS for ucr-borges templates
+      - name: Link Cameron_Personal_Style into paper directory
         run: |
-          # agora/templates/<format>/ holds ucr-borges.cls and .sty files
+          # The .sty files use relative paths (./personal_style/fonts/ etc.)
+          # resolved from the working directory at compile time.
+          # Symlinking templates/personal_style/ beside the paper's main.tex
+          # satisfies those relative references without modifying any .sty file.
+          ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
+                  "papers/${{ inputs.slug }}/personal_style"
+
+      - name: Configure TEXINPUTS for Cameron Personal Style
+        run: |
+          # Belt-and-suspenders: lets xelatex find any additional files in templates/
           echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
 
       - name: Compile with XeLaTeX

@@ -34,3 +34,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# LaTeX templates — canonical location is agora/templates/; not tracked here
+assets/tex_templates/

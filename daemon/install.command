@@ -90,11 +90,23 @@ fi
 
 # ── TEXINPUTS ──────────────────────────────────────────────────────────────
 step "Configuring TEXINPUTS for local LaTeX"
+# The recursive (//::) search lets xelatex find Cameron_Personal_Style.sty
+# inside agora/templates/personal_style/ without specifying the full path.
+#
+# NOTE — local compilation from a paper directory also requires a symlink
+# because Cameron_Personal_Style.sty uses relative paths for fonts and
+# logos (./personal_style/fonts/). Before compiling a paper locally, run:
+#
+#   ln -sfn ~/Documents/agora/templates/personal_style \
+#           ~/Documents/agora-worktrees/dunamis/<branch>/papers/<slug>/personal_style
+#
+# CI workflows (compile-draft, compile-canonical, promote-paper) create this
+# symlink automatically before each latexmk invocation.
 TEXINPUTS_LINE="export TEXINPUTS=\".:${AGORA_PATH}/templates//::\""
 for RC in "$HOME/.zshrc" "$HOME/.bash_profile"; do
   if [ -f "$RC" ] && ! grep -q "agora/templates" "$RC" 2>/dev/null; then
     echo "" >> "$RC"
-    echo "# energeia: find ucr-borges templates" >> "$RC"
+    echo "# energeia: find Cameron_Personal_Style templates" >> "$RC"
     echo "$TEXINPUTS_LINE" >> "$RC"
     ok "Added TEXINPUTS to $RC"
   fi
