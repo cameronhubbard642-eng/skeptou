@@ -97,6 +97,11 @@ jobs:
           # Deploy data JSON files produced by sync-vault.js + aggregate-busy.js
           mkdir -p modules/phronesis/dist/data
           cp modules/phronesis/src/data/*.json modules/phronesis/dist/data/ 2>/dev/null || true
+          # Stamp SW cache name with commit SHA so every deploy busts the previous cache.
+          # Replaces CACHE_NAME in dist/sw.js only (source sw.js is unchanged in repo).
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          sed -i "s/const CACHE_NAME = 'phronesis-[^']*'/const CACHE_NAME = 'phronesis-${SHORT_SHA}'/" modules/phronesis/dist/sw.js
+          echo "SW cache stamped: phronesis-${SHORT_SHA}"
           echo "dist/ contents:"
           find modules/phronesis/dist -not -type d | sort
 
