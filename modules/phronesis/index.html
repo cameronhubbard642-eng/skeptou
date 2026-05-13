@@ -583,7 +583,7 @@
     const grid = document.getElementById('status-grid');
     if (!grid) return;
     const stats = [
-      { n: MANIFEST_STATS.active_projects,   label: 'active projects',   href: '#projects' },
+      { n: (MANIFEST_DATA && MANIFEST_DATA.active) ? MANIFEST_DATA.active.length : MANIFEST_STATS.active_projects, label: 'active projects', href: '#projects' },
       { n: MANIFEST_STATS.pending_decisions,  label: 'pending decisions', href: '#opportunities' },
       { n: MANIFEST_STATS.confirmed_pursuing, label: 'confirmed',         href: '#opportunities' }
     ];

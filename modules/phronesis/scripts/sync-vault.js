@@ -435,6 +435,14 @@ async function extractProjects() {
   fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
   fs.writeFileSync(manifestPath, JSON.stringify({ active: projects }, null, 2));
   console.log(`sync-vault: wrote ${projects.length} projects → src/data/manifest.json`);
+
+  /* Patch active_projects in manifest-stats.json to reflect actual project count */
+  const statsPath = path.join(ROOT, 'src', 'data', 'manifest-stats.json');
+  try {
+    const existing = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
+    existing.active_projects = projects.length;
+    fs.writeFileSync(statsPath, JSON.stringify(existing, null, 2));
+  } catch (_) {}
 }
 
 /* ── Inventory extraction (inventory/ category files) ────────────────────── */
