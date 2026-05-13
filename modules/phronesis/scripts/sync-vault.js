@@ -401,15 +401,22 @@ function parsePriority(raw) {
 /* and similar files without type: project are tracked separately.            */
 async function extractProjects() {
   const listing = await fetchDirListing(vaultPath(OPP_VAULT_DIR));
-  const projFiles = listing.filter(f => f.name && f.name.startsWith('proj-') && f.name.endsWith('.md'));
+  const allMd     = listing.filter(f => f.name && f.name.endsWith('.md'));
+  const projFiles = allMd.filter(f => f.name.startsWith('proj-'));
+  const otherMd   = allMd.filter(f => !f.name.startsWith('opp-') && !f.name.startsWith('proj-'));
+  if (otherMd.length) console.log(`sync-vault: non-opp non-proj .md files in projects/ — ${otherMd.map(f => f.name).join(', ')}`);
 
+  console.log(`sync-vault: found ${projFiles.length} proj-*.md files in vault`);
   const projects = [];
   for (const f of projFiles) {
     try {
       const content = await fetchFile(f.path);
       if (!content) continue;
       const status   = extractFrontmatterField(content, 'status') || 'active';
-      if (status === 'done' || status === 'reference') continue;
+      if (status === 'done' || status === 'reference') {
+        console.log(`sync-vault: skipping ${f.name} (status: ${status})`);
+        continue;
+      }
       const priority = parsePriority(extractFrontmatterField(content, 'priority') || '');
       const title    = extractFrontmatterField(content, 'title') ||
         humanizeSlug(f.name.replace(/^proj-/, '').replace(/\.md$/, ''));
