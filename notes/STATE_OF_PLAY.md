@@ -61,6 +61,9 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 - iCloud MX records (`mx01.mail.icloud.com`, `mx02.mail.icloud.com`) must be preserved through all DNS changes — hard prerequisite, non-negotiable
 - Access gate must be verified before any content deploys to any private subdomain
 - Dispatch fires Code tasks; management roles produce routing recommendation documents only
+- **PR workflow (effective 2026-05-13):** All work merges to `main` via pull request — no direct pushes.
+  - `modules/energeia/` and non-apex paths: self-merge after PR review is acceptable.
+  - `modules/apex/` and `agora/website/` (public surface): wait for explicit Cam approval before merging — no self-merge.
 
 ## Open questions requiring Cam decision
 
