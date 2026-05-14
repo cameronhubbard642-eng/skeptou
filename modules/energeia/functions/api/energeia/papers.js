@@ -32,7 +32,7 @@ export async function onRequestPost(ctx) {
   try { body = await request.json(); }
   catch (_) { return jsonResponse({ error: 'Invalid JSON body' }, 400); }
 
-  const { title, abstract = '', format = 'article' } = body;
+  const { title, abstract = '', format = 'article', directionLabel = '' } = body;
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
     return jsonResponse({ error: 'title is required' }, 400);
   }
@@ -56,7 +56,10 @@ export async function onRequestPost(ctx) {
   try {
     /* 1. Append to slugs.yaml on energeia branch */
     const slugsFile = await gh.getFile('slugs.yaml', 'energeia').catch(() => null);
-    const newEntry = `\n  - slug: ${slug}\n    title: "${title.replace(/"/g, '\\"')}"\n    status: drafting\n    current_tag: null\n    formats: [${format}]\n    created: "${today}"\n`;
+    const dunamisLine = directionLabel.trim()
+      ? `\n    dunamis:\n      alpha: "${directionLabel.trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+      : '';
+    const newEntry = `\n  - slug: ${slug}\n    title: "${title.replace(/"/g, '\\"')}"\n    status: drafting\n    current_tag: null\n    formats: [${format}]\n    created: "${today}"${dunamisLine}\n`;
 
     if (slugsFile) {
       const updated = slugsFile.content + newEntry;
