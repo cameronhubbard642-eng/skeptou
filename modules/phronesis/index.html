@@ -1530,10 +1530,36 @@
   /* ── Live data loader ────────────────────────────────────────────────── */
   /* Fetches /data/*.json produced by sync-vault.js + aggregate-busy.js.    */
   /* Gracefully falls back to inline sample data when files are absent.      */
+  /* Auth redirect detection: redirect:'manual' turns a CF Pages middleware  */
+  /* 302-to-login into an opaqueredirect instead of a CORS-blocked follow.   */
+  /* If any data file returns 401 (set by the SW on opaqueredirect) or an    */
+  /* opaqueredirect directly (no SW), a session-expired toast is shown.      */
   function loadLiveData() {
+    var authRedirectSeen = false;
+
     function tryFetch(url) {
-      return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+      return fetch(url, { redirect: 'manual' })
+        .then(function(r) {
+          /* opaqueredirect = direct auth 302 (no SW or SW bypassed).
+           * status 401     = SW caught the opaqueredirect and converted it.
+           * status 0       = same as opaqueredirect in some browser contexts. */
+          if (r.type === 'opaqueredirect' || r.status === 0 || r.status === 401) {
+            authRedirectSeen = true;
+            console.warn('[phronesis] auth redirect on', url, '— session may have expired');
+            return null;
+          }
+          if (!r.ok) {
+            console.warn('[phronesis] fetch failed:', url, r.status);
+            return null;
+          }
+          return r.json().catch(function() { return null; });
+        })
+        .catch(function(e) {
+          console.warn('[phronesis] fetch error:', url, e && e.message);
+          return null;
+        });
     }
+
     return Promise.all([
       tryFetch('/data/tasks.json'),
       tryFetch('/data/manifest-stats.json'),
@@ -1542,6 +1568,11 @@
       tryFetch('/data/manifest.json'),
       tryFetch('/data/inventory.json')
     ]).then(function(results) {
+      if (authRedirectSeen) {
+        showEphemeralToast('Session may have expired — reload to log in.');
+        return false;
+      }
+
       var tasks = results[0], stats = results[1], opps  = results[2],
           busy  = results[3], mfst  = results[4], inv   = results[5];
       var changed = false;
@@ -1551,6 +1582,9 @@
       if (busy  && busy.scores)                                     { BUSY_SCORES = busy;          changed = true; }
       if (mfst  && mfst.active && Array.isArray(mfst.active))      { MANIFEST_DATA = mfst;        changed = true; }
       if (inv   && inv.sections && Array.isArray(inv.sections))     { INVENTORY_DATA = inv;        changed = true; }
+      if (!changed) {
+        console.warn('[phronesis] loadLiveData: all fetches returned null — data files may be missing from deploy');
+      }
       return changed;
     });
   }
