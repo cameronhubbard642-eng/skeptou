@@ -1197,10 +1197,27 @@
                    ' style="margin-left:.3rem;">Diff ↗</a>';
       }
 
-      /* PDF cell */
-      var pdfHtml = (v.tag === paper.currentTag)
-        ? '<a class="sk-pdf-link" href="' + currentUrl + '" target="_blank">PDF</a>' + diffHtml
-        : '<a class="sk-pdf-link" href="' + taggedUrl  + '" target="_blank">PDF</a>' + diffHtml;
+      /* PDF cell — format-aware */
+      var pdfHtml;
+      if (paper.format === 'slides') {
+        var slidesUrl = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(
+          (v.tag === paper.currentTag) ? 'current-slides.pdf' : (slug + '-' + v.tag + '-slides.pdf')
+        );
+        pdfHtml = '<a class="sk-pdf-link" href="' + slidesUrl + '" target="_blank">Slides ↗</a>' + diffHtml;
+      } else if (paper.format === 'dual') {
+        var dualSlidesUrl = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(
+          (v.tag === paper.currentTag) ? 'current-slides.pdf' : (slug + '-' + v.tag + '-slides.pdf')
+        );
+        var handoutUrl = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(
+          (v.tag === paper.currentTag) ? 'current-handout.pdf' : (slug + '-' + v.tag + '-handout.pdf')
+        );
+        pdfHtml = '<a class="sk-pdf-link" href="' + dualSlidesUrl + '" target="_blank">Slides ↗</a>' +
+                  ' <a class="sk-pdf-link" href="' + handoutUrl   + '" target="_blank">Handout ↗</a>' + diffHtml;
+      } else {
+        pdfHtml = (v.tag === paper.currentTag)
+          ? '<a class="sk-pdf-link" href="' + currentUrl + '" target="_blank">PDF</a>' + diffHtml
+          : '<a class="sk-pdf-link" href="' + taggedUrl  + '" target="_blank">PDF</a>' + diffHtml;
+      }
 
       timelineRows += '<tr class="sk-version-row--major">' +
         '<td data-label="Version">' + escHtml(v.tag) + '</td>' +
@@ -1558,6 +1575,9 @@
             '<option value="abstract">Abstract</option>' +
             '<option value="chapter">Chapter</option>' +
             '<option value="cv">CV</option>' +
+            '<option value="slides">Slides</option>' +
+            '<option value="dual">Dual (Slides + Handout)</option>' +
+            '<option value="letter">Letter</option>' +
           '</select>' +
         '</div>' +
         '<div class="sk-form-group">' +
