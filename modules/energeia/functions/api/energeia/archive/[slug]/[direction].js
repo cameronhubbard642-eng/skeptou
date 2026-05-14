@@ -1,10 +1,17 @@
 /**
- * POST /api/energeia/archive/:slug/:direction — archive a dunamis direction
+ * POST   /api/energeia/archive/:slug/:direction — archive a dunamis direction
+ * DELETE /api/energeia/archive/:slug/:direction — permanently delete an archived direction
  *
- * 1. Moves the direction from dunamis: → archived-dunamis: in agora:energeia slugs.yaml
- * 2. Queues daemon actions for local cleanup (worktree + Scrivener project)
+ * POST:
+ *   1. Moves the direction from dunamis: → archived-dunamis: in agora:energeia slugs.yaml
+ *   2. Queues daemon actions for local cleanup (worktree + Scrivener project)
+ *   The remote branch is preserved as a permanent record.
  *
- * The remote branch is preserved as a permanent record.
+ * DELETE:
+ *   1. Confirms direction is in archived-dunamis: (not active)
+ *   2. Deletes the dunamis/<slug>-<direction> branch from agora via GitHub Refs API
+ *   3. Removes direction from archived-dunamis: in slugs.yaml
+ *   4. Optionally queues daemon action to remove local Scrivener archive
  *
  * Env: AGORA_DISPATCH_PAT, AGORA_REPO, ENERGEIA_ACTIONS, HMAC_SECRET, AUTH_DOMAIN
  */
@@ -60,6 +67,71 @@ export async function onRequestPost(ctx) {
 
   } catch (err) {
     console.error('Archive error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err.message }, 500);
+  }
+}
+
+export async function onRequestDelete(ctx) {
+  const { env, params, request } = ctx;
+
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized — no active session' }, 401);
+
+  const slug      = params.slug;
+  const direction = params.direction;
+
+  if (!slug      || !/^[a-z0-9-]+$/.test(slug))  return jsonResponse({ error: 'Invalid slug' }, 400);
+  if (!direction || !/^[a-z]+$/.test(direction))  return jsonResponse({ error: 'Invalid direction name' }, 400);
+
+  if (!env.AGORA_DISPATCH_PAT || !env.AGORA_REPO) {
+    return jsonResponse({ error: 'agora not configured' }, 503);
+  }
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const deleteScrivener = body.deleteScrivener === true;
+
+  const branch = `dunamis/${slug}-${direction}`;
+
+  try {
+    const gh = new GitHubContents(env.AGORA_DISPATCH_PAT, env.AGORA_REPO);
+
+    /* 1. Read slugs.yaml — confirm direction is in archived-dunamis: (not active) */
+    const file = await gh.getFile('slugs.yaml', 'energeia');
+    const updated = removeArchivedDirectionFromYaml(file.content, slug, direction);
+
+    if (updated === null) {
+      return jsonResponse({
+        error: `Direction "${direction}" not found in archived-dunamis for paper "${slug}". ` +
+               `Only archived directions can be permanently deleted.`
+      }, 404);
+    }
+
+    /* 2. Delete the branch from agora */
+    const branchDeleted = await deleteGitHubBranch(env.AGORA_DISPATCH_PAT, env.AGORA_REPO, branch);
+
+    /* 3. Remove direction from archived-dunamis: in slugs.yaml */
+    await gh.putFile('slugs.yaml', updated, file.sha,
+      `energeia: permanently delete archived direction ${slug}-${direction} [automated]`, 'energeia');
+
+    /* 4. Optionally queue daemon action for local Scrivener archive removal (non-fatal) */
+    if (deleteScrivener && env.ENERGEIA_ACTIONS) {
+      await queueDaemonAction(env.ENERGEIA_ACTIONS, 'delete-scrivener-archive',
+        { slug, direction, branch }).catch(() => {});
+    }
+
+    return jsonResponse({
+      status: 'deleted',
+      slug,
+      direction,
+      branch,
+      branchDeleted,
+      deletedAt:     new Date().toISOString(),
+      message: `Direction "${direction}" permanently deleted. Branch ${branch} has been removed from agora.`
+    });
+
+  } catch (err) {
+    console.error('Delete archived error:', err);
     return jsonResponse({ error: 'Internal error', detail: err.message }, 500);
   }
 }
@@ -169,6 +241,107 @@ function archiveDirectionInYaml(yaml, slug, direction) {
   }
 
   return out.join('\n');
+}
+
+/*
+ * Removes the named direction from archived-dunamis: in the target paper's entry.
+ * If the archived-dunamis: block becomes empty after removal, the header is also dropped.
+ * Returns null if the direction was not found in archived-dunamis:.
+ */
+function removeArchivedDirectionFromYaml(yaml, slug, direction) {
+  const lines = yaml.split('\n');
+  const out   = [];
+
+  let inTargetPaper     = false;
+  let inArchivedDunamis = false;
+  let removed           = false;
+
+  /* Buffer the archived-dunamis header + entries so we can drop the header if empty */
+  let pendingHeader = null;
+  let pendingLines  = [];
+
+  function flushPending() {
+    if (pendingLines.length > 0) {
+      if (pendingHeader !== null) out.push(pendingHeader);
+      pendingLines.forEach(function(l) { out.push(l); });
+    }
+    pendingHeader = null;
+    pendingLines  = [];
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line    = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('- slug:')) {
+      if (inArchivedDunamis) { flushPending(); inArchivedDunamis = false; }
+      const thisSlug = trimmed.replace('- slug:', '').trim().replace(/^"|"$/g, '');
+      inTargetPaper = (thisSlug === slug);
+      out.push(line);
+      continue;
+    }
+
+    if (!inTargetPaper) { out.push(line); continue; }
+
+    /* Exit archived-dunamis block when indentation drops to paper level */
+    if (inArchivedDunamis && trimmed && !/^\s{5}/.test(line)) {
+      flushPending();
+      inArchivedDunamis = false;
+    }
+
+    if (trimmed === 'archived-dunamis:') {
+      inArchivedDunamis = true;
+      pendingHeader = line;
+      pendingLines  = [];
+      continue;
+    }
+
+    if (trimmed === 'dunamis:') {
+      if (inArchivedDunamis) { flushPending(); inArchivedDunamis = false; }
+      out.push(line);
+      continue;
+    }
+
+    if (inArchivedDunamis) {
+      if (/^\w+:/.test(trimmed)) {
+        const dname = trimmed.slice(0, trimmed.indexOf(':')).trim();
+        if (dname === direction) {
+          removed = true;
+          continue; /* skip — this is the entry being deleted */
+        }
+      }
+      pendingLines.push(line);
+      continue;
+    }
+
+    out.push(line);
+  }
+
+  if (inArchivedDunamis) flushPending();
+
+  if (!removed) return null;
+  return out.join('\n');
+}
+
+/* ── GitHub Refs API — branch deletion ─────────────────────────────────── */
+async function deleteGitHubBranch(pat, repo, branch) {
+  const resp = await fetch(
+    `https://api.github.com/repos/${repo}/git/refs/heads/${branch}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${pat}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'energeia-skeptou'
+      }
+    }
+  );
+  /* 204 = deleted; 422 = ref does not exist (already gone — treat as success) */
+  if (!resp.ok && resp.status !== 422) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`DELETE refs/heads/${branch}: ${resp.status} — ${detail}`);
+  }
+  return resp.status !== 422;
 }
 
 /* ── GitHub Contents API ────────────────────────────────────────────────── */
