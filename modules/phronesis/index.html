@@ -1576,9 +1576,12 @@
       var tasks = results[0], stats = results[1], opps  = results[2],
           busy  = results[3], mfst  = results[4], inv   = results[5];
       var changed = false;
-      if (tasks && Array.isArray(tasks) && tasks.length > 0)       { TASKS_DATA = tasks;         changed = true; }
+      /* length > 0 guards intentionally removed: an empty array from the vault
+       * (e.g. after a wipe) must still replace sample/placeholder data, not be
+       * silently ignored.  null / non-array (fetch fail) still falls through. */
+      if (tasks && Array.isArray(tasks))                            { TASKS_DATA = tasks;         changed = true; }
       if (stats && typeof stats === 'object')                       { MANIFEST_STATS = stats;      changed = true; }
-      if (opps  && Array.isArray(opps)  && opps.length  > 0)       { OPPORTUNITIES = opps;        changed = true; }
+      if (opps  && Array.isArray(opps))                             { OPPORTUNITIES = opps;        changed = true; }
       if (busy  && busy.scores)                                     { BUSY_SCORES = busy;          changed = true; }
       if (mfst  && mfst.active && Array.isArray(mfst.active))      { MANIFEST_DATA = mfst;        changed = true; }
       if (inv   && inv.sections && Array.isArray(inv.sections))     { INVENTORY_DATA = inv;        changed = true; }
