@@ -64,6 +64,7 @@ function parseSlugsYaml(raw) {
   const papers = [];
   let current = null;
   let inDunamis = false;
+  let inArchivedDunamis = false;
 
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
@@ -77,6 +78,7 @@ function parseSlugsYaml(raw) {
         directions: [], versions: []
       };
       inDunamis = false;
+      inArchivedDunamis = false;
       continue;
     }
 
@@ -84,11 +86,18 @@ function parseSlugsYaml(raw) {
 
     if (trimmed === 'dunamis:') {
       inDunamis = true;
+      inArchivedDunamis = false;
+      continue;
+    }
+
+    if (trimmed === 'archived-dunamis:') {
+      inArchivedDunamis = true;
+      inDunamis = false;
       continue;
     }
 
     /* Direction label line: "      alpha: "label"" */
-    if (inDunamis && /^\w+:/.test(trimmed)) {
+    if ((inDunamis || inArchivedDunamis) && /^\w+:/.test(trimmed)) {
       const colon  = trimmed.indexOf(':');
       const dname  = trimmed.slice(0, colon).trim();
       const dlabel = trimmed.slice(colon + 1).trim().replace(/^"|"$/g, '');
@@ -96,17 +105,18 @@ function parseSlugsYaml(raw) {
         name:   dname,
         label:  dlabel,
         branch: `dunamis/${current.slug}-${dname}`,
-        status: 'active'
+        status: inDunamis ? 'active' : 'archived'
       });
       continue;
     }
 
     /* Back to paper-level once indentation drops */
-    if (inDunamis && trimmed && !/^\s{6,}/.test(line)) {
+    if ((inDunamis || inArchivedDunamis) && trimmed && !/^\s{6,}/.test(line)) {
       inDunamis = false;
+      inArchivedDunamis = false;
     }
 
-    if (!inDunamis && trimmed.includes(':')) {
+    if (!inDunamis && !inArchivedDunamis && trimmed.includes(':')) {
       const colon = trimmed.indexOf(':');
       const k = trimmed.slice(0, colon).trim();
       const v = trimmed.slice(colon + 1).trim().replace(/^["'\[]|["'\]]$/g, '');
