@@ -13,8 +13,9 @@
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — repo-scoped PAT, contents:write
  *   VAULT_REPO       — "owner/repo"  (e.g. "cameronhubbard642-eng/agora")
- *   CF_ACCESS_AUD    — Cloudflare Access audience tag
  *   VAULT_SUBTREE    — path prefix within repo (e.g. "Organization & Planning")
+ *   HMAC_SECRET      — HMAC session secret (shared with auth.skeptou.com)
+ *   AUTH_DOMAIN      — auth base URL (default "https://auth.skeptou.com")
  */
 
 /* Shared helpers — imported via Cloudflare module pattern.
@@ -23,13 +24,13 @@
  * A future refactor can extract to a shared _lib/ module if Pages allows it.
  */
 
+import { requireSession } from '../../../_shared/auth.js';
+
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) {
-    return jsonResponse({ error: 'Unauthorized', detail: authErr }, 401);
-  }
+  const authRedirect = await requireSession(request, env);
+  if (authRedirect) return authRedirect;
 
   const slug = params.slug;
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
@@ -154,51 +155,3 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-/* ── CF Access JWT validation ── */
-/* JWKS URL derived from token's iss claim — avoids hardcoding team domain. */
-async function validateCFAccess(request, audience) {
-  if (!audience) return null;
-
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-
-  try {
-    const [headerB64, payloadB64, sigB64] = token.split('.');
-    const header  = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-
-    if (!payload.iss || !payload.iss.startsWith('https://')) {
-      return 'JWT missing or invalid issuer claim';
-    }
-    const certsUrl = `${payload.iss}/cdn-cgi/access/certs`;
-    const certsResp = await fetch(certsUrl);
-    if (!certsResp.ok) {
-      return `Failed to fetch Access certs (${certsResp.status} ${certsResp.statusText}) from ${certsUrl}`;
-    }
-    const certs = await certsResp.json();
-
-    const jwk = (certs.keys || []).find(k => k.kid === header.kid);
-    if (!jwk) return 'No matching JWK for token kid';
-
-    const key = await crypto.subtle.importKey(
-      'jwk', jwk,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false, ['verify']
-    );
-
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-
-    const audMatch = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audMatch) return `JWT audience mismatch (token aud: ${JSON.stringify(payload.aud)})`;
-
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-
-    return null;
-  } catch (e) {
-    return `JWT validation error: ${e.message}`;
-  }
-}
