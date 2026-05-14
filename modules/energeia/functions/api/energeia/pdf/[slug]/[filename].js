@@ -47,13 +47,18 @@ const R = '[IVXLCDM]+(?:\\.\\d+)?';  /* e.g. I, II, I.1, IV.2 */
 /*
  * Valid filename forms (no path separators, no dotdot — character classes
  * used make directory traversal impossible):
- *   current.pdf
+ *   current.pdf | current-slides.pdf | current-handout.pdf
  *   <slug>-style-<ROMAN>[.<minor>].pdf
+ *   <slug>-style-<ROMAN>[.<minor>]-slides.pdf
+ *   <slug>-style-<ROMAN>[.<minor>]-handout.pdf
  *   diff-style-<ROMAN>[.<minor>]-style-<ROMAN>[.<minor>].pdf
  *   draft-<greek-direction>.pdf
  */
 const VALID_FILENAME = new RegExp(
-  `^(?:current|[a-z0-9][a-z0-9-]+-style-${R}|diff-style-${R}-style-${R}|draft-[a-z0-9-]+)\\.pdf$`
+  `^(?:current(?:-slides|-handout)?` +
+  `|[a-z0-9][a-z0-9-]+-style-${R}(?:-slides|-handout)?` +
+  `|diff-style-${R}-style-${R}` +
+  `|draft-[a-z0-9-]+)\\.pdf$`
 );
 
 /* Identifies tagged-version filenames: must contain "-style-" after the slug */
@@ -62,6 +67,9 @@ const TAGGED_VERSION_RE = /^(.+)-(style-[IVXLCDM]+(?:\.\d+)?)\.pdf$/;
 const DIFF_RE = /^diff-(style-[IVXLCDM]+(?:\.\d+)?)-(style-[IVXLCDM]+(?:\.\d+)?)\.pdf$/;
 /* Identifies draft filenames */
 const DRAFT_RE = /^draft-([a-z0-9-]+)\.pdf$/;
+/* Identifies tagged slides/handout filenames */
+const TAGGED_SLIDES_RE   = /^(.+)-(style-[IVXLCDM]+(?:\.\d+)?)-slides\.pdf$/;
+const TAGGED_HANDOUT_RE  = /^(.+)-(style-[IVXLCDM]+(?:\.\d+)?)-handout\.pdf$/;
 
 /* ── Route handler ───────────────────────────────────────────────────────── */
 export async function onRequestGet(ctx) {
@@ -89,6 +97,36 @@ export async function onRequestGet(ctx) {
     ghRef        = 'energeia';
     cacheControl = 'public, max-age=300';
     displayName  = `${slug}-current.pdf`;
+
+  } else if (filename === 'current-slides.pdf') {
+    /* Latest compiled slides: compiled/<slug>/<slug>-slides.pdf on energeia */
+    ghPath       = `compiled/${slug}/${slug}-slides.pdf`;
+    ghRef        = 'energeia';
+    cacheControl = 'public, max-age=300';
+    displayName  = `${slug}-current-slides.pdf`;
+
+  } else if (filename === 'current-handout.pdf') {
+    /* Latest compiled handout: compiled/<slug>/<slug>-handout.pdf on energeia */
+    ghPath       = `compiled/${slug}/${slug}-handout.pdf`;
+    ghRef        = 'energeia';
+    cacheControl = 'public, max-age=300';
+    displayName  = `${slug}-current-handout.pdf`;
+
+  } else if (TAGGED_SLIDES_RE.test(filename)) {
+    /* Tagged slides version: compiled/<slug>/<slug>-slides.pdf @ tag ref */
+    const tag    = filename.match(TAGGED_SLIDES_RE)[2];
+    ghPath       = `compiled/${slug}/${slug}-slides.pdf`;
+    ghRef        = tag;
+    cacheControl = 'public, max-age=31536000, immutable';
+    displayName  = filename;
+
+  } else if (TAGGED_HANDOUT_RE.test(filename)) {
+    /* Tagged handout version: compiled/<slug>/<slug>-handout.pdf @ tag ref */
+    const tag    = filename.match(TAGGED_HANDOUT_RE)[2];
+    ghPath       = `compiled/${slug}/${slug}-handout.pdf`;
+    ghRef        = tag;
+    cacheControl = 'public, max-age=31536000, immutable';
+    displayName  = filename;
 
   } else if (DRAFT_RE.test(filename)) {
     /* Draft PDF: papers/<slug>/main.pdf on the dunamis branch */
