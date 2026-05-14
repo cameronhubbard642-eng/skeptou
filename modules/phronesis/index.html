@@ -1610,7 +1610,21 @@
 
     /* Async: fetch live vault data and re-render data-dependent views */
     loadLiveData().then(function(changed) {
-      if (!changed) return;
+      if (!changed) {
+        /* loadLiveData returned false: either auth failed (toast already shown)
+         * or vault produced no data. Add a persistent note below the stats grid
+         * so the sample-data state is visible even after the toast disappears. */
+        var grid = document.getElementById('status-grid');
+        if (grid && !document.getElementById('sk-sample-note')) {
+          var note = document.createElement('p');
+          note.id = 'sk-sample-note';
+          note.className = 'sk-secondary';
+          note.style.cssText = 'font-size:.75rem;margin-top:.35rem;';
+          note.textContent = '⚠️ Sample data — vault not yet synced, or session expired (reload to log in).';
+          grid.insertAdjacentElement('afterend', note);
+        }
+        return;
+      }
       computeTaskIds();
       renderStats();
       renderHeatmap();
