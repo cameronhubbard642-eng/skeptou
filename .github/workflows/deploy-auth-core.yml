@@ -1,0 +1,80 @@
+name: Deploy auth-core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/auth-core/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'skeptou'
+        type: choice
+        options:
+          - skeptou
+          - glossolalia
+
+jobs:
+  deploy-skeptou:
+    name: Deploy → auth.skeptou.com
+    runs-on: ubuntu-latest
+    # Run on push to main, or when manually triggered with environment=skeptou
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'skeptou')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: modules/auth-core/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: modules/auth-core
+
+      - name: Type-check
+        run: npm run type-check
+        working-directory: modules/auth-core
+
+      - name: Deploy to auth.skeptou.com
+        run: npm run deploy:skeptou
+        working-directory: modules/auth-core
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  deploy-glossolalia:
+    name: Deploy → auth.glossolalia.dev
+    runs-on: ubuntu-latest
+    # Only runs on manual dispatch with environment=glossolalia (Phase 4, deferred)
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'glossolalia'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: modules/auth-core/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: modules/auth-core
+
+      - name: Type-check
+        run: npm run type-check
+        working-directory: modules/auth-core
+
+      - name: Deploy to auth.glossolalia.dev
+        run: npm run deploy:glossolalia
+        working-directory: modules/auth-core
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
