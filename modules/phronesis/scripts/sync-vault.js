@@ -52,8 +52,10 @@ function vaultPath(relPath) {
 /* ── Files to sync ────────────────────────────────────────────────────────── */
 /* Format: { vaultPath, localPath, exclude: bool }
  * exclude=true means the file is fetched but marked draft (not rendered as page) */
+/* PROJECT_MANIFEST.md retired: manifest.json is now derived from proj-*.md globs.
+ * Removing it from SYNC_MAP prevents Quartz from rendering the stale markdown table
+ * as a page. The _archive/ copy remains in the vault during the migration window. */
 const SYNC_MAP = [
-  { vault: 'PROJECT_MANIFEST.md',            local: 'content/manifest.md' },
   { vault: 'INVENTORY.md',                   local: 'content/inventory.md' },
   { vault: 'COMMITMENTS.md',                 local: 'content/commitments.md',    exclude: true },
   /* Calendar is a markdown export from macOS Calendar via AppleScript.
@@ -382,7 +384,7 @@ async function main() {
           type:        extractFrontmatterField(raw, 'opportunity_class') ||
                        extractFrontmatterField(raw, 'type') || 'opportunity',
           status,
-          deadline:    extractFrontmatterField(raw, 'deadline') || null,
+          deadline:    validateIsoDate(extractFrontmatterField(raw, 'deadline'), f) || null,
           prestige,
           requirement: extractFrontmatterField(raw, 'requirement') || '',
           /* agora opp files have no description field; use next_action as proxy */
@@ -587,6 +589,36 @@ function parseFileTasks(content, vaultRelativePath, project, today, driftLog) {
   const excCands     = []; /* { titleClean, due, marker, priority, time, scheduled } */
   const regularTasks = []; /* fully-formed task records */
 
+  /* ── Frontmatter pre-pass: task-*.md files ─────────────────────────────── */
+  /* task-*.md files carry their task definition in YAML frontmatter.         */
+  /* Required fields: title. Optional: due, priority, status, project,        */
+  /*   scheduled, recurring. Body checkbox tasks are still parsed in Pass 1   */
+  /*   so a single task-*.md can carry both an FM record and inline subtasks. */
+  const frontmatterTasks = [];
+  const taskFileName = vaultRelativePath.split('/').pop();
+  if (taskFileName.startsWith('task-')) {
+    const fm = parseFrontmatterAll(content);
+    if (fm.title) {
+      const statusRaw = (fm.status || 'pending').toLowerCase();
+      const complete  = statusRaw === 'done' || statusRaw === 'completed';
+      const due       = validateIsoDate(fm.due || null, vaultRelativePath);
+      const priority  = (fm.priority || 'low').toLowerCase();
+      const projName  = fm.project || project;
+      const id        = Buffer.from(vaultRelativePath + '\x00' + fm.title).toString('base64url');
+      frontmatterTasks.push({
+        id,
+        title:    fm.title,
+        project:  projName,
+        filePath: vaultRelativePath,
+        due,
+        priority,
+        complete,
+        ...(fm.scheduled && { scheduled: validateIsoDate(fm.scheduled, vaultRelativePath) }),
+        ...(fm.recurring  && { recurring: fm.recurring })
+      });
+    }
+  }
+
   /* ── Pass 1: scan lines ─────────────────────────────────────────────────── */
   for (const rawLine of content.split('\n')) {
     /* Accept [ ], [x], [-], [/] task markers */
@@ -771,7 +803,7 @@ function parseFileTasks(content, vaultRelativePath, project, today, driftLog) {
   }
 
   return {
-    tasks:   [...regularTasks, ...expandedTasks],
+    tasks:   [...frontmatterTasks, ...regularTasks, ...expandedTasks],
     masters: masters.map(function(ms) {
       return Object.assign({}, ms, { filePath: vaultRelativePath, project });
     })
@@ -863,6 +895,39 @@ function extractFrontmatterField(raw, field) {
   return m ? m[1].trim().replace(/^["']|["']$/g, '') : null;
 }
 
+/* Parse all key:value pairs from a YAML frontmatter block.
+ * Returns a plain object; no nested YAML support (flat key:value only). */
+function parseFrontmatterAll(raw) {
+  const FM_RE = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+  const match = FM_RE.exec(raw);
+  if (!match) return {};
+  const fm = {};
+  for (const line of match[1].split('\n')) {
+    const colon = line.indexOf(':');
+    if (colon === -1) continue;
+    const key = line.slice(0, colon).trim();
+    const val = line.slice(colon + 1).trim().replace(/^["']|["']$/g, '');
+    if (key) fm[key] = val;
+  }
+  return fm;
+}
+
+/* Return true if str is a strict YYYY-MM-DD ISO date */
+function isIsoDate(str) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(str);
+}
+
+/* Validate a date string is ISO 8601 YYYY-MM-DD.
+ * Warns and returns null for non-ISO formats (deprecation window for old vault dates). */
+function validateIsoDate(str, filePath) {
+  if (!str) return null;
+  if (!isIsoDate(str)) {
+    console.warn(`sync-vault: deprecation — non-ISO date "${str}" in ${filePath || '?'}; use YYYY-MM-DD`);
+    return null;
+  }
+  return str;
+}
+
 /* Map a 0-100 prestige score to a human label for display */
 function prestigeText(score) {
   if (!score || score <= 0) return '';
@@ -885,14 +950,23 @@ function parsePriority(raw) {
   return 'medium';
 }
 
-/* ── Project extraction (non-opp .md files from vault projects/ dir) ─────── */
-/* Builds src/data/manifest.json: { active: [{title, type, status, ...}] }   */
-/* All non-opp-*.md files are candidates; status: done|reference are skipped. */
+/* ── Project extraction (proj-*.md files from vault projects/ dir) ───────── */
+/* Builds src/data/manifest.json: { active, completed, archived, all }        */
+/* Only proj-*.md strict-prefix files; opp-*.md handled by opp extraction.    */
+/* _archive/ fallback: if no proj-*.md found, warns and writes empty manifest. */
 async function extractProjects() {
   const listing = await fetchDirListing(vaultPath(OPP_VAULT_DIR));
   const allMd     = listing.filter(f => f.name && f.name.endsWith('.md'));
-  /* Include every non-opp .md file; opp-*.md are handled by extractOpportunities() */
-  const projFiles = allMd.filter(f => !f.name.startsWith('opp-'));
+  /* Only proj-*.md files — strict prefix match per O&P flat-filename convention */
+  const projFiles = allMd.filter(f => f.name.startsWith('proj-'));
+
+  if (projFiles.length === 0) {
+    /* _archive/ fallback: transition period — old manifest lives in _archive/.
+     * Parse is complex so we warn clearly and write an empty manifest.
+     * PM/SAA migration commit will populate proj-*.md before retiring the archive. */
+    console.warn('sync-vault: no proj-*.md files found — writing empty manifest ' +
+      '(if migration is pending, check that proj-*.md files exist in vault projects/)');
+  }
 
   console.log(`sync-vault: found ${projFiles.length} proj-*.md files in vault`);
   const projects = [];
@@ -901,10 +975,6 @@ async function extractProjects() {
       const content = await fetchFile(f.path);
       if (!content) continue;
       const status   = extractFrontmatterField(content, 'status') || 'active';
-      if (status === 'done' || status === 'reference') {
-        console.log(`sync-vault: skipping ${f.name} (status: ${status})`);
-        continue;
-      }
       const priority = parsePriority(extractFrontmatterField(content, 'priority') || '');
       const title    = extractFrontmatterField(content, 'title') ||
         humanizeSlug(f.name.replace(/^proj-/, '').replace(/\.md$/, ''));
@@ -913,7 +983,7 @@ async function extractProjects() {
         type:     extractFrontmatterField(content, 'type')   || 'project',
         status,
         priority,
-        deadline: extractFrontmatterField(content, 'deadline') || null,
+        deadline: validateIsoDate(extractFrontmatterField(content, 'deadline'), f.name) || null,
         domain:   extractFrontmatterField(content, 'domain')   || ''
       });
     } catch (e) {
@@ -921,16 +991,25 @@ async function extractProjects() {
     }
   }
 
+  /* Group projects by status for structured manifest output.
+   * active    — status: active | confirmed-pursuing
+   * completed — status: done | completed
+   * archived  — status: archived | reference
+   * all       — every proj-*.md, unfiltered (for audit / future views) */
+  const active    = projects.filter(p => p.status === 'active' || p.status === 'confirmed-pursuing');
+  const completed = projects.filter(p => p.status === 'done'   || p.status === 'completed');
+  const archived  = projects.filter(p => p.status === 'archived' || p.status === 'reference');
+
   const manifestPath = path.join(ROOT, 'src', 'data', 'manifest.json');
   fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(manifestPath, JSON.stringify({ active: projects }, null, 2));
-  console.log(`sync-vault: wrote ${projects.length} projects → src/data/manifest.json`);
+  fs.writeFileSync(manifestPath, JSON.stringify({ active, completed, archived, all: projects }, null, 2));
+  console.log(`sync-vault: wrote ${projects.length} projects (${active.length} active) → src/data/manifest.json`);
 
-  /* Patch active_projects in manifest-stats.json to reflect actual project count */
+  /* Patch active_projects in manifest-stats.json to reflect actual active count */
   const statsPath = path.join(ROOT, 'src', 'data', 'manifest-stats.json');
   try {
     const existing = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-    existing.active_projects = projects.length;
+    existing.active_projects = active.length;
     fs.writeFileSync(statsPath, JSON.stringify(existing, null, 2));
   } catch (_) {}
 }
