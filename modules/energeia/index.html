@@ -1263,7 +1263,9 @@
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                 'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'id="archive-' + slug + '-' + d.name + '">Archive</button>'
-            : '<span class="sk-secondary" style="font-size:.72rem;font-variant:small-caps;">archived</span>') +
+            : '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
+                'onclick="openDeleteDirectionModal(\'' + slug + '\',\'' + d.name + '\')">' +
+                'Delete permanently</button>') +
         '</div>' +
       '</li>';
     }).join('');
@@ -1384,7 +1386,9 @@
                   ' title="Draft PDF — click Compile first if not yet available">Draft PDF</a>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                   'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')">Archive</button>'
-              : '<span class="sk-secondary" style="font-size:.7rem;font-variant:small-caps;">archived</span>') +
+              : '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
+                  'onclick="openDeleteDirectionModal(\'' + slug + '\',\'' + d.name + '\')">' +
+                  'Delete permanently</button>') +
           '</div>' +
         '</div>';
       });
@@ -1780,6 +1784,64 @@
       }
     } catch (e) {
       if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+    }
+  }
+
+  /* ── Delete archived direction ──────────────────────────────────────── */
+  function openDeleteDirectionModal(slug, direction) {
+    var branch = 'dunamis/' + slug + '-' + direction;
+    var content = '<h2 class="sk-modal__title" id="sk-modal-title">Delete Archived Direction</h2>' +
+      '<div class="sk-modal__body">' +
+        '<p style="font-size:.85rem;color:var(--color-purple);margin-bottom:.875rem;">' +
+          'Permanently delete branch <code>' + escHtml(branch) + '</code>?' +
+          ' <strong style="color:var(--color-wine)">This cannot be undone.</strong>' +
+          ' All commits on this branch will be permanently removed from agora.' +
+        '</p>' +
+        '<label style="display:flex;align-items:flex-start;gap:.5rem;font-size:.82rem;cursor:pointer;color:var(--color-quartz);">' +
+          '<input type="checkbox" id="delete-scriv-checkbox" style="margin-top:.2rem;flex-shrink:0;" />' +
+          '<span>Also remove local Scrivener archive (.scriv folder) via daemon</span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--danger" onclick="confirmDeleteDirection(\'' + escHtml(slug) + '\',\'' + escHtml(direction) + '\')">Delete permanently</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+        '<span id="delete-dir-feedback" class="sk-inline-feedback" style="margin-left:.5rem;"></span>' +
+      '</div>';
+    openModal(content);
+  }
+
+  async function confirmDeleteDirection(slug, direction) {
+    var confirmBtn = document.querySelector('#sk-modal .sk-btn--danger');
+    var fb         = document.getElementById('delete-dir-feedback');
+    var delScriv   = (document.getElementById('delete-scriv-checkbox') || {}).checked || false;
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (fb) fb.textContent = 'Deleting…';
+
+    try {
+      var resp = await fetch('/api/energeia/archive/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteScrivener: delScriv })
+      });
+
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        if (confirmBtn) confirmBtn.disabled = false;
+      } else if (resp.ok) {
+        if (fb) fb.textContent = 'Deleted.';
+        setTimeout(closeModal, 1500);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+      if (confirmBtn) confirmBtn.disabled = false;
     }
   }
 
