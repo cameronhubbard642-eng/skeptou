@@ -32,7 +32,7 @@ PII_MINIMIZE = "true"
 
 [[env.skeptou.kv_namespaces]]
 binding = "AUTH_KV"
-id = "<skeptou-auth-kv-id>"       # fill after: wrangler kv:namespace create AUTH_KV --env skeptou
+id = "f43938aca3b6436d96f33d1377db2974"
 
 # ── Glossolalia deployment ────────────────────────────────────────────────────
 # Phase 4 — deferred until Cam confirms ready
