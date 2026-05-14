@@ -76,7 +76,7 @@ jobs:
       # the ES-module handlers as Pages Functions before uploading.
       - name: Deploy to Cloudflare Pages
         working-directory: modules/energeia/dist
-        run: npx wrangler@3 pages deploy . --project-name energeia --branch main --commit-dirty=true
+        run: npx wrangler@3 pages deploy . --project-name energeia --branch main --commit-dirty=true --commit-message "ci-deploy"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
