@@ -9,7 +9,7 @@
  * Env: AGORA_DISPATCH_PAT, AGORA_REPO, HMAC_SECRET, AUTH_DOMAIN
  */
 
-import { validateSession } from '../../../_shared/auth.js';
+import { validateSession } from '../../_shared/auth.js';
 
 export async function onRequestGet(ctx) {
   const { env, request } = ctx;
