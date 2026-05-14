@@ -664,15 +664,17 @@
     .sk-modal-overlay {
       padding: 0;
       align-items: flex-end;
+      /* Clip overlay above bottom nav bar so modal never slides behind it */
+      bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     }
     .sk-modal {
       max-width: 100%;
       width: 100%;
-      max-height: 92vh;
+      max-height: 100%;
       border-top: 3px solid var(--color-mauve, #915f6d);
       border-left: none; border-right: none; border-bottom: none;
       border-radius: 0;
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.75rem);
+      padding-bottom: 1.75rem;
     }
     .sk-modal__footer {
       flex-direction: column;
