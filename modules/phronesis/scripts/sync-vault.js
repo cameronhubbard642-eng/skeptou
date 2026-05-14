@@ -88,9 +88,13 @@ function ghGet(vaultPath) {
     };
 
     https.get(url, opts, (res) => {
-      let body = '';
-      res.on('data', d => body += d);
+      /* Accumulate raw Buffer chunks before decoding to avoid corrupting
+       * multi-byte UTF-8 sequences (e.g. em-dashes) that span chunk boundaries.
+       * Coercing Buffer→string per chunk (body += d) splits sequences. */
+      const chunks = [];
+      res.on('data', d => chunks.push(d));
       res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf8');
         if (res.statusCode === 404) return resolve(null);
         if (res.statusCode !== 200) return reject(new Error(`GET ${vaultPath}: ${res.statusCode}`));
         try {
@@ -293,9 +297,12 @@ function ghGetTree() {
       }
     };
     https.get(url, opts, (res) => {
-      let body = '';
-      res.on('data', d => body += d);
+      /* Same Buffer.concat pattern — tree response can be large; chunk boundaries
+       * in JSON field values (e.g. Unicode file-path characters) would corrupt output. */
+      const chunks = [];
+      res.on('data', d => chunks.push(d));
       res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf8');
         if (res.statusCode !== 200) return reject(new Error(`GET git/trees: ${res.statusCode}`));
         try { resolve(JSON.parse(body)); }
         catch (e) { reject(new Error('JSON parse error for git/trees: ' + e.message)); }
@@ -365,7 +372,7 @@ async function extractTasks() {
 
   const tasksPath = path.join(ROOT, 'src', 'data', 'tasks.json');
   fs.mkdirSync(path.dirname(tasksPath), { recursive: true });
-  fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+  fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2), 'utf8');
   console.log(`sync-vault: wrote ${tasks.length} tasks → src/data/tasks.json`);
 }
 
