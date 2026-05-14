@@ -686,7 +686,12 @@
     if (!container) return;
 
     var CELL = 12, GAP = 2, STEP = CELL + GAP;
-    var COLS = 52, ROWS = 7;
+    /* On mobile (≤640px) render only 16 weeks so the SVG aspect ratio
+     * stays near 2:1 and cells remain visible at container width.
+     * At 52 cols the SVG is ~750×124px — on a 360px screen that scales
+     * to 360×60px via max-width:100%/height:auto, too small to read. */
+    var isMobile = window.innerWidth <= 640;
+    var COLS = isMobile ? 16 : 52, ROWS = 7;
     var LEFT_MARGIN = 18, TOP_MARGIN = 22;
     var W = LEFT_MARGIN + COLS * STEP + 4;
     var H = TOP_MARGIN + ROWS * STEP + 4;
@@ -763,8 +768,13 @@
         m.label + '</text>';
     }).join('');
 
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload heatmap">' +
+    /* Mobile: width="100%" lets CSS height:auto scale proportionally from viewBox.
+     * Desktop: explicit px dimensions prevent layout reflow on load. */
+    var svgSize = isMobile
+      ? 'width="100%"'
+      : 'width="' + W + '" height="' + H + '"';
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + svgSize +
+      ' role="img" aria-label="Workload heatmap">' +
       monthSvg + dowSvg + cells.join('') + '</svg>';
   }
 
@@ -779,6 +789,8 @@
     var MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
     var chartW = W - MARGIN_L - MARGIN_R;
     var chartH = H - MARGIN_T - MARGIN_B;
+    var isMobile = window.innerWidth <= 640;
+    var NCOLS = isMobile ? 16 : 52;
 
     var scores = BUSY_SCORES.scores;
     var today = new Date();
@@ -789,7 +801,7 @@
     /* Build 52 weekly buckets with per-type counts */
     var weeks = [];
     var d = new Date(startDate);
-    for (var w = 0; w < 52; w++) {
+    for (var w = 0; w < NCOLS; w++) {
       var wd = {}, total = 0;
       EVENT_TYPES.forEach(function(t) { wd[t.key] = 0; });
       var label = d.toLocaleDateString('en-US', { month: 'short' });
@@ -818,7 +830,7 @@
       return active.reduce(function(s, t) { return s + w.wd[t.key]; }, 0);
     }).concat([1]));
 
-    function xFor(i) { return MARGIN_L + (i / 51) * chartW; }
+    function xFor(i) { return MARGIN_L + (i / Math.max(NCOLS - 1, 1)) * chartW; }
     function yFor(v) { return MARGIN_T + chartH - (v / maxWeek) * chartH; }
 
     /* Stacked area paths */
@@ -859,8 +871,11 @@
       return '';
     }).join('');
 
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload density chart">' +
+    var svgSize = isMobile
+      ? 'width="100%"'
+      : 'width="' + W + '" height="' + H + '"';
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + svgSize +
+      ' role="img" aria-label="Workload density chart">' +
       paths.join('') + topLine + monthSvg + '</svg>';
   }
 

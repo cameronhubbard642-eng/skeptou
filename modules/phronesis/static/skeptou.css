@@ -609,6 +609,10 @@ details.sk-collapsed[open] > summary::before {
   color: var(--color-purple, #301934);
   font-size: 0.82rem;
   transition: color 0.12s ease;
+  /* Prevent column-flex parent from expanding to content min-width
+   * (white-space:nowrap title has a wide min-content). Without this the item
+   * overflows the card on narrow viewports instead of ellipsizing. */
+  min-width: 0;
 }
 
 .sk-snapshot__item:last-child {
@@ -711,7 +715,9 @@ details.sk-collapsed[open] > summary::before {
 
 .sk-task-item__title {
   flex: 1;
+  min-width: 0;                 /* allow flex shrink in row-flex parent */
   color: var(--color-purple, #301934);
+  overflow-wrap: break-word;    /* Tasks tab: wrap, don't truncate (full info view) */
 }
 
 .sk-task-item__project {
