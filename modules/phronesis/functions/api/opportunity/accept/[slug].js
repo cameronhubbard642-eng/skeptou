@@ -15,18 +15,18 @@
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — repo-scoped PAT, contents:write on O&P vault
  *   VAULT_REPO       — "owner/repo"  (e.g. "cameronhubbard642-eng/agora")
- *   CF_ACCESS_AUD    — Cloudflare Access audience tag for this app
  *   VAULT_SUBTREE    — path prefix within repo (e.g. "Organization & Planning")
+ *   HMAC_SECRET      — HMAC session secret (shared with auth.skeptou.com)
+ *   AUTH_DOMAIN      — auth base URL (default "https://auth.skeptou.com")
  */
+
+import { requireSession } from '../../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  /* ── Auth: validate CF Access JWT ── */
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) {
-    return jsonResponse({ error: 'Unauthorized', detail: authErr }, 401);
-  }
+  const authRedirect = await requireSession(request, env);
+  if (authRedirect) return authRedirect;
 
   const slug = params.slug;
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
@@ -262,64 +262,3 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-/* ── CF Access JWT validation ───────────────────────────────────────────── */
-/* Validates the CF-Access-Jwt-Assertion header against Cloudflare's JWKS.   */
-/* If CF_ACCESS_AUD is not set (dev/test), validation is skipped.            */
-/*                                                                            */
-/* JWKS URL is derived from the token's own `iss` claim rather than being    */
-/* hardcoded (e.g. https://<team>.cloudflareaccess.com/cdn-cgi/access/certs).*/
-/* This is what CF Access docs recommend and avoids team-domain mismatches.  */
-async function validateCFAccess(request, audience) {
-  if (!audience) return null; /* Not configured — skip (dev mode) */
-
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-
-  try {
-    /* Decode all three JWT parts upfront */
-    const [headerB64, payloadB64, sigB64] = token.split('.');
-    const header  = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-
-    /* Derive JWKS URL from issuer — avoids hardcoding the team domain */
-    if (!payload.iss || !payload.iss.startsWith('https://')) {
-      return 'JWT missing or invalid issuer claim';
-    }
-    const certsUrl = `${payload.iss}/cdn-cgi/access/certs`;
-    const certsResp = await fetch(certsUrl);
-    if (!certsResp.ok) {
-      return `Failed to fetch Access certs (${certsResp.status} ${certsResp.statusText}) from ${certsUrl}`;
-    }
-    const certs = await certsResp.json();
-
-    /* Find matching key by kid */
-    const jwk = (certs.keys || []).find(k => k.kid === header.kid);
-    if (!jwk) return 'No matching JWK for token kid';
-
-    /* Import key and verify signature */
-    const key = await crypto.subtle.importKey(
-      'jwk', jwk,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false, ['verify']
-    );
-
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-
-    /* Verify audience */
-    const audMatch = Array.isArray(payload.aud)
-      ? payload.aud.includes(audience)
-      : payload.aud === audience;
-    if (!audMatch) return `JWT audience mismatch (token aud: ${JSON.stringify(payload.aud)})`;
-
-    /* Verify expiry */
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-
-    return null; /* Valid */
-  } catch (e) {
-    return `JWT validation error: ${e.message}`;
-  }
-}

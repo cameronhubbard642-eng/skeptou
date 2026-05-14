@@ -20,18 +20,18 @@
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — PAT with contents:write on O&P vault
  *   VAULT_REPO       — "owner/repo"
- *   CF_ACCESS_AUD    — Cloudflare Access audience tag
  *   VAULT_SUBTREE    — optional path prefix (default "")
+ *   HMAC_SECRET      — HMAC session secret (shared with auth.skeptou.com)
+ *   AUTH_DOMAIN      — auth base URL (default "https://auth.skeptou.com")
  */
+
+import { requireSession } from '../../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  /* ── Auth ── */
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) {
-    return jsonResponse({ error: 'Unauthorized', detail: authErr }, 401);
-  }
+  const authRedirect = await requireSession(request, env);
+  if (authRedirect) return authRedirect;
 
   /* ── Route params ── */
   const { action, id } = params;
@@ -156,47 +156,6 @@ class GitHubContents {
       'Content-Type':  'application/json',
       'User-Agent':    'phronesis-skeptou'
     };
-  }
-}
-
-/* ── CF Access JWT validation ───────────────────────────────────────────── */
-async function validateCFAccess(request, audience) {
-  if (!audience) return null;
-
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-
-  try {
-    const [headerB64, payloadB64, sigB64] = token.split('.');
-    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-
-    const certsResp = await fetch('https://skeptou.cloudflareaccess.com/cdn-cgi/access/certs');
-    if (!certsResp.ok) return 'Failed to fetch Access certs';
-    const certs = await certsResp.json();
-
-    const jwk = (certs.keys || []).find(function(k) { return k.kid === header.kid; });
-    if (!jwk) return 'No matching JWK for token kid';
-
-    const key = await crypto.subtle.importKey(
-      'jwk', jwk,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false, ['verify']
-    );
-
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), function(c) { return c.charCodeAt(0); });
-    const data = new TextEncoder().encode(headerB64 + '.' + payloadB64);
-
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const audMatch = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audMatch) return 'JWT audience mismatch';
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-
-    return null;
-  } catch (e) {
-    return 'JWT validation error: ' + e.message;
   }
 }
 
