@@ -312,12 +312,26 @@ function ghGetTree() {
 }
 
 /* ── Task extraction — full subtree walk via Git Trees API ─────────────── */
-/* Convention:
- *   - Tasks are `- [ ]` / `- [x]` / `- [/]` lines in any .md file
- *   - Priority emojis anywhere in title: 🔺 high · ⏫ medium · 🔼 low
- *   - Due date: `📅 YYYY-MM-DD` or `(due: YYYY-MM-DD)` inline
- *   - Task ID = base64url(vaultRelativePath + '\x00' + title)
- *     vaultRelativePath does NOT include VAULT_SUBTREE — Workers apply it.
+/* Supports two interchangeable syntaxes — both produce identical records.
+ *
+ * Emoji format (legacy):
+ *   - [ ] Task title 📅 2026-06-15 🔺
+ *   Priority:  🔺 high · ⏫ medium · 🔼 low  (anywhere in line)
+ *   Due date:  📅 YYYY-MM-DD  OR  (due: YYYY-MM-DD)
+ *   Scheduled: 🛫 YYYY-MM-DD
+ *   Recurring: 🔁 [interval]
+ *
+ * Dataview field format (new — Obsidian Dataview plugin convention):
+ *   - [ ] Task title [due:: 2026-06-15] [priority:: high]
+ *   Due:       [due:: YYYY-MM-DD]
+ *   Priority:  [priority:: high|medium|low]
+ *   Scheduled: [scheduled:: YYYY-MM-DD]
+ *   Recurring: [recurring:: interval]
+ *
+ * Both formats can appear in the same file (migration window compatibility).
+ *
+ * Task ID = base64url(vaultRelativePath + '\x00' + cleanTitle)
+ * vaultRelativePath does NOT include VAULT_SUBTREE — Workers apply it.
  */
 async function extractTasks() {
   const treeData      = await ghGetTree();
@@ -349,21 +363,74 @@ async function extractTasks() {
         const complete = m[1] === 'x';
         let titleRaw   = m[2].trim();
 
-        /* Due date: 📅 YYYY-MM-DD or (due: YYYY-MM-DD) */
+        /* ── Due date ──────────────────────────────────────────────────────── */
+        /* Dataview:  [due:: YYYY-MM-DD]
+         * Emoji:     📅 YYYY-MM-DD
+         * Legacy:    (due: YYYY-MM-DD)
+         * Precedence: dataview > emoji > legacy (first match wins) */
         let due = null;
-        const dueM = /(?:📅\s*|\(due:\s*)(\d{4}-\d{2}-\d{2})\)?/.exec(titleRaw);
-        if (dueM) { due = dueM[1]; titleRaw = titleRaw.replace(dueM[0], '').trim(); }
+        const dueDV = /\[due::\s*(\d{4}-\d{2}-\d{2})\s*\]/.exec(titleRaw);
+        const dueEM = /(?:📅\s*|\(due:\s*)(\d{4}-\d{2}-\d{2})\)?/.exec(titleRaw);
+        if (dueDV) {
+          due = dueDV[1];
+          titleRaw = titleRaw.replace(dueDV[0], '').trim();
+        } else if (dueEM) {
+          due = dueEM[1];
+          titleRaw = titleRaw.replace(dueEM[0], '').trim();
+        }
 
-        /* Priority detection (anywhere in title) then strip emojis */
+        /* ── Scheduled date ────────────────────────────────────────────────── */
+        /* Dataview: [scheduled:: YYYY-MM-DD]   Emoji: 🛫 YYYY-MM-DD */
+        let scheduled = null;
+        const schedDV = /\[scheduled::\s*(\d{4}-\d{2}-\d{2})\s*\]/.exec(titleRaw);
+        const schedEM = /🛫\s*(\d{4}-\d{2}-\d{2})/.exec(titleRaw);
+        if (schedDV) {
+          scheduled = schedDV[1];
+          titleRaw = titleRaw.replace(schedDV[0], '').trim();
+        } else if (schedEM) {
+          scheduled = schedEM[1];
+          titleRaw = titleRaw.replace(schedEM[0], '').trim();
+        }
+
+        /* ── Recurring ─────────────────────────────────────────────────────── */
+        /* Dataview: [recurring:: interval]   Emoji: 🔁 [interval] */
+        let recurring = null;
+        const recurDV = /\[recurring::\s*([^\]]*)\]/.exec(titleRaw);
+        const recurEM = /🔁\s*([^\s📅🔺⏫🔼🛫]*)/.exec(titleRaw);
+        if (recurDV) {
+          recurring = recurDV[1].trim() || 'yes';
+          titleRaw = titleRaw.replace(recurDV[0], '').trim();
+        } else if (recurEM) {
+          recurring = recurEM[1].trim() || 'yes';
+          titleRaw = titleRaw.replace(recurEM[0], '').trim();
+        }
+
+        /* ── Priority ──────────────────────────────────────────────────────── */
+        /* Dataview: [priority:: high|medium|low]   Emoji: 🔺 ⏫ 🔼 */
         let priority = 'low';
-        if (/🔺/.test(titleRaw))      priority = 'high';
-        else if (/⏫/.test(titleRaw)) priority = 'medium';
-        titleRaw = titleRaw.replace(/[🔺⏫🔼]/gu, '').trim();
+        const priDV = /\[priority::\s*(high|medium|low)\s*\]/i.exec(titleRaw);
+        if (priDV) {
+          priority = priDV[1].toLowerCase();
+          titleRaw = titleRaw.replace(priDV[0], '').trim();
+        } else if (/🔺/.test(titleRaw)) {
+          priority = 'high';
+        } else if (/⏫/.test(titleRaw)) {
+          priority = 'medium';
+        }
+
+        /* ── Strip all remaining dataview fields and task-syntax emojis ────── */
+        titleRaw = titleRaw
+          .replace(/\[[a-z_]+::[^\]]*\]/gi, '')   /* any leftover [field:: value] */
+          .replace(/[🔺⏫🔼🔁🛫📅]/gu, '')          /* remaining task emojis */
+          .replace(/\s{2,}/g, ' ')
+          .trim();
 
         const id = Buffer.from(vaultRelativePath + '\x00' + titleRaw).toString('base64url');
 
         tasks.push({ id, title: titleRaw, project, filePath: vaultRelativePath,
-                     due, priority, complete });
+                     due, priority, complete,
+                     ...(scheduled && { scheduled }),
+                     ...(recurring && { recurring }) });
       }
     } catch (e) {
       console.error(`sync-vault: task parse error ${item.path} —`, e.message);
@@ -395,10 +462,13 @@ function prestigeText(score) {
   return `Low (${score}/100)`;
 }
 
-/* Extract priority from agora rich-text priority strings.
- * Patterns: "🔺 P1 ...", "⏫ P1 (proposed)...", "🔼 P2...", "Highest..." */
+/* Extract priority from manifest/opp rich-text priority strings.
+ * Patterns: "🔺 P1 ...", "⏫ P1 (proposed)...", "🔼 P2...", "Highest...",
+ *           "[priority:: high]" (dataview field format) */
 function parsePriority(raw) {
   if (!raw) return 'medium';
+  const dvMatch = /\[priority::\s*(high|medium|low)\s*\]/i.exec(raw);
+  if (dvMatch) return dvMatch[1].toLowerCase();
   if (/🔺/.test(raw) || /highest/i.test(raw)) return 'high';
   if (/⏫/.test(raw)) return 'medium';
   if (/🔼/.test(raw)) return 'low';
