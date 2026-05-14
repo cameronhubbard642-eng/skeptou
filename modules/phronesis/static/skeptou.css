@@ -891,6 +891,39 @@ details.sk-collapsed[open] > summary::before {
   color: var(--color-wine, #722f37);
 }
 
+/* ── Time range preset bar ── */
+.sk-range-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.sk-range-btn {
+  font-family: inherit;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.07em;
+  font-size: 0.68rem;
+  font-weight: 300;
+  padding: 0.2em 0.65em;
+  border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.4);
+  background: transparent;
+  color: var(--color-quartz, #51414f);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  line-height: 1.6;
+}
+
+.sk-range-btn.active {
+  background: var(--color-quartz, #51414f);
+  color: var(--color-parchment, #fcf5e5);
+  border-color: var(--color-quartz, #51414f);
+}
+
+.sk-range-btn:hover:not(.active) {
+  border-color: var(--color-mauve, #915f6d);
+  color: var(--color-purple, #301934);
+}
+
 /* ── Viz legend (type filter swatches) ── */
 .sk-viz-legend {
   display: flex;
@@ -970,12 +1003,14 @@ details.sk-collapsed[open] > summary::before {
 /* Phone portrait: ≤ 640px */
 @media (max-width: 640px) {
   /* ── Bottom tab bar nav ── */
+  /* 35px extra breathing room below the tab items (on top of safe-area inset)
+   * so the bar sits higher off the bottom edge — easier thumb reach on tall iPhones. */
   .sk-nav {
     position: fixed;
     inset: auto 0 0 0;
-    height: 56px;
+    height: calc(56px + 35px + env(safe-area-inset-bottom, 0px));
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 35px);
     border-bottom: none;
     border-top: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
     background: var(--color-parchment, #fcf5e5);
@@ -1036,10 +1071,10 @@ details.sk-collapsed[open] > summary::before {
     height: 24px;
   }
 
-  /* ── Main content: clear fixed bottom nav ── */
+  /* ── Main content: clear fixed bottom nav (matches nav total height) ── */
   .sk-main {
     padding: 1.25rem 1rem;
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 1.25rem);
+    padding-bottom: calc(56px + 35px + env(safe-area-inset-bottom, 0px) + 1.25rem);
   }
 
   /* ── Status summary: compact 3-col ── */
@@ -1080,6 +1115,13 @@ details.sk-collapsed[open] > summary::before {
   .sk-viz-btn {
     min-height: 36px;
     padding: 0.3em 1em;
+    font-size: 0.78rem;
+  }
+
+  /* ── Range preset buttons: larger tap target ── */
+  .sk-range-btn {
+    min-height: 36px;
+    padding: 0.3em 0.85em;
     font-size: 0.78rem;
   }
 

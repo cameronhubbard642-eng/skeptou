@@ -238,6 +238,9 @@ function ghGet(vaultPath) {
     };
 
     https.get(url, opts, (res) => {
+      /* Accumulate raw Buffer chunks before decoding to avoid corrupting
+       * multi-byte UTF-8 sequences (e.g. em-dashes) that span chunk boundaries.
+       * Coercing Buffer→string per chunk (body += d) splits sequences. */
       const chunks = [];
       res.on('data', d => chunks.push(d));
       res.on('end', () => {
@@ -444,6 +447,8 @@ function ghGetTree() {
       }
     };
     https.get(url, opts, (res) => {
+      /* Same Buffer.concat pattern — tree response can be large; chunk boundaries
+       * in JSON field values (e.g. Unicode file-path characters) would corrupt output. */
       const chunks = [];
       res.on('data', d => chunks.push(d));
       res.on('end', () => {
