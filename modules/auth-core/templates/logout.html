@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign out — {{BRAND_NAME}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      background: #fcf5e5;
+      color: #301934;
+      font-family: 'Cormorant', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #915f6d;
+    }
+    .card-header {
+      padding: 1.75rem 2rem;
+      border-bottom: 1px solid #915f6d;
+    }
+    .brand {
+      font-family: 'Cinzel', serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: #915f6d;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .card-body { padding: 2rem; }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 300;
+      color: #301934;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.02em;
+    }
+    p { color: #51414f; margin-bottom: 1.25rem; }
+    .btn-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    button[type="submit"] {
+      padding: 0.65rem 1.5rem;
+      background: #301934;
+      color: #fcf5e5;
+      font-family: 'Cormorant', Georgia, serif;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      border: none;
+      cursor: pointer;
+    }
+    button[type="submit"]:hover { background: #4a2a50; }
+    a.cancel {
+      padding: 0.65rem 1.5rem;
+      border: 1px solid #915f6d;
+      color: #301934;
+      font-family: 'Cormorant', Georgia, serif;
+      font-size: 1rem;
+      text-decoration: none;
+      display: inline-block;
+    }
+    a.cancel:hover { background: #f0e8d8; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="card-header">
+        <a href="{{BRAND_URL}}" class="brand">{{BRAND_NAME}}</a>
+      </div>
+      <div class="card-body">
+        <h1>Sign out</h1>
+        <p>Are you sure you want to sign out of {{BRAND_NAME}}?</p>
+        <div class="btn-row">
+          <form method="POST" action="/logout">
+            <button type="submit">Sign out</button>
+          </form>
+          <a href="{{BRAND_URL}}" class="cancel">Cancel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
