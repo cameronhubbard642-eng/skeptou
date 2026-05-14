@@ -8,6 +8,7 @@ on:
       - 'assets/branding/**'
       - 'assets/fonts/**'
       - 'assets/css/**'
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
