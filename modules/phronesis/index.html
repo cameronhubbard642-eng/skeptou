@@ -63,6 +63,9 @@
         <button class="sk-viz-btn active" data-target="heatmap" onclick="switchViz('heatmap')">Heatmap</button>
         <button class="sk-viz-btn"        data-target="density" onclick="switchViz('density')">Density</button>
       </div>
+      <div class="sk-range-bar" id="sk-range-bar" role="group" aria-label="Time range">
+        <!-- Populated by renderRangeBar() -->
+      </div>
       <div class="sk-viz-legend" id="sk-viz-legend" role="group" aria-label="Filter by event type">
         <!-- Populated by renderVizLegend() -->
       </div>
@@ -228,6 +231,31 @@
 
   /* Active filter set — all types on by default */
   var activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
+
+  /* ── Time range presets ─────────────────────────────────────────────────── */
+  var RANGE_PRESETS = [
+    { key: '4w',  weeks: 4,  label: '4 wks'  },
+    { key: '12w', weeks: 12, label: '12 wks' },
+    { key: '26w', weeks: 26, label: '6 mo'   },
+    { key: '52w', weeks: 52, label: '1 yr'   }
+  ];
+  var RANGE_KEYS = RANGE_PRESETS.map(function(r) { return r.key; });
+
+  /* Viewport-sensitive default: mobile → 12w, tablet → 26w, desktop → 52w */
+  function getDefaultRange() {
+    var w = window.innerWidth;
+    if (w <= 640)  return '12w';
+    if (w <= 1024) return '26w';
+    return '52w';
+  }
+
+  /* Active range — user-selected or viewport default; persists in URL hash */
+  var activeRange = getDefaultRange();
+
+  function getRangeWeeks() {
+    var preset = RANGE_PRESETS.filter(function(r) { return r.key === activeRange; })[0];
+    return preset ? preset.weeks : 52;
+  }
 
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
@@ -485,6 +513,7 @@
     var parts   = raw.split('?');
     var viewId  = parts[0] || 'dashboard';
     var typeFilter = null;
+    var rangeKey   = null;
     if (parts[1]) {
       parts[1].split('&').forEach(function(pair) {
         var kv = pair.split('=');
@@ -493,16 +522,27 @@
             .filter(function(k) { return EVENT_TYPES.some(function(et) { return et.key === k; }); });
           if (keys.length > 0) typeFilter = new Set(keys);
         }
+        if (kv[0] === 'r' && kv[1]) {
+          var rk = decodeURIComponent(kv[1]);
+          if (RANGE_KEYS.includes(rk)) rangeKey = rk;
+        }
       });
     }
-    return { viewId: viewId, typeFilter: typeFilter };
+    return { viewId: viewId, typeFilter: typeFilter, rangeKey: rangeKey };
   }
 
-  function buildHash(viewId, types) {
-    var allKeys = EVENT_TYPES.map(function(t) { return t.key; });
-    if (types.size === allKeys.length) return '#' + viewId;
-    var active = allKeys.filter(function(k) { return types.has(k); });
-    return '#' + viewId + '?t=' + encodeURIComponent(active.join(','));
+  /* rangeKey omitted from hash when it equals the viewport default (clean URLs). */
+  function buildHash(viewId, types, rangeKey) {
+    var params = [];
+    var allTypeKeys = EVENT_TYPES.map(function(t) { return t.key; });
+    if (types.size !== allTypeKeys.length) {
+      var active = allTypeKeys.filter(function(k) { return types.has(k); });
+      params.push('t=' + encodeURIComponent(active.join(',')));
+    }
+    if (rangeKey && rangeKey !== getDefaultRange()) {
+      params.push('r=' + encodeURIComponent(rangeKey));
+    }
+    return '#' + viewId + (params.length ? '?' + params.join('&') : '');
   }
 
   function navigate(viewId) {
@@ -517,7 +557,7 @@
       link.classList.toggle('active', link.dataset.view === viewId);
     });
 
-    var newHash = buildHash(viewId, activeTypes);
+    var newHash = buildHash(viewId, activeTypes, activeRange);
     if (location.hash !== newHash) {
       history.replaceState(null, '', newHash);
     }
@@ -529,6 +569,10 @@
       activeTypes = parsed.typeFilter;
       renderVizLegend();
     }
+    if (parsed.rangeKey) {
+      activeRange = parsed.rangeKey;
+      renderRangeBar();
+    }
     navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
 
     window.addEventListener('hashchange', function() {
@@ -538,7 +582,9 @@
       } else {
         activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
       }
+      if (p.rangeKey) activeRange = p.rangeKey;
       renderVizLegend();
+      renderRangeBar();
       renderHeatmap();
       renderDensity();
       navigate(VIEWS.includes(p.viewId) ? p.viewId : 'dashboard');
@@ -579,8 +625,32 @@
     /* Persist filter in URL hash without triggering hashchange */
     var currentView = (location.hash || '#dashboard').slice(1).split('?')[0];
     if (!VIEWS.includes(currentView)) currentView = 'dashboard';
-    history.replaceState(null, '', buildHash(currentView, activeTypes));
+    history.replaceState(null, '', buildHash(currentView, activeTypes, activeRange));
     renderVizLegend();
+    renderHeatmap();
+    renderDensity();
+  }
+
+  /* ── Time range bar ───────────────────────────────────────────────────── */
+  function renderRangeBar() {
+    var container = document.getElementById('sk-range-bar');
+    if (!container) return;
+    container.innerHTML = RANGE_PRESETS.map(function(r) {
+      var isActive = (r.key === activeRange);
+      return '<button class="sk-range-btn' + (isActive ? ' active' : '') + '"' +
+        ' onclick="setRange(\'' + r.key + '\')"' +
+        ' aria-pressed="' + isActive + '">' +
+        r.label + '</button>';
+    }).join('');
+  }
+
+  function setRange(key) {
+    if (!RANGE_KEYS.includes(key)) return;
+    activeRange = key;
+    var currentView = (location.hash || '#dashboard').slice(1).split('?')[0];
+    if (!VIEWS.includes(currentView)) currentView = 'dashboard';
+    history.replaceState(null, '', buildHash(currentView, activeTypes, activeRange));
+    renderRangeBar();
     renderHeatmap();
     renderDensity();
   }
@@ -685,14 +755,23 @@
     var container = document.getElementById('sk-viz-heatmap');
     if (!container) return;
 
-    var CELL = 12, GAP = 2, STEP = CELL + GAP;
-    /* On mobile (≤640px) render only 16 weeks so the SVG aspect ratio
-     * stays near 2:1 and cells remain visible at container width.
-     * At 52 cols the SVG is ~750×124px — on a 360px screen that scales
-     * to 360×60px via max-width:100%/height:auto, too small to read. */
-    var isMobile = window.innerWidth <= 640;
-    var COLS = isMobile ? 16 : 52, ROWS = 7;
+    var GAP = 2, ROWS = 7;
     var LEFT_MARGIN = 18, TOP_MARGIN = 22;
+    /* Columns = user-selected range (4 / 12 / 26 / 52 weeks). */
+    var COLS = getRangeWeeks();
+    /* Scale cell size so cells fill the container width regardless of range.
+     * containerW: prefer offsetWidth (post-layout); fall back to viewport estimate
+     * if the container isn't rendered yet (e.g. initial render before layout pass). */
+    var containerW = container.offsetWidth;
+    if (!containerW) {
+      var vw = window.innerWidth;
+      containerW = vw <= 640  ? vw - 32          /* 2×1rem mobile padding */
+                 : vw <= 1024 ? vw - 48           /* 2×1.5rem tablet padding */
+                 :              Math.min(856, vw - 64); /* 900px max-width − 2×2rem */
+    }
+    /* STEP = cell + gap; minimum 5px so it degrades gracefully at extreme zoom */
+    var STEP = Math.max(5, Math.floor((containerW - LEFT_MARGIN - 4) / COLS));
+    var CELL = Math.max(3, STEP - GAP);
     var W = LEFT_MARGIN + COLS * STEP + 4;
     var H = TOP_MARGIN + ROWS * STEP + 4;
 
@@ -768,12 +847,9 @@
         m.label + '</text>';
     }).join('');
 
-    /* Mobile: width="100%" lets CSS height:auto scale proportionally from viewBox.
-     * Desktop: explicit px dimensions prevent layout reflow on load. */
-    var svgSize = isMobile
-      ? 'width="100%"'
-      : 'width="' + W + '" height="' + H + '"';
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + svgSize +
+    /* width="100%" + viewBox lets CSS height:auto scale proportionally.
+     * Cell sizes are already computed from containerW so the SVG fits snugly. */
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%"' +
       ' role="img" aria-label="Workload heatmap">' +
       monthSvg + dowSvg + cells.join('') + '</svg>';
   }
@@ -789,8 +865,8 @@
     var MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
     var chartW = W - MARGIN_L - MARGIN_R;
     var chartH = H - MARGIN_T - MARGIN_B;
-    var isMobile = window.innerWidth <= 640;
-    var NCOLS = isMobile ? 16 : 52;
+    /* Sync time axis with heatmap — both use the user-selected range. */
+    var NCOLS = getRangeWeeks();
 
     var scores = BUSY_SCORES.scores;
     var today = new Date();
@@ -871,10 +947,7 @@
       return '';
     }).join('');
 
-    var svgSize = isMobile
-      ? 'width="100%"'
-      : 'width="' + W + '" height="' + H + '"';
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" ' + svgSize +
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%"' +
       ' role="img" aria-label="Workload density chart">' +
       paths.join('') + topLine + monthSvg + '</svg>';
   }
@@ -1141,6 +1214,7 @@
     /* Render immediately with inline fallback data */
     computeTaskIds();
     renderStats();
+    renderRangeBar();
     renderVizLegend();
     renderHeatmap();
     renderDensity();
