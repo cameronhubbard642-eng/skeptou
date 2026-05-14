@@ -171,6 +171,15 @@
       </div>
     </section>
 
+    <!-- ─────────────────────────────────────────────────────
+         §VI  Project Detail  (hash: #project/<slug>)
+    ───────────────────────────────────────────────────── -->
+    <section id="view-project-detail" class="sk-view" role="main" aria-label="Project detail">
+      <div id="project-detail-content">
+        <!-- Populated by renderProjectDetail() on #project/<slug> route -->
+      </div>
+    </section>
+
   </main><!-- /.sk-main -->
 
   <!-- Ephemeral error toast (auto-dismisses after 4s) -->
@@ -382,13 +391,18 @@
     }
   ];
 
-  /* Sample project data — replaced at load by /data/manifest.json when available */
+  /* Sample project data — replaced at load by /data/manifest.json when available.
+   * Shape must match parser v3 output: { active, completed, archived, all }.
+   * Each entry includes slug for click-through to #project/<slug>. */
   var MANIFEST_DATA = {
     active: [
-      { title: 'Epistemic Akrasia paper',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high' },
-      { title: 'Dissertation Ch. 5 revision',  type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high' },
-      { title: 'Oxford Handbook chapter',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-09-01', priority: 'medium' }
-    ]
+      { slug: 'epistemic-akrasia',       title: 'Epistemic Akrasia paper',     type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high'   },
+      { slug: 'dissertation-ch5',        title: 'Dissertation Ch. 5 revision', type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high'   },
+      { slug: 'oxford-handbook-chapter', title: 'Oxford Handbook chapter',     type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-09-01', priority: 'medium' }
+    ],
+    completed: [],
+    archived:  [],
+    all:       []
   };
 
   /* Sample task data — replaced at load by /data/tasks.json when available.
@@ -436,6 +450,31 @@
 
   /* ── Priority ordering (shared by Tasks and Snapshots) ─────────────────── */
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+
+  /* ── Project slug helpers ──────────────────────────────────────────────── */
+  /* Derive a URL slug from a project record — prefer stored slug, fall back to title. */
+  function projectSlug(p) {
+    if (p && p.slug) return p.slug;
+    return (p && p.title ? p.title : '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  /* Derive a project slug from a task record's filePath (reliable) or project name (fallback). */
+  function projectSlugFromTask(t) {
+    if (t && t.filePath) {
+      var m = /\/proj-([^/]+)\.md$/.exec(t.filePath);
+      if (m) return m[1];
+    }
+    return (t && t.project ? t.project : '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  /* ── Current project detail slug ──────────────────────────────────────── */
+  var currentProjectSlug = null;
 
   /* ── Task ID scheme ──────────────────────────────────────────────────── */
   /* id = base64url( filePath + '\x00' + title )                            */
@@ -520,10 +559,16 @@
   }
 
   /* ── Client-side router ──────────────────────────────────────────────── */
-  const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory'];
+  const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory', 'project-detail'];
 
-  /* Parse '#view?t=teaching,research' → { viewId, typeFilter: Set | null } */
+  /* Parse '#view?t=teaching,research' → { viewId, typeFilter: Set | null, rangeKey, slug }
+   * Also handles 'project/<slug>' sub-route for project detail. */
   function parseHash(raw) {
+    /* Project detail sub-route: #project/<slug> */
+    if (raw.startsWith('project/')) {
+      var slug = raw.slice(8).split('?')[0];
+      return { viewId: 'project-detail', slug: slug, typeFilter: null, rangeKey: null };
+    }
     var parts   = raw.split('?');
     var viewId  = parts[0] || 'dashboard';
     var typeFilter = null;
@@ -571,10 +616,22 @@
       link.classList.toggle('active', link.dataset.view === viewId);
     });
 
-    var newHash = buildHash(viewId, activeTypes, activeRange);
+    var newHash;
+    if (viewId === 'project-detail' && currentProjectSlug) {
+      newHash = '#project/' + currentProjectSlug;
+    } else {
+      newHash = buildHash(viewId, activeTypes, activeRange);
+    }
     if (location.hash !== newHash) {
       history.replaceState(null, '', newHash);
     }
+  }
+
+  /* Navigate to the project detail view and render the given slug */
+  function navigateToProject(slug) {
+    currentProjectSlug = slug;
+    navigate('project-detail');
+    renderProjectDetail(slug);
   }
 
   function initRouter() {
@@ -587,10 +644,25 @@
       activeRange = parsed.rangeKey;
       renderRangeBar();
     }
-    navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
+    if (parsed.viewId === 'project-detail' && parsed.slug) {
+      currentProjectSlug = parsed.slug;
+      navigate('project-detail');
+      renderProjectDetail(parsed.slug);
+    } else {
+      navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
+    }
 
     window.addEventListener('hashchange', function() {
       var p = parseHash(location.hash.slice(1));
+
+      /* Project detail sub-route — render detail view, skip viz re-renders */
+      if (p.viewId === 'project-detail' && p.slug) {
+        currentProjectSlug = p.slug;
+        navigate('project-detail');
+        renderProjectDetail(p.slug);
+        return;
+      }
+
       if (p.typeFilter) {
         activeTypes = p.typeFilter;
       } else {
@@ -730,9 +802,11 @@
     if (projEl) {
       projEl.innerHTML = topProjects.length
         ? topProjects.map(function(p) {
-            return '<a class="sk-snapshot__item" href="#projects" onclick="navigate(\'projects\')">' +
+            var slug = projectSlug(p);
+            return '<a class="sk-snapshot__item" href="#project/' + slug + '"' +
+              ' onclick="navigateToProject(\'' + slug + '\');return false;">' +
               '<span class="sk-snapshot__item-title">' + escHtml(p.title) + '</span>' +
-              '<span class="sk-snapshot__item-meta">' + escHtml(p.deadline) + '</span>' +
+              '<span class="sk-snapshot__item-meta">' + escHtml(p.deadline || '') + '</span>' +
             '</a>';
           }).join('')
         : '<p class="sk-secondary" style="font-size:.82rem;">No active projects.</p>';
@@ -970,30 +1044,61 @@
   function renderProjects() {
     const el = document.getElementById('projects-content');
     if (!el) return;
-    var isSample = MANIFEST_DATA === /* identity check for the fallback object */ MANIFEST_DATA &&
-      MANIFEST_DATA.active.length > 0 && MANIFEST_DATA.active[0].title === 'Epistemic Akrasia paper';
-    var rows = MANIFEST_DATA.active.map(function(p) {
-      var badgeCls = p.status === 'active'  ? 'sk-badge--confirmed'
-                   : p.status === 'paused'  ? 'sk-badge--pending'
-                   : p.status === 'blocked' ? 'sk-badge--declined'
-                   :                          'sk-badge--confirmed';
-      return '<tr>' +
-        '<td data-label="Project">' + escHtml(p.title) + '</td>' +
-        '<td data-label="Type"><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
-        '<td data-label="Status"><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status) + '</span></td>' +
-        '<td data-label="Deadline">' + escHtml(p.deadline) + '</td>' +
-        '</tr>';
-    }).join('');
 
-    el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
-      'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>' +
-      '<table role="table" aria-label="Active projects"><thead><tr>' +
-      '<th>Project</th><th>Type</th><th>Status</th><th>Deadline</th>' +
-      '</tr></thead><tbody>' + rows + (rows ? '' : '<tr><td colspan="4" class="sk-secondary">No active projects.</td></tr>') +
-      '</tbody></table>';
+    var HEAD = '<thead><tr><th>Project</th><th>Type</th><th>Status</th><th>Deadline</th></tr></thead>';
+
+    function makeRows(projects) {
+      if (!projects || !projects.length) return '';
+      return projects.map(function(p) {
+        var slug     = projectSlug(p);
+        var badgeCls = (p.status === 'active' || p.status === 'confirmed-pursuing') ? 'sk-badge--confirmed'
+                     : (p.status === 'done'   || p.status === 'completed')          ? 'sk-badge--declined'
+                     :                                                                  'sk-badge--pending';
+        return '<tr>' +
+          '<td data-label="Project">' +
+            '<a href="#project/' + slug + '" onclick="navigateToProject(\'' + slug + '\');return false;">' +
+              escHtml(p.title) +
+            '</a>' +
+          '</td>' +
+          '<td data-label="Type"><span class="sk-smallcaps">' + escHtml(p.type || '') + '</span></td>' +
+          '<td data-label="Status"><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status || '') + '</span></td>' +
+          '<td data-label="Deadline">' + escHtml(p.deadline || '') + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var activeRows    = makeRows(MANIFEST_DATA.active    || []);
+    var completedRows = makeRows(MANIFEST_DATA.completed || []);
+    var archivedRows  = makeRows(MANIFEST_DATA.archived  || []);
+
+    var html = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
+      'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>';
+
+    if (activeRows) {
+      html += '<table role="table" aria-label="Active projects">' + HEAD +
+        '<tbody>' + activeRows + '</tbody></table>';
+    } else {
+      html += '<table role="table" aria-label="Active projects">' + HEAD +
+        '<tbody><tr><td colspan="4" class="sk-secondary">No active projects.</td></tr></tbody></table>';
+    }
+
+    if (completedRows || archivedRows) {
+      html += '<details class="sk-collapsed" style="margin-top:var(--section-margin)">' +
+        '<summary class="sk-smallcaps">Past projects</summary>';
+      if (completedRows) {
+        html += '<table role="table" aria-label="Completed projects" style="margin-top:.75rem">' + HEAD +
+          '<tbody>' + completedRows + '</tbody></table>';
+      }
+      if (archivedRows) {
+        html += '<table role="table" aria-label="Archived projects" style="margin-top:.75rem">' + HEAD +
+          '<tbody>' + archivedRows + '</tbody></table>';
+      }
+      html += '</details>';
+    }
+
+    el.innerHTML = html;
     var bt = document.getElementById('build-time');
-    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-      (isSample ? ' (sample)' : '');
+    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   /* ── Tasks view ──────────────────────────────────────────────────────── */
@@ -1023,7 +1128,7 @@
         '<span class="sk-task-item__title">' +
           taskPriIcon(t.priority || 'low') + ' ' +
           escHtml(t.title) +
-          (t.project ? ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>' : '') +
+          (t.project ? ' <span class="sk-task-item__project">· <a class="sk-task-proj-link" href="#project/' + projectSlugFromTask(t) + '" onclick="navigateToProject(\'' + projectSlugFromTask(t) + '\');return false;">' + escHtml(t.project) + '</a></span>' : '') +
         '</span>' +
         '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
       '</li>';
@@ -1164,6 +1269,223 @@
 
     el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
       'Read-only roll-up · Synced from O&amp;P vault</p>' + html;
+  }
+
+  /* ── Project detail view ────────────────────────────────────────────── */
+
+  /* Fetch /data/projects/<slug>.json and render into the detail section.
+   * Gracefully shows an empty-state message on 404 or network failure. */
+  async function renderProjectDetail(slug) {
+    var el = document.getElementById('project-detail-content');
+    if (!el) return;
+    el.innerHTML = '<p class="sk-secondary" style="padding:2rem 0;text-align:center;font-size:.85rem;">Loading…</p>';
+
+    try {
+      var resp = await fetch('/data/projects/' + encodeURIComponent(slug) + '.json');
+      if (!resp.ok) throw new Error('not found');
+      var project = await resp.json();
+      el.innerHTML = buildProjectDetailHTML(project);
+    } catch (_) {
+      el.innerHTML =
+        '<div style="padding-top:1rem;">' +
+          '<a href="#projects" class="sk-back-link" onclick="navigate(\'projects\');return false;">← Projects</a>' +
+          '<p class="sk-secondary" style="margin-top:2rem;font-size:.875rem;">Project not found — it may not have been synced yet, or the slug is incorrect.</p>' +
+          '<p style="margin-top:.5rem;"><a href="#projects" onclick="navigate(\'projects\');return false;" style="font-size:.82rem;color:var(--color-mauve);">Return to Projects</a></p>' +
+        '</div>';
+    }
+  }
+
+  /* Build the full HTML string for a project detail page */
+  function buildProjectDetailHTML(p) {
+    var slug = p.slug || projectSlug(p);
+
+    /* Back link */
+    var html = '<a href="#projects" class="sk-back-link" onclick="navigate(\'projects\');return false;">← Projects</a>';
+
+    /* Title + short rule */
+    html += '<h1 class="sk-detail__title">' + escHtml(p.title || '') + '</h1>';
+    html += '<hr class="sk-rule sk-detail__rule" />';
+
+    /* Meta bar: status badge + type chip + priority chip */
+    var statusCls = (p.status === 'active' || p.status === 'confirmed-pursuing') ? 'sk-badge--confirmed'
+                  : (p.status === 'done'   || p.status === 'completed')          ? 'sk-badge--declined'
+                  :                                                                  'sk-badge--pending';
+    html += '<div class="sk-detail__meta-bar">';
+    html +=   '<span class="sk-badge ' + statusCls + '">' + escHtml(p.status || 'active') + '</span>';
+    if (p.type)     html += '<span class="sk-detail__meta-chip"><span class="sk-smallcaps">Type</span> '     + escHtml(p.type)     + '</span>';
+    if (p.priority) html += '<span class="sk-detail__meta-chip"><span class="sk-smallcaps">Priority</span> ' + escHtml(p.priority) + '</span>';
+    html += '</div>';
+
+    /* Key–value field list */
+    var hasFields = p.deadline || p.domain || p.requirement || p.prestige || p.stakeholders || p.linked_opportunity;
+    if (hasFields) {
+      html += '<dl class="sk-detail__fields">';
+      if (p.deadline)    html += '<div class="sk-detail__field"><dt>Deadline</dt><dd>' + escHtml(p.deadline) + '</dd></div>';
+      if (p.domain)      html += '<div class="sk-detail__field"><dt>Domain</dt><dd>' + escHtml(p.domain) + '</dd></div>';
+      if (p.requirement) html += '<div class="sk-detail__field"><dt>Requirement</dt><dd>' + escHtml(p.requirement) + '</dd></div>';
+      if (p.prestige)    html += '<div class="sk-detail__field"><dt>Prestige</dt><dd>' + escHtml(p.prestige) + '</dd></div>';
+      if (p.stakeholders)html += '<div class="sk-detail__field"><dt>Stakeholders</dt><dd>' + escHtml(p.stakeholders) + '</dd></div>';
+      if (p.linked_opportunity) {
+        /* Strip path prefix/suffix to get bare opp slug for the future #opportunity/<slug> route */
+        var oppSlug = p.linked_opportunity
+          .replace(/^.*\/opp-/, '').replace(/^opp-/, '').replace(/\.md$/, '');
+        html += '<div class="sk-detail__field"><dt>Opportunity</dt><dd>' +
+          '<a href="#opportunity/' + oppSlug + '" style="color:var(--color-wine)">' +
+            escHtml(p.linked_opportunity) +
+          '</a></dd></div>';
+      }
+      html += '</dl>';
+    }
+
+    /* Markdown body */
+    if (p.body && p.body.trim()) {
+      html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+      html += '<div class="sk-detail__body">' + renderMarkdown(p.body) + '</div>';
+    }
+
+    /* Tasks for this project — matched by filePath or project name */
+    var projTasks = TASKS_DATA.filter(function(t) {
+      if (t.filePath && (
+        t.filePath === 'projects/proj-' + slug + '.md' ||
+        t.filePath.endsWith('/proj-' + slug + '.md')
+      )) return true;
+      /* Fallback: match by humanized slug or by stored title */
+      var humanSlug = slug.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+      return t.project === humanSlug || t.project === p.title;
+    });
+
+    if (projTasks.length > 0) {
+      html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+      html += '<h2 class="sk-section-head" data-section="§">Tasks</h2>';
+      html += '<ul class="sk-task-list" role="list">';
+      html += projTasks.map(function(t) {
+        var done = !!completedTasks[t.id];
+        return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
+          '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
+            '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
+              ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+          '</label>' +
+          '<span class="sk-task-item__title">' + taskPriIcon(t.priority || 'low') + ' ' + escHtml(t.title) + '</span>' +
+          '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
+        '</li>';
+      }).join('');
+      html += '</ul>';
+    }
+
+    /* Edit source link — GitHub edit URL for the proj-*.md in agora */
+    var subtreePath = 'Organization%20%26%20Planning';
+    var editUrl = 'https://github.com/cameronhubbard642-eng/agora/edit/main/' +
+      subtreePath + '/projects/proj-' + encodeURIComponent(slug) + '.md';
+    html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+    html += '<div class="sk-detail__footer">';
+    html +=   '<a href="' + editUrl + '" target="_blank" rel="noopener noreferrer" class="sk-detail__edit-link">Edit source ↗</a>';
+    html += '</div>';
+
+    return html;
+  }
+
+  /* ── Minimal markdown renderer ───────────────────────────────────────── */
+  /* Handles: ATX headers (# ## ###), bullet lists, bold, italic, code,    */
+  /* wikilinks [[...]], horizontal rules, paragraphs. Skips frontmatter,   */
+  /* Obsidian comments <!-- -->, and Dataview inline fields [key:: value].  */
+  function renderMarkdown(text) {
+    if (!text) return '';
+
+    /* Strip YAML frontmatter if present */
+    text = text.replace(/^---[\s\S]*?---\n/, '');
+    /* Strip Dataview inline fields [key:: value] */
+    text = text.replace(/\[[a-z_]+::[^\]]*\]/gi, '');
+    /* Convert wikilinks [[target|display]] or [[target]] → display text */
+    text = text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, function(_, target, display) {
+      return display || target;
+    });
+
+    var lines  = text.split('\n');
+    var output = [];
+    var inList = false;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+
+      /* Skip HTML comments */
+      if (line.trim().startsWith('<!--')) continue;
+
+      /* Headers */
+      var h3m = /^###\s+(.+)$/.exec(line);
+      var h2m = /^##\s+(.+)$/.exec(line);
+      var h1m = /^#\s+(.+)$/.exec(line);
+      if (h3m || h2m || h1m) {
+        if (inList) { output.push('</ul>'); inList = false; }
+        /* # and ## both render as sk-md-h2 since page already has an h1 */
+        var hTag  = h3m ? 'h3' : 'h2';
+        var hCls  = h3m ? 'sk-md-h3' : 'sk-md-h2';
+        var hText = h3m ? h3m[1] : (h2m ? h2m[1] : h1m[1]);
+        output.push('<' + hTag + ' class="' + hCls + '">' + inlineMd(hText) + '</' + hTag + '>');
+        continue;
+      }
+
+      /* Bullet list items (skip checkbox lines — already in Tasks section) */
+      var listm  = /^[-*+]\s+(.+)$/.exec(line);
+      var checkm = /^-\s+\[[ x-]\]\s+(.+)$/i.exec(line);
+      if (checkm) {
+        if (!inList) { output.push('<ul class="sk-md-list">'); inList = true; }
+        output.push('<li>' + inlineMd(checkm[1]) + '</li>');
+        continue;
+      }
+      if (listm) {
+        if (!inList) { output.push('<ul class="sk-md-list">'); inList = true; }
+        output.push('<li>' + inlineMd(listm[1]) + '</li>');
+        continue;
+      }
+
+      /* Close list on blank line or non-list content */
+      if (inList) {
+        if (line.trim() === '' || !line.match(/^[\s*+-]/)) {
+          output.push('</ul>');
+          inList = false;
+        }
+      }
+
+      /* Horizontal rule --- */
+      if (/^---+$/.test(line.trim())) {
+        output.push('<hr class="sk-md-rule" />');
+        continue;
+      }
+
+      /* Blank line → spacer */
+      if (line.trim() === '') {
+        if (output.length > 0 && output[output.length - 1] !== '<br />') {
+          output.push('<br />');
+        }
+        continue;
+      }
+
+      /* Regular paragraph line */
+      output.push('<p class="sk-md-p">' + inlineMd(line) + '</p>');
+    }
+
+    if (inList) output.push('</ul>');
+    return output.join('');
+  }
+
+  /* Apply inline markdown (bold, italic, code) to an already-escaped string.
+   * escHtml is called first so user content is safe; regex only matches
+   * specific ASCII patterns that can't match HTML entities. */
+  function inlineMd(text) {
+    /* Escape HTML entities first */
+    text = escHtml(text);
+    /* Bold: **text** */
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    /* Italic: *text* (single asterisk, not followed by another) */
+    text = text.replace(/\*([^*\s][^*]*)\*/g, '<em>$1</em>');
+    /* Italic: _text_ */
+    text = text.replace(/_([^_\s][^_]*)_/g, '<em>$1</em>');
+    /* Inline code: `text` */
+    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+    /* Markdown links: [text](url) */
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return text;
   }
 
   /* ── Utility ─────────────────────────────────────────────────────────── */

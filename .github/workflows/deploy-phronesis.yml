@@ -95,8 +95,12 @@ jobs:
           # from the upload directory)
           cp -r modules/phronesis/functions modules/phronesis/dist/functions
           # Deploy data JSON files produced by sync-vault.js + aggregate-busy.js
+          # Copy top-level *.json and any subdirectories (e.g. projects/<slug>.json)
           mkdir -p modules/phronesis/dist/data
           cp modules/phronesis/src/data/*.json modules/phronesis/dist/data/ 2>/dev/null || true
+          if [ -d modules/phronesis/src/data/projects ]; then
+            cp -r modules/phronesis/src/data/projects modules/phronesis/dist/data/
+          fi
           # Stamp SW cache name with commit SHA so every deploy busts the previous cache.
           # Replaces CACHE_NAME in dist/sw.js only (source sw.js is unchanged in repo).
           SHORT_SHA=$(git rev-parse --short HEAD)
