@@ -1085,30 +1085,53 @@
 
     /* §II Version Timeline */
     var timelineRows = '';
-    paper.versions.slice().reverse().forEach(function(v) {
+    /* Iterate newest-first so we can build diff links (each version → the one after it) */
+    var reversedVersions = paper.versions.slice().reverse();
+    reversedVersions.forEach(function(v, vIdx) {
+      var encSlug    = encodeURIComponent(slug);
+      /* Canonical tagged PDF: compiled/<slug>/<slug>-<tag>.pdf @ energeia */
+      var taggedUrl  = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(slug + '-' + v.tag + '.pdf');
+      /* Current alias: always the latest compiled canonical */
+      var currentUrl = '/api/energeia/pdf/' + encSlug + '/current.pdf';
+
+      /* Diff link: this version → the next newer version.
+         Since array is newest-first, vIdx-1 is newer than vIdx.
+         Filename format matches promote-paper.yml: diff-style-I-style-II.pdf (no "-to-"). */
+      var diffHtml = '';
+      if (vIdx > 0) {
+        var newerTag = reversedVersions[vIdx - 1].tag;
+        var diffUrl  = '/api/energeia/pdf/' + encSlug + '/' +
+                       encodeURIComponent('diff-' + v.tag + '-' + newerTag + '.pdf');
+        diffHtml = ' <a class="sk-pdf-link" href="' + diffUrl + '" target="_blank"' +
+                   ' title="Latexdiff → ' + escHtml(newerTag) + '"' +
+                   ' style="margin-left:.3rem;">Diff ↗</a>';
+      }
+
+      /* PDF cell */
+      var pdfHtml = (v.tag === paper.currentTag)
+        ? '<a class="sk-pdf-link" href="' + currentUrl + '" target="_blank">PDF</a>' + diffHtml
+        : '<a class="sk-pdf-link" href="' + taggedUrl  + '" target="_blank">PDF</a>' + diffHtml;
+
       timelineRows += '<tr class="sk-version-row--major">' +
         '<td data-label="Version">' + escHtml(v.tag) + '</td>' +
         '<td data-label="Date">' + escHtml(v.date) + '</td>' +
         '<td data-label="Note">' + escHtml(v.note) + '</td>' +
         '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(v.lineage) + '</td>' +
         '<td data-label="Class."><span class="sk-class-' + v.classification + '">' + v.classification + '</span></td>' +
-        '<td>' +
-          (v.tag === paper.currentTag
-            ? '<span class="sk-secondary" style="font-size:.72rem;">current</span>'
-            : '<a class="sk-pdf-link" href="#" onclick="return false;" title="PDF not yet linked">PDF</a>') +
-        '</td>' +
+        '<td>' + pdfHtml + '</td>' +
       '</tr>';
 
       if (v.minors && v.minors.length > 0) {
         /* Minors collapsed in a details row */
         var minorRows = v.minors.map(function(m) {
+          var mUrl = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(slug + '-' + m.tag + '.pdf');
           return '<tr class="sk-version-row--minor">' +
             '<td data-label="Version">' + escHtml(m.tag) + '</td>' +
             '<td data-label="Date">' + escHtml(m.date) + '</td>' +
             '<td data-label="Note">' + escHtml(m.note) + '</td>' +
             '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(m.lineage) + '</td>' +
             '<td data-label="Class."><span class="sk-class-minor">minor</span></td>' +
-            '<td><a class="sk-pdf-link" href="#" onclick="return false;">PDF</a></td>' +
+            '<td><a class="sk-pdf-link" href="' + mUrl + '" target="_blank">PDF</a></td>' +
           '</tr>';
         }).join('');
 
@@ -1251,6 +1274,10 @@
       }
       grp.directions.forEach(function(d) {
         var isActive = d.status === 'active';
+        /* Draft PDF link — proxied from papers/<slug>/main.pdf on the dunamis branch.
+           Returns 404 if the branch hasn't been compiled yet (Compile button generates it). */
+        var draftUrl = '/api/energeia/pdf/' + encodeURIComponent(slug) + '/' +
+                       encodeURIComponent('draft-' + d.name + '.pdf');
         html += '<div class="sk-branch-item">' +
           '<div>' +
             '<div class="sk-branch-item__name">' + escHtml(d.branch) + '</div>' +
@@ -1263,6 +1290,8 @@
             (isActive
               ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
                   'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
+                '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
+                  ' title="Draft PDF — click Compile first if not yet available">Draft PDF</a>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                   'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')">Archive</button>'
               : '<span class="sk-secondary" style="font-size:.7rem;font-variant:small-caps;">archived</span>') +
