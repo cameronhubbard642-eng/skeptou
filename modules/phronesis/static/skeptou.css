@@ -1106,6 +1106,39 @@ details.sk-collapsed[open] > summary::before {
     padding: 0.5rem 0;
   }
 
+  /* ── Snapshot items: stack title above meta on small screens ──────────────
+   * Problem: long deadline/date strings (flex-shrink:0; white-space:nowrap)
+   * are wider than a mobile card, collapsing the title to 0px and causing
+   * the overflowing meta text to collide with adjacent rows visually.
+   * Fix: flip the title+meta pair from a horizontal row to a vertical stack
+   * so each gets its own line and the title can fill the full card width.
+   * Applied via the inner link wrapper (Next Up) and directly on the items
+   * for Priority Projects / Upcoming Deadlines which have no link wrapper.
+   * ── */
+  .sk-snapshot__item-link,
+  #snap-projects-items .sk-snapshot__item,
+  #snap-opps-items .sk-snapshot__item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
+  /* Title: detach from flex:1 sizing (means height in column layout);
+   * stretch to full width so ellipsis still kicks in on very long titles. */
+  .sk-snapshot__item-title {
+    flex: none;
+    width: 100%;
+  }
+
+  /* Meta: release nowrap constraint so long date strings wrap gracefully
+   * instead of blowing out horizontally; slightly smaller than body text. */
+  .sk-snapshot__item-meta {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.68rem;
+    flex-shrink: 1;
+  }
+
   /* ── Viz: smooth touch scroll ── */
   .sk-viz {
     -webkit-overflow-scrolling: touch;
