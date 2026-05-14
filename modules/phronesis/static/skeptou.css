@@ -1075,6 +1075,10 @@ details.sk-collapsed[open] > summary::before {
   .sk-main {
     padding: 1.25rem 1rem;
     padding-bottom: calc(56px + 35px + env(safe-area-inset-bottom, 0px) + 1.25rem);
+    /* Prevent any child (long nowrap title, wide SVG) from making the page
+     * body horizontally scrollable, which would push the card's right edge
+     * off-screen and make text-overflow:ellipsis appear not to fire. */
+    overflow-x: hidden;
   }
 
   /* ── Status summary: compact 3-col ── */
@@ -1121,6 +1125,10 @@ details.sk-collapsed[open] > summary::before {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.15rem;
+    /* overflow:hidden establishes a containing block so the title's
+     * text-overflow:ellipsis fires against THIS element's edge rather
+     * than against the page width when the page is wider than viewport. */
+    overflow: hidden;
   }
 
   /* Title: detach from flex:1 sizing (means height in column layout);
