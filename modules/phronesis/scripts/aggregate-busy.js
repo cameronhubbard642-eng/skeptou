@@ -5,15 +5,26 @@
  * Reads:
  *   content/calendar.ics    — iCloud calendar export (vault path: calendar/icloud-export.ics)
  *   content/commitments.md  — COMMITMENTS.md synced from O&P vault
+ *   config/event-types.yaml — type definitions, colors, keywords
  *
  * Writes:
  *   src/data/busy-scores.json
  *
- * Algorithm per spec §VIII.1:
- *   - Each calendar VEVENT on a date: weight 1
- *   - Each undone commitment task: weight by priority emoji (🔺=3, ⏫=2, 🔼=1, none=1)
- *   - Rolling 52-week window from build date
- *   - Dates outside window or with score=0 are omitted
+ * Output schema (per-type breakdown):
+ *   {
+ *     generated, window_days,
+ *     types: ['teaching', 'research', ...],
+ *     scores: {
+ *       'YYYY-MM-DD': { teaching: N, research: N, ..., untyped: N, total: N }
+ *     },
+ *     max_total: N
+ *   }
+ *
+ * Categorization source order (per spec):
+ *   1. iCal CATEGORIES field — case-insensitive type name/label match
+ *   2. Title prefix: [Teaching], [Research], etc.
+ *   3. Keyword inference from title
+ *   4. 'untyped' fallback
  */
 
 'use strict';
@@ -21,59 +32,206 @@
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT       = path.resolve(__dirname, '..');
-const ICS_PATH   = path.join(ROOT, 'content', 'calendar.ics');
-const COMM_PATH  = path.join(ROOT, 'content', 'commitments.md');
-const OUT_PATH   = path.join(ROOT, 'src', 'data', 'busy-scores.json');
-const WINDOW_DAYS = 364;
+const ROOT        = path.resolve(__dirname, '..');
+/* Calendar source: commitments/calendar-sync.md in agora vault, synced to
+ * content/calendar-sync.md.  Format: markdown export from macOS Calendar
+ * (not .ics) — see parseCalendarSync() below.
+ * TODO(pending-cam-confirm): parser rewrite for markdown format  */
+const CAL_PATH    = path.join(ROOT, 'content', 'calendar-sync.md');
+const COMM_PATH   = path.join(ROOT, 'content', 'commitments.md');
+const CONFIG_PATH = path.join(ROOT, 'config', 'event-types.yaml');
+const OUT_PATH    = path.join(ROOT, 'src', 'data', 'busy-scores.json');
+const WINDOW_DAYS  = 364; /* look back this many days for historical tasks */
+const FORWARD_DAYS = 120; /* look forward this many days for calendar events */
 
 /* ── Date window ─────────────────────────────────────────────────────────── */
+/* Both past tasks (commitments.md) and future calendar events (calendar-sync.md)
+ * should contribute to busy-scores.  calendar-sync.md exports today → +30 days,
+ * so any upper bound ≥ 30 days forward is sufficient; 120 provides headroom for
+ * further-out commitments.md tasks and future calendar-sync range expansions. */
 const today    = new Date();
 today.setHours(0, 0, 0, 0);
 const windowStart = new Date(today);
 windowStart.setDate(today.getDate() - WINDOW_DAYS);
+const windowEnd = new Date(today);
+windowEnd.setDate(today.getDate() + FORWARD_DAYS);
 
 function inWindow(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
-  return d >= windowStart && d <= today;
+  return d >= windowStart && d <= windowEnd;
+}
+
+/* ── Load event-types config (minimal inline YAML parser) ───────────────── */
+function loadEventTypes(yamlPath) {
+  const raw   = fs.readFileSync(yamlPath, 'utf8');
+  const lines = raw.split('\n');
+  const types = {};
+  let currentKey = null;
+  let inKeywords = false;
+
+  for (const line of lines) {
+    /* Skip blank lines and comments */
+    if (!line.trim() || line.trimStart().startsWith('#')) continue;
+
+    /* Top-level "types:" sentinel */
+    if (line === 'types:') continue;
+
+    /* Type key — 2-space indent, word chars, ends with ':' */
+    const typeMatch = /^  ([a-z][a-z0-9_]+):$/.exec(line);
+    if (typeMatch) {
+      currentKey = typeMatch[1];
+      types[currentKey] = { keywords: [] };
+      inKeywords = false;
+      continue;
+    }
+
+    if (!currentKey) continue;
+
+    /* 'keywords:' sentinel (4-space indent) */
+    if (line === '    keywords:') {
+      inKeywords = true;
+      continue;
+    }
+
+    /* Keyword list item — 6-space indent, starts with '- ' */
+    if (inKeywords) {
+      const kwMatch = /^      - (.+)$/.exec(line);
+      if (kwMatch) {
+        types[currentKey].keywords.push(kwMatch[1].trim().toLowerCase());
+        continue;
+      }
+      /* Non-keyword line at 4-space indent ends the keywords block */
+      if (/^    \w/.test(line)) inKeywords = false;
+    }
+
+    /* Scalar field — 4-space indent: key: value */
+    const fieldMatch = /^    ([a-z][a-zA-Z0-9_]+):\s*(.+)$/.exec(line);
+    if (fieldMatch) {
+      types[currentKey][fieldMatch[1]] = fieldMatch[2].trim().replace(/^["']|["']$/g, '');
+    }
+  }
+
+  return types;
+}
+
+const EVENT_TYPES_CONFIG = fs.existsSync(CONFIG_PATH)
+  ? loadEventTypes(CONFIG_PATH)
+  : {};
+
+/* Canonical ordered type list (UNTYPED always last) */
+const TYPE_KEYS   = Object.keys(EVENT_TYPES_CONFIG);
+const ALL_TYPES   = [...TYPE_KEYS, 'untyped'];
+
+/* Lookup helpers */
+const typeNamesLower = new Set(TYPE_KEYS.map(k => k.toLowerCase()));
+const typeLabelsLower = Object.fromEntries(
+  TYPE_KEYS.map(k => [(EVENT_TYPES_CONFIG[k].label || k).toLowerCase(), k])
+);
+
+function findTypeByName(str) {
+  const s = str.toLowerCase().trim();
+  if (typeNamesLower.has(s)) return s;
+  return typeLabelsLower[s] || null;
+}
+
+/* ── categorize(event) ───────────────────────────────────────────────────── */
+/* event = { title: string, categories: string[] }                            */
+/* Returns one of: ALL_TYPES keys                                             */
+function categorize(event) {
+  const title      = (event.title || '').trim();
+  const categories = event.categories || [];
+  const cfg        = EVENT_TYPES_CONFIG;
+
+  /* Step 1 — iCal CATEGORIES field */
+  for (const cat of categories) {
+    const key = findTypeByName(cat);
+    if (key) return key;
+  }
+
+  /* Step 2 — Title prefix [Type] */
+  const prefixMatch = /^\[([^\]]+)\]/.exec(title);
+  if (prefixMatch) {
+    const key = findTypeByName(prefixMatch[1]);
+    if (key) return key;
+  }
+
+  /* Step 3 — Keyword inference (first match wins, order = type key order) */
+  const titleLower = title.toLowerCase();
+  for (const key of TYPE_KEYS) {
+    for (const kw of (cfg[key].keywords || [])) {
+      if (titleLower.includes(kw)) return key;
+    }
+  }
+
+  /* Step 4 — Untyped fallback */
+  return 'untyped';
 }
 
 /* ── Busy scores accumulator ─────────────────────────────────────────────── */
 const scores = {};
 
-function addScore(dateStr, weight) {
+function emptyDay() {
+  const d = {};
+  for (const t of ALL_TYPES) d[t] = 0;
+  d.total = 0;
+  return d;
+}
+
+function addTypedScore(dateStr, type, weight) {
   if (!dateStr || !inWindow(dateStr)) return;
-  scores[dateStr] = (scores[dateStr] || 0) + weight;
+  if (!scores[dateStr]) scores[dateStr] = emptyDay();
+  scores[dateStr][type] = (scores[dateStr][type] || 0) + weight;
+  scores[dateStr].total += weight;
 }
 
 /* ── iCal parser — minimal, no external deps ─────────────────────────────── */
 /* Handles DTSTART as DATE (YYYYMMDD) or DATETIME (YYYYMMDDTHHmmssZ).        */
 /* Handles VALUE=DATE property parameter.                                      */
+/* Captures SUMMARY and CATEGORIES in addition to DTSTART.                    */
 function parseICS(raw) {
   const lines = unfoldICS(raw);
-  let inEvent = false;
-  let dtstart  = null;
+  let inEvent    = false;
+  let dtstart    = null;
+  let summary    = null;
+  let categories = [];
 
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') {
-      inEvent = true;
-      dtstart  = null;
+      inEvent    = true;
+      dtstart    = null;
+      summary    = null;
+      categories = [];
       continue;
     }
     if (line === 'END:VEVENT') {
       if (inEvent && dtstart) {
-        addScore(dtstart, 1);
+        const type = categorize({ title: summary || '', categories });
+        addTypedScore(dtstart, type, 1);
       }
       inEvent = false;
       continue;
     }
     if (!inEvent) continue;
 
-    /* Match DTSTART with optional property params */
+    /* DTSTART with optional property params */
     const dtMatch = /^DTSTART(?:;[^:]+)?:(\d{8})/.exec(line);
     if (dtMatch) {
       const raw8 = dtMatch[1];
       dtstart = `${raw8.slice(0, 4)}-${raw8.slice(4, 6)}-${raw8.slice(6, 8)}`;
+      continue;
+    }
+
+    /* SUMMARY */
+    const sumMatch = /^SUMMARY(?:;[^:]+)?:(.*)$/.exec(line);
+    if (sumMatch) {
+      summary = sumMatch[1];
+      continue;
+    }
+
+    /* CATEGORIES: comma-separated list */
+    const catMatch = /^CATEGORIES(?:;[^:]+)?:(.*)$/.exec(line);
+    if (catMatch) {
+      categories = catMatch[1].split(',').map(s => s.trim()).filter(Boolean);
     }
   }
 }
@@ -88,9 +246,25 @@ function unfoldICS(raw) {
     .filter(Boolean);
 }
 
+/* ── Markdown calendar parser ────────────────────────────────────────────── */
+/* Format: ## Section\n- YYYY-MM-DD (Day)  [HH:MM–HH:MM  ]Title            */
+/* Section headings are ignored; type classification uses keyword inference.  */
+function parseCalendarSync(raw) {
+  const lines = raw.split('\n');
+  for (const line of lines) {
+    const m = /^-\s+(\d{4}-\d{2}-\d{2})\s+\([^)]+\)\s+(?:\d{1,2}:\d{2}[–\-]\d{1,2}:\d{2}\s+)?(.+)$/.exec(line.trim());
+    if (!m) continue;
+    const dateStr = m[1];
+    const title   = m[2].trim();
+    const type    = categorize({ title, categories: [] });
+    addTypedScore(dateStr, type, 1);
+  }
+}
+
 /* ── COMMITMENTS.md parser ───────────────────────────────────────────────── */
 /* Format: markdown with date headings (## YYYY-MM-DD or ## [[YYYY-MM-DD]])  */
 /* and task lines: - [ ] task text [priority emoji]                           */
+/* Applies keyword inference for type (no CATEGORIES / prefix available).     */
 function parseCommitments(raw) {
   const lines = raw.split('\n');
   let currentDate = null;
@@ -103,8 +277,8 @@ function parseCommitments(raw) {
       continue;
     }
 
-    /* Task line: - [ ] text or - [x] text */
-    const taskMatch = /^-\s+\[( |x)\]\s+(.*)$/.exec(line);
+    /* Task line: - [ ] text, - [x] text, or - [/] (in-progress, treated as incomplete) */
+    const taskMatch = /^-\s+\[([ x\/])\]\s+(.*)$/.exec(line);
     if (!taskMatch) continue;
 
     const done = taskMatch[1] === 'x';
@@ -117,7 +291,10 @@ function parseCommitments(raw) {
     const inlineDateMatch = /\[?\[?(\d{4}-\d{2}-\d{2})\]?\]?/.exec(text);
     const dateStr = inlineDateMatch ? inlineDateMatch[1] : currentDate;
 
-    if (dateStr) addScore(dateStr, weight);
+    if (dateStr) {
+      const type = categorize({ title: text, categories: [] });
+      addTypedScore(dateStr, type, weight);
+    }
   }
 }
 
@@ -131,16 +308,16 @@ function priorityWeight(text) {
 /* ── Main ────────────────────────────────────────────────────────────────── */
 let parsed = 0;
 
-if (fs.existsSync(ICS_PATH)) {
+if (fs.existsSync(CAL_PATH)) {
   try {
-    parseICS(fs.readFileSync(ICS_PATH, 'utf8'));
-    console.log('aggregate-busy: parsed calendar.ics');
+    parseCalendarSync(fs.readFileSync(CAL_PATH, 'utf8'));
+    console.log('aggregate-busy: parsed calendar-sync.md');
     parsed++;
   } catch (e) {
-    console.error('aggregate-busy: calendar.ics parse error —', e.message);
+    console.error('aggregate-busy: calendar-sync.md parse error —', e.message);
   }
 } else {
-  console.warn('aggregate-busy: calendar.ics not found at', ICS_PATH, '— skipping');
+  console.warn('aggregate-busy: calendar-sync.md not found at', CAL_PATH, '— skipping');
 }
 
 if (fs.existsSync(COMM_PATH)) {
@@ -155,12 +332,14 @@ if (fs.existsSync(COMM_PATH)) {
   console.warn('aggregate-busy: commitments.md not found at', COMM_PATH, '— skipping');
 }
 
-const maxScore = Object.values(scores).reduce((m, v) => Math.max(m, v), 0);
+const maxTotal = Object.values(scores).reduce((m, v) => Math.max(m, v.total), 0);
 const output = {
-  generated:   new Date().toISOString(),
-  window_days: WINDOW_DAYS,
+  generated:    new Date().toISOString(),
+  window_days:  WINDOW_DAYS,
+  forward_days: FORWARD_DAYS,
+  types:        ALL_TYPES,
   scores,
-  max_score:   maxScore
+  max_total:    maxTotal
 };
 
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });

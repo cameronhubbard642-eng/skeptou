@@ -12,6 +12,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Phronesis" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+  <link rel="shortcut icon" href="/icons/favicon.ico" />
 
   <!-- Design system -->
   <link rel="stylesheet" href="/design-tokens.css" />
@@ -30,11 +33,11 @@
   <nav class="sk-nav" role="navigation" aria-label="Phronesis navigation">
     <a href="#dashboard" class="sk-nav__title" onclick="navigate('dashboard')">Phronesis</a>
     <ul class="sk-nav__links" role="list">
-      <li><a href="#dashboard"     class="sk-nav__link" data-view="dashboard"     onclick="navigate('dashboard')">Dashboard</a></li>
-      <li><a href="#projects"      class="sk-nav__link" data-view="projects"      onclick="navigate('projects')">Projects</a></li>
-      <li><a href="#tasks"         class="sk-nav__link" data-view="tasks"         onclick="navigate('tasks')">Tasks</a></li>
-      <li><a href="#opportunities" class="sk-nav__link" data-view="opportunities" onclick="navigate('opportunities')">Opportunities</a></li>
-      <li><a href="#inventory"     class="sk-nav__link" data-view="inventory"     onclick="navigate('inventory')">Inventory</a></li>
+      <li><a href="#dashboard"     class="sk-nav__link" data-view="dashboard"     onclick="navigate('dashboard')"><svg class="sk-nav__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12L11.2045 3.04549C11.6438 2.60615 12.3562 2.60615 12.7955 3.04549L21.75 12M4.5 9.75V19.875C4.5 20.4963 5.00368 21 5.625 21H9.75V16.125C9.75 15.5037 10.2537 15 10.875 15H13.125C13.7463 15 14.25 15.5037 14.25 16.125V21H18.375C18.9963 21 19.5 20.4963 19.5 19.875V9.75M8.25 21H16.5" /></svg><span class="sk-nav__label">Dashboard</span></a></li>
+      <li><a href="#projects"      class="sk-nav__link" data-view="projects"      onclick="navigate('projects')"><svg class="sk-nav__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.1499V18.4C20.25 19.4944 19.4631 20.4359 18.3782 20.58C16.2915 20.857 14.1624 21 12 21C9.83757 21 7.70854 20.857 5.62185 20.58C4.5369 20.4359 3.75 19.4944 3.75 18.4V14.1499M20.25 14.1499C20.7219 13.7476 21 13.1389 21 12.4889V8.70569C21 7.62475 20.2321 6.69082 19.1631 6.53086C18.0377 6.36247 16.8995 6.23315 15.75 6.14432M20.25 14.1499C20.0564 14.315 19.8302 14.4453 19.5771 14.5294C17.1953 15.3212 14.6477 15.75 12 15.75C9.35229 15.75 6.80469 15.3212 4.42289 14.5294C4.16984 14.4452 3.94361 14.3149 3.75 14.1499M3.75 14.1499C3.27808 13.7476 3 13.1389 3 12.4889V8.70569C3 7.62475 3.7679 6.69082 4.83694 6.53086C5.96233 6.36247 7.10049 6.23315 8.25 6.14432M15.75 6.14432V5.25C15.75 4.00736 14.7426 3 13.5 3H10.5C9.25736 3 8.25 4.00736 8.25 5.25V6.14432M15.75 6.14432C14.5126 6.0487 13.262 6 12 6C10.738 6 9.48744 6.0487 8.25 6.14432M12 12.75H12.0075V12.7575H12V12.75Z" /></svg><span class="sk-nav__label">Projects</span></a></li>
+      <li><a href="#tasks"         class="sk-nav__link" data-view="tasks"         onclick="navigate('tasks')"><svg class="sk-nav__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15L15 9.75M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" /></svg><span class="sk-nav__label">Tasks</span></a></li>
+      <li><a href="#opportunities" class="sk-nav__link" data-view="opportunities" onclick="navigate('opportunities')"><svg class="sk-nav__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18V12.75M12 12.75C12.5179 12.75 13.0206 12.6844 13.5 12.561M12 12.75C11.4821 12.75 10.9794 12.6844 10.5 12.561M14.25 20.0394C13.5212 20.1777 12.769 20.25 12 20.25C11.231 20.25 10.4788 20.1777 9.75 20.0394M13.5 22.422C13.007 22.4736 12.5066 22.5 12 22.5C11.4934 22.5 10.993 22.4736 10.5 22.422M14.25 18V17.8083C14.25 16.8254 14.9083 15.985 15.7585 15.4917C17.9955 14.1938 19.5 11.7726 19.5 9C19.5 4.85786 16.1421 1.5 12 1.5C7.85786 1.5 4.5 4.85786 4.5 9C4.5 11.7726 6.00446 14.1938 8.24155 15.4917C9.09173 15.985 9.75 16.8254 9.75 17.8083V18" /></svg><span class="sk-nav__label">Opportunities</span></a></li>
+      <li><a href="#inventory"     class="sk-nav__link" data-view="inventory"     onclick="navigate('inventory')"><svg class="sk-nav__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5L19.6246 18.1321C19.5546 19.3214 18.5698 20.25 17.3785 20.25H6.62154C5.43022 20.25 4.44538 19.3214 4.37542 18.1321L3.75 7.5M9.99976 11.25H13.9998M3.375 7.5H20.625C21.2463 7.5 21.75 6.99632 21.75 6.375V4.875C21.75 4.25368 21.2463 3.75 20.625 3.75H3.375C2.75368 3.75 2.25 4.25368 2.25 4.875V6.375C2.25 6.99632 2.75368 7.5 3.375 7.5Z" /></svg><span class="sk-nav__label">Inventory</span></a></li>
     </ul>
   </nav>
 
@@ -59,6 +62,12 @@
       <div class="sk-viz-toggle" role="group" aria-label="Visualization type">
         <button class="sk-viz-btn active" data-target="heatmap" onclick="switchViz('heatmap')">Heatmap</button>
         <button class="sk-viz-btn"        data-target="density" onclick="switchViz('density')">Density</button>
+      </div>
+      <div class="sk-range-bar" id="sk-range-bar" role="group" aria-label="Time range">
+        <!-- Populated by renderRangeBar() -->
+      </div>
+      <div class="sk-viz-legend" id="sk-viz-legend" role="group" aria-label="Filter by event type">
+        <!-- Populated by renderVizLegend() -->
       </div>
       <div class="sk-viz" id="sk-viz-heatmap" role="img" aria-label="Workload heatmap — 52-week calendar grid">
         <!-- Heatmap SVG injected by renderHeatmap() -->
@@ -118,9 +127,9 @@
     <section id="view-tasks" class="sk-view" role="main" aria-label="Tasks">
       <h1 style="margin-bottom: var(--section-margin);">Tasks</h1>
       <p class="sk-secondary" style="font-size:.82rem;margin-bottom:var(--section-margin);">
-        Sourced from <code>- [ ]</code> items in vault project plan files
-        (<code>projects/&lt;slug&gt;-plan.md</code>). Priority prefix: 🔺 high · ⏫ medium · 🔼 low.
-        Due date annotation: <code>(due: YYYY-MM-DD)</code>.
+        Sourced from <code>- [ ]</code> items across the O&amp;P vault.
+        Priority emoji (anywhere in title): 🔺 high · ⏫ medium · 🔼 low.
+        Due date: <code>📅 YYYY-MM-DD</code> inline.
       </p>
       <div class="sk-sort-bar" role="toolbar" aria-label="Sort and group tasks">
         <label class="sk-smallcaps">Sort
@@ -164,6 +173,9 @@
 
   </main><!-- /.sk-main -->
 
+  <!-- Ephemeral error toast (auto-dismisses after 4s) -->
+  <div id="sk-ephemeral-toast" class="sk-ephemeral-toast" hidden role="alert" aria-live="assertive"></div>
+
   <!-- Install prompt toast (shown on beforeinstallprompt) -->
   <div id="sk-install-toast" class="sk-install-toast" hidden aria-live="polite" role="status">
     <span class="sk-install-toast__text">Install Phronesis for offline access</span>
@@ -178,36 +190,146 @@
 
   'use strict';
 
+  /* ── Heroicons inline SVGs ────────────────────────────────────────────── */
+  var ICONS = {
+    /* calendar outline 24px — due date */
+    calendar: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="13" height="13" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>',
+    /* exclamation-triangle solid 24px — high priority */
+    high: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /></svg>',
+    /* chevrons-up solid 24px — medium priority */
+    medium: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M11.47 7.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /><path fill-rule="evenodd" d="M11.47 3.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /></svg>',
+    /* chevron-up solid 24px — low priority */
+    low: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true"><path fill-rule="evenodd" d="M11.47 7.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z" clip-rule="evenodd" /></svg>'
+  };
+
+  /* ── Task icon helpers (module-scope so both renderTasks + renderSnapshots can use them) */
+  function taskPriIcon(priority) {
+    var iconKey = (priority === 'high' || priority === 'medium') ? priority : 'low';
+    var cls     = 'sk-icon-priority-' + iconKey;
+    return '<span class="' + cls + '" title="' + (priority || 'low') + ' priority">' + ICONS[iconKey] + '</span>';
+  }
+
+  function taskDueIcon(due) {
+    if (!due) return '';
+    var today   = new Date().toISOString().slice(0, 10);
+    var overdue = due < today;
+    return '<span class="sk-icon-due' + (overdue ? ' sk-icon-due--overdue' : '') + '" title="Due ' + due + '">' +
+      ICONS.calendar + ' ' + due + '</span>';
+  }
+
+  /* ── Event type definitions (mirrors aggregate-busy.js + generate-viz.js) */
+  var EVENT_TYPES = [
+    { key: 'teaching',  label: 'Teaching',  color: '#4682b4' },
+    { key: 'research',  label: 'Research',  color: '#722f37' },
+    { key: 'fitness',   label: 'Fitness',   color: '#915f6d' },
+    { key: 'admin',     label: 'Admin',     color: '#51414f' },
+    { key: 'personal',  label: 'Personal',  color: '#b0c4de' },
+    { key: 'travel',    label: 'Travel',    color: '#f08080' },
+    { key: 'deadlines', label: 'Deadlines', color: '#301934' },
+    { key: 'untyped',   label: 'Untyped',   color: '#999999' }
+  ];
+
+  /* Active filter set — all types on by default */
+  var activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
+
+  /* ── Time range presets ─────────────────────────────────────────────────── */
+  var RANGE_PRESETS = [
+    { key: '4w',  weeks: 4,  label: '4 wks'  },
+    { key: '12w', weeks: 12, label: '12 wks' },
+    { key: '26w', weeks: 26, label: '6 mo'   },
+    { key: '52w', weeks: 52, label: '1 yr'   }
+  ];
+  var RANGE_KEYS = RANGE_PRESETS.map(function(r) { return r.key; });
+
+  /* Viewport-sensitive default: mobile → 12w, tablet → 26w, desktop → 52w */
+  function getDefaultRange() {
+    var w = window.innerWidth;
+    if (w <= 640)  return '12w';
+    if (w <= 1024) return '26w';
+    return '52w';
+  }
+
+  /* Active range — user-selected or viewport default; persists in URL hash */
+  var activeRange = getDefaultRange();
+
+  function getRangeWeeks() {
+    var preset = RANGE_PRESETS.filter(function(r) { return r.key === activeRange; })[0];
+    return preset ? preset.weeks : 52;
+  }
+
   /* ── Embedded sample data (replaced by CI build step) ────────────────── */
   /* GENERATED: aggregate-busy.js + generate-viz.js write these at build.   */
-  const BUSY_SCORES = (function() {
-    const scores = {};
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(start.getDate() - 364);
-    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().slice(0, 10);
-      const dow = d.getDay();
-      const base = (dow === 0 || dow === 6) ? 0 : Math.random();
-      if (base > 0.3) scores[key] = Math.round(base * 8);
+  /* ── Sample generates a FORWARD-LOOKING window (today → today+364).        */
+  /* This matches the forward orientation of the renderers so the live data   */
+  /* replacement looks similar in shape to the placeholder.                   */
+  var BUSY_SCORES = (function() {
+    var TYPE_KEYS = EVENT_TYPES.map(function(t) { return t.key; });
+    var scores = {};
+    var today = new Date();
+    /* Start at the Sunday of the current week (aligns with heatmap columns) */
+    var start = new Date(today);
+    start.setDate(start.getDate() - start.getDay());
+    /* End 364 days after the start of the current week */
+    var end = new Date(start);
+    end.setDate(start.getDate() + 364);
+
+    function randType(dow) {
+      if (dow === 0 || dow === 6) { return Math.random() < 0.3 ? 'fitness' : null; }
+      var r = Math.random();
+      if (r < 0.28) return 'teaching';
+      if (r < 0.48) return 'research';
+      if (r < 0.58) return 'fitness';
+      if (r < 0.73) return 'admin';
+      if (r < 0.82) return 'personal';
+      if (r < 0.88) return 'travel';
+      if (r < 0.93) return 'deadlines';
+      return 'untyped';
     }
-    ['2026-01', '2026-03', '2026-05'].forEach(function(month) {
-      for (let d = 1; d <= 10; d++) {
-        const key = month + '-' + String(d).padStart(2, '0');
-        if (scores[key] !== undefined) scores[key] = Math.min(12, (scores[key] || 0) + 4);
+
+    function emptyDay() {
+      var d = {};
+      TYPE_KEYS.forEach(function(k) { d[k] = 0; });
+      d.total = 0;
+      return d;
+    }
+
+    for (var cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+      var key = cur.toISOString().slice(0, 10);
+      var dow = cur.getDay();
+      var prob = (dow === 0 || dow === 6) ? 0.25 : 0.72;
+      if (Math.random() > prob) continue;
+      var count = 1 + Math.floor(Math.random() * 4);
+      var day = emptyDay();
+      for (var i = 0; i < count; i++) {
+        var t = randType(dow);
+        if (t) { day[t]++; day.total++; }
+      }
+      if (day.total > 0) scores[key] = day;
+    }
+
+    /* Busy periods — extra admin + deadlines load (upcoming months) */
+    ['2026-07', '2026-09', '2026-11'].forEach(function(month) {
+      for (var dd = 1; dd <= 10; dd++) {
+        var k = month + '-' + String(dd).padStart(2, '0');
+        if (!scores[k]) scores[k] = emptyDay();
+        scores[k].admin++;
+        scores[k].deadlines++;
+        scores[k].total += 2;
       }
     });
-    return { scores: scores, max_score: 12 };
+
+    var maxTotal = Object.values(scores).reduce(function(m, v) { return Math.max(m, v.total); }, 0);
+    return { scores: scores, max_total: maxTotal };
   })();
 
-  const MANIFEST_STATS = {
+  var MANIFEST_STATS = {
     active_projects: 3,
     pending_decisions: 2,
     confirmed_pursuing: 4
   };
 
-  /* Sample opportunity data */
-  const OPPORTUNITIES = [
+  /* Sample opportunity data — replaced at load by /data/opportunities.json when available */
+  var OPPORTUNITIES = [
     {
       slug: 'symposium-2026',
       title: 'Philosophy of Mind Symposium 2026',
@@ -260,8 +382,8 @@
     }
   ];
 
-  /* Sample project data */
-  const MANIFEST_DATA = {
+  /* Sample project data — replaced at load by /data/manifest.json when available */
+  var MANIFEST_DATA = {
     active: [
       { title: 'Epistemic Akrasia paper',      type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high' },
       { title: 'Dissertation Ch. 5 revision',  type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high' },
@@ -269,12 +391,11 @@
     ]
   };
 
-  /* Sample task data
-   * Convention: sourced from `- [ ]` items in vault `projects/<slug>-plan.md` files.
-   * Priority: 🔺 high · ⏫ medium · 🔼 low (emoji prefix on the task line).
-   * Due date: `(due: YYYY-MM-DD)` inline annotation on the task line.
-   * CI build: sync-vault.js writes src/data/tasks.json; index.html reads it at load. */
-  const TASKS_DATA = [
+  /* Sample task data — replaced at load by /data/tasks.json when available.
+   * Convention: sourced from `- [ ]` items in any .md file in the vault subtree.
+   * Priority emojis (anywhere in title): 🔺 high · ⏫ medium · 🔼 low.
+   * Due date: 📅 YYYY-MM-DD or (due: YYYY-MM-DD) inline. */
+  var TASKS_DATA = [
     { title: 'Submit abstract for Philosophy of Mind Symposium',   project: 'Epistemic Akrasia paper',     due: '2026-06-01', priority: 'high'   },
     { title: 'Read Fantl & McGrath (2002) on pragmatic encroachment', project: 'Epistemic Akrasia paper', due: '2026-06-05', priority: 'medium' },
     { title: 'Send referee report — Episteme',                     project: 'Service',                    due: '2026-06-10', priority: 'high'   },
@@ -285,7 +406,8 @@
     { title: 'Update CV and publications list',                    project: 'Admin',                      due: '2026-08-01', priority: 'low'    }
   ];
 
-  const INVENTORY_DATA = {
+  /* Sample inventory — replaced at load by /data/inventory.json when available */
+  var INVENTORY_DATA = {
     sections: [
       {
         title: 'Papers',
@@ -315,8 +437,127 @@
   /* ── Priority ordering (shared by Tasks and Snapshots) ─────────────────── */
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
+  /* ── Task ID scheme ──────────────────────────────────────────────────── */
+  /* id = base64url( filePath + '\x00' + title )                            */
+  /* Matches Worker decode and sync-vault.js production computation.        */
+  /* filePath is vault-relative (e.g. "projects/epistemic-akrasia-plan.md") */
+  /* and does NOT include the VAULT_SUBTREE prefix — the Worker applies it. */
+
+  function taskFilePath(project) {
+    var slug = (project || 'misc')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+$/, '');
+    return 'projects/' + slug + '-plan.md';
+  }
+
+  function taskId(filePath, title) {
+    var raw = filePath + '\x00' + title;
+    var b64;
+    try {
+      b64 = btoa(unescape(encodeURIComponent(raw)));
+    } catch (_) {
+      b64 = btoa(raw);
+    }
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function computeTaskIds() {
+    TASKS_DATA.forEach(function(t) {
+      if (!t.filePath) t.filePath = taskFilePath(t.project);
+      if (!t.id)       t.id       = taskId(t.filePath, t.title);
+    });
+  }
+
+  /* ── Task completion state (session-only; not persisted) ─────────────── */
+  var completedTasks = {};
+
+  /* ── Task toggle handler ─────────────────────────────────────────────── */
+  function handleTaskToggle(id, checked) {
+    /* Optimistic update */
+    completedTasks[id] = checked;
+    renderTasks();
+    renderSnapshots();
+
+    var action = checked ? 'complete' : 'uncomplete';
+
+    fetch('/api/task/' + action + '/' + encodeURIComponent(id), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    }).then(function(resp) {
+      /* Explicit error cases — throw with a human-readable message */
+      if (resp.status === 401) throw new Error('Session expired — reload to log in.');
+      if (resp.status === 404) throw new Error('Task not found in vault — it may have moved or been renamed.');
+      if (!resp.ok)            throw new Error('Could not save (' + resp.status + ') — try again.');
+      /* 2xx — parse body to detect 'No change needed' (already in target state) */
+      return resp.json();
+    }).then(function(data) {
+      if (data && data.message === 'No change needed') {
+        /* Worker couldn't apply the change — revert the optimistic flip */
+        completedTasks[id] = !checked;
+        renderTasks();
+        renderSnapshots();
+        showEphemeralToast('Already ' + (checked ? 'completed' : 'open') + ' in vault — will resync.');
+      }
+      /* data.message === 'Task updated': optimistic state is correct, nothing to do */
+    }).catch(function(err) {
+      /* Revert on any error */
+      completedTasks[id] = !checked;
+      renderTasks();
+      renderSnapshots();
+      showEphemeralToast(err.message || 'Could not save — check connection and try again.');
+    });
+  }
+
+  /* ── Ephemeral error toast ───────────────────────────────────────────── */
+  function showEphemeralToast(message) {
+    var el = document.getElementById('sk-ephemeral-toast');
+    if (!el) return;
+    el.textContent = message;
+    el.hidden = false;
+    setTimeout(function() { el.hidden = true; }, 4000);
+  }
+
   /* ── Client-side router ──────────────────────────────────────────────── */
   const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'inventory'];
+
+  /* Parse '#view?t=teaching,research' → { viewId, typeFilter: Set | null } */
+  function parseHash(raw) {
+    var parts   = raw.split('?');
+    var viewId  = parts[0] || 'dashboard';
+    var typeFilter = null;
+    var rangeKey   = null;
+    if (parts[1]) {
+      parts[1].split('&').forEach(function(pair) {
+        var kv = pair.split('=');
+        if (kv[0] === 't' && kv[1]) {
+          var keys = decodeURIComponent(kv[1]).split(',')
+            .filter(function(k) { return EVENT_TYPES.some(function(et) { return et.key === k; }); });
+          if (keys.length > 0) typeFilter = new Set(keys);
+        }
+        if (kv[0] === 'r' && kv[1]) {
+          var rk = decodeURIComponent(kv[1]);
+          if (RANGE_KEYS.includes(rk)) rangeKey = rk;
+        }
+      });
+    }
+    return { viewId: viewId, typeFilter: typeFilter, rangeKey: rangeKey };
+  }
+
+  /* rangeKey omitted from hash when it equals the viewport default (clean URLs). */
+  function buildHash(viewId, types, rangeKey) {
+    var params = [];
+    var allTypeKeys = EVENT_TYPES.map(function(t) { return t.key; });
+    if (types.size !== allTypeKeys.length) {
+      var active = allTypeKeys.filter(function(k) { return types.has(k); });
+      params.push('t=' + encodeURIComponent(active.join(',')));
+    }
+    if (rangeKey && rangeKey !== getDefaultRange()) {
+      params.push('r=' + encodeURIComponent(rangeKey));
+    }
+    return '#' + viewId + (params.length ? '?' + params.join('&') : '');
+  }
 
   function navigate(viewId) {
     if (!VIEWS.includes(viewId)) viewId = 'dashboard';
@@ -330,18 +571,37 @@
       link.classList.toggle('active', link.dataset.view === viewId);
     });
 
-    if (location.hash !== '#' + viewId) {
-      history.replaceState(null, '', '#' + viewId);
+    var newHash = buildHash(viewId, activeTypes, activeRange);
+    if (location.hash !== newHash) {
+      history.replaceState(null, '', newHash);
     }
   }
 
   function initRouter() {
-    const hash = (location.hash || '#dashboard').slice(1);
-    navigate(VIEWS.includes(hash) ? hash : 'dashboard');
+    var parsed = parseHash((location.hash || '#dashboard').slice(1));
+    if (parsed.typeFilter) {
+      activeTypes = parsed.typeFilter;
+      renderVizLegend();
+    }
+    if (parsed.rangeKey) {
+      activeRange = parsed.rangeKey;
+      renderRangeBar();
+    }
+    navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
 
     window.addEventListener('hashchange', function() {
-      const h = location.hash.slice(1);
-      navigate(VIEWS.includes(h) ? h : 'dashboard');
+      var p = parseHash(location.hash.slice(1));
+      if (p.typeFilter) {
+        activeTypes = p.typeFilter;
+      } else {
+        activeTypes = new Set(EVENT_TYPES.map(function(t) { return t.key; }));
+      }
+      if (p.rangeKey) activeRange = p.rangeKey;
+      renderVizLegend();
+      renderRangeBar();
+      renderHeatmap();
+      renderDensity();
+      navigate(VIEWS.includes(p.viewId) ? p.viewId : 'dashboard');
     });
   }
 
@@ -356,12 +616,65 @@
     });
   }
 
+  /* ── Legend (type filter) ─────────────────────────────────────────────── */
+  function renderVizLegend() {
+    var container = document.getElementById('sk-viz-legend');
+    if (!container) return;
+    container.innerHTML = EVENT_TYPES.map(function(t) {
+      var on = activeTypes.has(t.key);
+      return '<button class="sk-legend-swatch' + (on ? ' active' : '') +
+        '" onclick="toggleLegendType(\'' + t.key + '\')" title="Toggle ' + t.label + '">' +
+        '<span class="sk-legend-color" style="background:' + t.color + '"></span>' +
+        '<span class="sk-legend-label">' + t.label + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function toggleLegendType(key) {
+    if (activeTypes.has(key)) {
+      if (activeTypes.size > 1) activeTypes.delete(key); /* prevent empty set */
+    } else {
+      activeTypes.add(key);
+    }
+    /* Persist filter in URL hash without triggering hashchange */
+    var currentView = (location.hash || '#dashboard').slice(1).split('?')[0];
+    if (!VIEWS.includes(currentView)) currentView = 'dashboard';
+    history.replaceState(null, '', buildHash(currentView, activeTypes, activeRange));
+    renderVizLegend();
+    renderHeatmap();
+    renderDensity();
+  }
+
+  /* ── Time range bar ───────────────────────────────────────────────────── */
+  function renderRangeBar() {
+    var container = document.getElementById('sk-range-bar');
+    if (!container) return;
+    container.innerHTML = RANGE_PRESETS.map(function(r) {
+      var isActive = (r.key === activeRange);
+      return '<button class="sk-range-btn' + (isActive ? ' active' : '') + '"' +
+        ' onclick="setRange(\'' + r.key + '\')"' +
+        ' aria-pressed="' + isActive + '">' +
+        r.label + '</button>';
+    }).join('');
+  }
+
+  function setRange(key) {
+    if (!RANGE_KEYS.includes(key)) return;
+    activeRange = key;
+    var currentView = (location.hash || '#dashboard').slice(1).split('?')[0];
+    if (!VIEWS.includes(currentView)) currentView = 'dashboard';
+    history.replaceState(null, '', buildHash(currentView, activeTypes, activeRange));
+    renderRangeBar();
+    renderHeatmap();
+    renderDensity();
+  }
+
   /* ── Status summary ──────────────────────────────────────────────────── */
   function renderStats() {
     const grid = document.getElementById('status-grid');
     if (!grid) return;
     const stats = [
-      { n: MANIFEST_STATS.active_projects,   label: 'active projects',   href: '#projects' },
+      { n: (MANIFEST_DATA && MANIFEST_DATA.active) ? MANIFEST_DATA.active.length : MANIFEST_STATS.active_projects, label: 'active projects', href: '#projects' },
       { n: MANIFEST_STATS.pending_decisions,  label: 'pending decisions', href: '#opportunities' },
       { n: MANIFEST_STATS.confirmed_pursuing, label: 'confirmed',         href: '#opportunities' }
     ];
@@ -378,9 +691,9 @@
   function renderSnapshots() {
     const today = new Date().toISOString().slice(0, 10);
 
-    /* Next Up: top 3 tasks by nearest due date (future only) */
+    /* Next Up: top 3 tasks by nearest due date (future only, exclude completed) */
     const nextTasks = TASKS_DATA
-      .filter(function(t) { return t.due >= today; })
+      .filter(function(t) { return t.due >= today && !completedTasks[t.id]; })
       .slice()
       .sort(function(a, b) { return a.due.localeCompare(b.due); })
       .slice(0, 3);
@@ -389,10 +702,16 @@
     if (tasksEl) {
       tasksEl.innerHTML = nextTasks.length
         ? nextTasks.map(function(t) {
-            return '<a class="sk-snapshot__item" href="#tasks" onclick="navigate(\'tasks\')">' +
-              '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
-              '<span class="sk-snapshot__item-meta">' + escHtml(t.due) + '</span>' +
-            '</a>';
+            return '<div class="sk-snapshot__item">' +
+              '<label class="sk-snapshot__check" title="Mark complete">' +
+                '<input type="checkbox" class="sk-task-check"' +
+                  ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+              '</label>' +
+              '<a class="sk-snapshot__item-link" href="#tasks" onclick="navigate(\'tasks\')">' +
+                '<span class="sk-snapshot__item-title">' + escHtml(t.title) + '</span>' +
+                '<span class="sk-snapshot__item-meta">' + taskDueIcon(t.due) + '</span>' +
+              '</a>' +
+            '</div>';
           }).join('')
         : '<p class="sk-secondary" style="font-size:.82rem;">No upcoming tasks.</p>';
     }
@@ -445,142 +764,224 @@
   }
 
   /* ── Heatmap SVG ─────────────────────────────────────────────────────── */
+  /* Cell color = dominant active type; opacity = activeTotal / max_total.   */
   function renderHeatmap() {
-    const container = document.getElementById('sk-viz-heatmap');
+    var container = document.getElementById('sk-viz-heatmap');
     if (!container) return;
 
-    const CELL = 12, GAP = 2, STEP = CELL + GAP;
-    const COLS = 52, ROWS = 7;
-    const LEFT_MARGIN = 18, TOP_MARGIN = 22;
-    const W = LEFT_MARGIN + COLS * STEP + 4;
-    const H = TOP_MARGIN + ROWS * STEP + 4;
-
-    const COLORS = ['#fcf5e5', '#b0c4de', '#4682b4', '#301934'];
-    const scores = BUSY_SCORES.scores;
-    const maxScore = BUSY_SCORES.max_score || 1;
-
-    function colorFor(score) {
-      if (!score || score === 0) return COLORS[0];
-      const ratio = score / maxScore;
-      if (ratio < 0.25) return COLORS[0];
-      if (ratio < 0.5)  return COLORS[1];
-      if (ratio < 0.75) return COLORS[2];
-      return COLORS[3];
+    var GAP = 2, ROWS = 7;
+    var LEFT_MARGIN = 18, TOP_MARGIN = 22;
+    /* Columns = user-selected range (4 / 12 / 26 / 52 weeks). */
+    var COLS = getRangeWeeks();
+    /* Scale cell size so cells fill the container width regardless of range.
+     * containerW: prefer offsetWidth (post-layout); fall back to viewport estimate
+     * if the container isn't rendered yet (e.g. initial render before layout pass). */
+    var containerW = container.offsetWidth;
+    if (!containerW) {
+      var vw = window.innerWidth;
+      containerW = vw <= 640  ? vw - 32          /* 2×1rem mobile padding */
+                 : vw <= 1024 ? vw - 48           /* 2×1.5rem tablet padding */
+                 :              Math.min(856, vw - 64); /* 900px max-width − 2×2rem */
     }
+    /* STEP = cell + gap; minimum 5px so it degrades gracefully at extreme zoom */
+    var STEP = Math.max(5, Math.floor((containerW - LEFT_MARGIN - 4) / COLS));
+    var CELL = Math.max(3, STEP - GAP);
+    var W = LEFT_MARGIN + COLS * STEP + 4;
+    var H = TOP_MARGIN + ROWS * STEP + 4;
 
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - (364 + startDate.getDay()));
+    var scores   = BUSY_SCORES.scores;
+    var maxTotal = BUSY_SCORES.max_total || 1;
 
-    const cells = [];
-    const monthLabels = {};
-    let d = new Date(startDate);
+    var today = new Date();
+    var startDate = new Date(today);
+    /* Forward-looking: start at Sunday of the current week so today appears in
+     * column 0 and the next 51 weeks show upcoming scheduled commitments. */
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
-    for (let col = 0; col < COLS; col++) {
-      for (let row = 0; row < ROWS; row++) {
-        const key = d.toISOString().slice(0, 10);
-        const score = scores[key] || 0;
-        const x = LEFT_MARGIN + col * STEP;
-        const y = TOP_MARGIN + row * STEP;
+    var cells = [], monthLabels = {};
+    var d = new Date(startDate);
+
+    for (var col = 0; col < COLS; col++) {
+      for (var row = 0; row < ROWS; row++) {
+        var key = d.toISOString().slice(0, 10);
+        var day = scores[key];
+        var x   = LEFT_MARGIN + col * STEP;
+        var y   = TOP_MARGIN  + row * STEP;
+
+        var fill, opacity;
+        if (!day || day.total === 0) {
+          fill = '#fcf5e5'; opacity = 1;
+        } else {
+          /* Dominant type among active types */
+          var dom = null, domCount = 0, activeTotal = 0;
+          EVENT_TYPES.forEach(function(t) {
+            if (!activeTypes.has(t.key)) return;
+            var v = day[t.key] || 0;
+            activeTotal += v;
+            if (v > domCount) { domCount = v; dom = t; }
+          });
+          if (dom && domCount > 0) {
+            fill    = dom.color;
+            opacity = Math.max(0.12, activeTotal / maxTotal);
+          } else {
+            fill = '#fcf5e5'; opacity = 1;
+          }
+        }
+
+        /* Tooltip: full per-type breakdown */
+        var tipParts = EVENT_TYPES.filter(function(t) { return day && day[t.key] > 0; })
+          .map(function(t) { return t.label + ': ' + day[t.key]; });
+        var tip = key + (tipParts.length ? ' — ' + tipParts.join(', ') : '');
+
         cells.push('<rect x="' + x + '" y="' + y + '" width="' + CELL +
-          '" height="' + CELL + '" rx="1" fill="' + colorFor(score) + '">' +
-          '<title>' + key + ' — Score: ' + score + '</title></rect>');
+          '" height="' + CELL + '" rx="1" fill="' + fill +
+          '" fill-opacity="' + opacity.toFixed(2) + '">' +
+          '<title>' + tip + '</title></rect>');
+
         if (row === 0) {
-          const monthKey = d.getFullYear() + '-' + d.getMonth();
-          if (!monthLabels[monthKey]) {
-            monthLabels[monthKey] = { x: x, label: d.toLocaleDateString('en-US', { month: 'short' }) };
+          var mk = d.getFullYear() + '-' + d.getMonth();
+          if (!monthLabels[mk]) {
+            monthLabels[mk] = { x: x, label: d.toLocaleDateString('en-US', { month: 'short' }) };
           }
         }
         d.setDate(d.getDate() + 1);
       }
     }
 
-    const DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
-    const dowSvg = DOW_LABELS.map(function(lbl, i) {
+    var DOW_LABELS = [null, 'M', null, 'W', null, 'F', null];
+    var dowSvg = DOW_LABELS.map(function(lbl, i) {
       if (!lbl) return '';
       return '<text x="' + (LEFT_MARGIN - 4) + '" y="' + (TOP_MARGIN + i * STEP + CELL - 2) +
         '" text-anchor="end" font-size="8" fill="#51414f" font-family="Cinzel,serif">' + lbl + '</text>';
     }).join('');
 
-    const monthSvg = Object.values(monthLabels).map(function(m) {
+    var monthSvg = Object.values(monthLabels).map(function(m) {
       return '<text x="' + m.x + '" y="' + (TOP_MARGIN - 6) +
         '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" font-variant="small-caps">' +
         m.label + '</text>';
     }).join('');
 
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload heatmap">' +
+    /* width="100%" + viewBox lets CSS height:auto scale proportionally.
+     * Cell sizes are already computed from containerW so the SVG fits snugly. */
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%"' +
+      ' role="img" aria-label="Workload heatmap">' +
       monthSvg + dowSvg + cells.join('') + '</svg>';
   }
 
-  /* ── Density gradient SVG ─────────────────────────────────────────────── */
+  /* ── Density (stacked area) SVG ──────────────────────────────────────── */
+  /* One band per active type, sorted by yearly total desc (largest at base).*/
+  /* Mauve stroke on topline.                                                 */
   function renderDensity() {
-    const container = document.getElementById('sk-viz-density');
+    var container = document.getElementById('sk-viz-density');
     if (!container) return;
 
-    const W = 780, H = 140;
-    const MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
-    const chartW = W - MARGIN_L - MARGIN_R;
-    const chartH = H - MARGIN_T - MARGIN_B;
+    var W = 780, H = 140;
+    var MARGIN_L = 12, MARGIN_R = 12, MARGIN_T = 20, MARGIN_B = 22;
+    var chartW = W - MARGIN_L - MARGIN_R;
+    var chartH = H - MARGIN_T - MARGIN_B;
+    /* Sync time axis with heatmap — both use the user-selected range. */
+    var NCOLS = getRangeWeeks();
 
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 364);
+    var scores = BUSY_SCORES.scores;
+    var today = new Date();
+    var startDate = new Date(today);
+    /* Forward-looking: same Sunday-of-current-week origin as renderHeatmap */
+    startDate.setDate(startDate.getDate() - startDate.getDay());
 
-    const weeks = [];
-    let d = new Date(startDate);
-    const scores = BUSY_SCORES.scores;
-
-    for (let w = 0; w < 52; w++) {
-      let sum = 0;
-      const weekStart = d.toLocaleDateString('en-US', { month: 'short' });
-      for (let day = 0; day < 7; day++) {
-        const key = d.toISOString().slice(0, 10);
-        sum += scores[key] || 0;
+    /* Build 52 weekly buckets with per-type counts */
+    var weeks = [];
+    var d = new Date(startDate);
+    for (var w = 0; w < NCOLS; w++) {
+      var wd = {}, total = 0;
+      EVENT_TYPES.forEach(function(t) { wd[t.key] = 0; });
+      var label = d.toLocaleDateString('en-US', { month: 'short' });
+      for (var day = 0; day < 7; day++) {
+        var key = d.toISOString().slice(0, 10);
+        var ds  = scores[key];
+        if (ds) {
+          EVENT_TYPES.forEach(function(t) { wd[t.key] += ds[t.key] || 0; });
+          total += ds.total || 0;
+        }
         d.setDate(d.getDate() + 1);
       }
-      weeks.push({ week: w, sum: sum, label: weekStart });
+      wd.total = total;
+      weeks.push({ wd: wd, label: label });
     }
 
-    const maxWeek = Math.max.apply(null, weeks.map(function(w) { return w.sum; }).concat([1]));
+    /* Active types sorted by yearly total descending */
+    var active = EVENT_TYPES.filter(function(t) { return activeTypes.has(t.key); });
+    var yearly = {};
+    active.forEach(function(t) {
+      yearly[t.key] = weeks.reduce(function(s, w) { return s + w.wd[t.key]; }, 0);
+    });
+    active.sort(function(a, b) { return yearly[b.key] - yearly[a.key]; });
 
-    function xFor(i) { return MARGIN_L + (i / 51) * chartW; }
+    var maxWeek = Math.max.apply(null, weeks.map(function(w) {
+      return active.reduce(function(s, t) { return s + w.wd[t.key]; }, 0);
+    }).concat([1]));
+
+    function xFor(i) { return MARGIN_L + (i / Math.max(NCOLS - 1, 1)) * chartW; }
     function yFor(v) { return MARGIN_T + chartH - (v / maxWeek) * chartH; }
 
-    const pts = weeks.map(function(w, i) { return xFor(i) + ',' + yFor(w.sum); });
-    const areaPath = 'M ' + xFor(0) + ',' + (MARGIN_T + chartH) +
-      ' L ' + pts.join(' L ') +
-      ' L ' + xFor(51) + ',' + (MARGIN_T + chartH) + ' Z';
-    const linePath = 'M ' + pts.join(' L ');
+    /* Stacked area paths */
+    var paths = [];
+    active.forEach(function(t, ti) {
+      if (yearly[t.key] === 0) return;
+      var upper = weeks.map(function(w, i) {
+        var cum = 0;
+        for (var j = 0; j <= ti; j++) cum += w.wd[active[j].key];
+        return xFor(i).toFixed(1) + ',' + yFor(cum).toFixed(1);
+      });
+      var lower = weeks.map(function(w, i) {
+        var cum = 0;
+        for (var j = 0; j < ti; j++) cum += w.wd[active[j].key];
+        return xFor(i).toFixed(1) + ',' + yFor(cum).toFixed(1);
+      });
+      var area = 'M ' + upper.join(' L ') + ' L ' + lower.slice().reverse().join(' L ') + ' Z';
+      paths.push('<path d="' + area + '" fill="' + t.color + '" fill-opacity="0.75" />');
+    });
 
-    const seenMonths = {};
-    const monthLabels = weeks.map(function(w, i) {
+    /* Topline: sum of all active types with Mauve stroke */
+    var topPts = weeks.map(function(w, i) {
+      var sum = active.reduce(function(s, t) { return s + w.wd[t.key]; }, 0);
+      return xFor(i).toFixed(1) + ',' + yFor(sum).toFixed(1);
+    });
+    var topLine = '<path d="M ' + topPts.join(' L ') +
+      '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />';
+
+    /* Month labels */
+    var seenMonths = {};
+    var monthSvg = weeks.map(function(w, i) {
       if (!seenMonths[w.label]) {
         seenMonths[w.label] = true;
-        return '<text x="' + xFor(i) + '" y="' + (H - 4) +
-          '" font-size="8" fill="#915f6d" font-family="Cinzel,serif" text-anchor="middle">' +
-          w.label + '</text>';
+        return '<text x="' + xFor(i).toFixed(1) + '" y="' + (H - 4) +
+          '" font-size="8" fill="#915f6d" font-family="Cinzel,serif"' +
+          ' text-anchor="middle" font-variant="small-caps">' + w.label + '</text>';
       }
       return '';
     }).join('');
 
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H +
-      '" width="' + W + '" height="' + H + '" role="img" aria-label="Workload density chart">' +
-      '<path d="' + areaPath + '" fill="#4682b4" fill-opacity="0.25" />' +
-      '<path d="' + linePath + '" fill="none" stroke="#915f6d" stroke-width="1.5" stroke-linejoin="round" />' +
-      monthLabels + '</svg>';
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%"' +
+      ' role="img" aria-label="Workload density chart">' +
+      paths.join('') + topLine + monthSvg + '</svg>';
   }
 
   /* ── Projects view ───────────────────────────────────────────────────── */
   function renderProjects() {
     const el = document.getElementById('projects-content');
     if (!el) return;
-    const rows = MANIFEST_DATA.active.map(function(p) {
+    var isSample = MANIFEST_DATA === /* identity check for the fallback object */ MANIFEST_DATA &&
+      MANIFEST_DATA.active.length > 0 && MANIFEST_DATA.active[0].title === 'Epistemic Akrasia paper';
+    var rows = MANIFEST_DATA.active.map(function(p) {
+      var badgeCls = p.status === 'active'  ? 'sk-badge--confirmed'
+                   : p.status === 'paused'  ? 'sk-badge--pending'
+                   : p.status === 'blocked' ? 'sk-badge--declined'
+                   :                          'sk-badge--confirmed';
       return '<tr>' +
-        '<td>' + escHtml(p.title) + '</td>' +
-        '<td><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
-        '<td><span class="sk-badge sk-badge--confirmed">' + escHtml(p.status) + '</span></td>' +
-        '<td>' + escHtml(p.deadline) + '</td>' +
+        '<td data-label="Project">' + escHtml(p.title) + '</td>' +
+        '<td data-label="Type"><span class="sk-smallcaps">' + escHtml(p.type) + '</span></td>' +
+        '<td data-label="Status"><span class="sk-badge ' + badgeCls + '">' + escHtml(p.status) + '</span></td>' +
+        '<td data-label="Deadline">' + escHtml(p.deadline) + '</td>' +
         '</tr>';
     }).join('');
 
@@ -588,9 +989,11 @@
       'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>' +
       '<table role="table" aria-label="Active projects"><thead><tr>' +
       '<th>Project</th><th>Type</th><th>Status</th><th>Deadline</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table>';
-    const bt = document.getElementById('build-time');
-    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' (sample)';
+      '</tr></thead><tbody>' + rows + (rows ? '' : '<tr><td colspan="4" class="sk-secondary">No active projects.</td></tr>') +
+      '</tbody></table>';
+    var bt = document.getElementById('build-time');
+    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      (isSample ? ' (sample)' : '');
   }
 
   /* ── Tasks view ──────────────────────────────────────────────────────── */
@@ -611,15 +1014,18 @@
     });
 
     function taskRow(t) {
-      const glyph = t.priority === 'high' ? '🔺' : t.priority === 'medium' ? '⏫' : '🔼';
-      const priClass = 'sk-priority-' + (t.priority || 'low');
-      return '<li class="sk-task-item">' +
+      var done = !!completedTasks[t.id];
+      return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
+        '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
+          '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
+            ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+        '</label>' +
         '<span class="sk-task-item__title">' +
-          '<span class="' + priClass + '" aria-label="' + escHtml(t.priority) + ' priority">' + glyph + '</span> ' +
+          taskPriIcon(t.priority || 'low') + ' ' +
           escHtml(t.title) +
           (t.project ? ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>' : '') +
         '</span>' +
-        '<span class="sk-task-item__due">' + escHtml(t.due || '') + '</span>' +
+        '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
       '</li>';
     }
 
@@ -667,7 +1073,7 @@
         : '';
 
       return '<div class="sk-opp-card" id="card-' + opp.slug + '" role="article">' +
-        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.5rem;">' +
+        '<div class="sk-opp-card__header">' +
           '<div class="sk-opp-card__title">' + escHtml(opp.title) + '</div>' +
           '<span class="sk-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
         '</div>' +
@@ -707,20 +1113,32 @@
     actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
 
     try {
+      /* redirect:'manual' prevents fetch from following a 302-to-login silently.
+       * Without this, an auth failure returns an opaque 200 (the login page HTML)
+       * which resp.ok=true — causing the UI to report false success and skip the write. */
       const resp = await fetch('/api/opportunity/' + action + '/' + encodeURIComponent(slug), {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' }
       });
 
-      if (resp.ok || resp.status === 202) {
+      /* opaqueredirect = auth 302 that we caught; type=0 = same thing in some browsers */
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        actionsEl.innerHTML = '<span class="sk-error">Session expired — <a href="/" style="color:inherit">reload to log in</a>.</span>';
+        return;
+      }
+
+      if (resp.status === 202) {
         const data = await resp.json().catch(function() { return {}; });
         const verb = action === 'accept' ? 'Accepted' : 'Declined';
         actionsEl.innerHTML = '<span class="sk-secondary" style="font-style:italic;font-size:.85rem;">' +
           verb + ' — ' + (data.message || 'Rebuilding…') + '</span>';
       } else {
         const err = await resp.json().catch(function() { return { error: 'Unknown error' }; });
-        actionsEl.innerHTML = '<span class="sk-error">Error: ' + escHtml(err.error || resp.statusText) + '</span>';
+        var msg = err.error || resp.statusText;
+        if (err.detail) msg += ' — ' + err.detail;
+        actionsEl.innerHTML = '<span class="sk-error">Error ' + resp.status + ': ' + escHtml(msg) + '</span>';
       }
     } catch (e) {
       actionsEl.innerHTML = '<span class="sk-error">Network error — try again.</span>';
@@ -732,15 +1150,16 @@
     const el = document.getElementById('inventory-content');
     if (!el) return;
 
-    const html = INVENTORY_DATA.sections.map(function(section, i) {
-      const sectionNum = ['§I', '§II', '§III', '§IV'][i] || '§' + (i + 1);
-      const items = section.items.map(function(item) {
+    var html = INVENTORY_DATA.sections.map(function(section, i) {
+      var sectionNum = ['§I', '§II', '§III', '§IV'][i] || '§' + (i + 1);
+      var items = section.items.map(function(item) {
         return '<li><span>' + escHtml(item.name) + '</span>' +
           (item.note ? ' <span class="sk-secondary" style="font-size:.8rem;">— ' + escHtml(item.note) + '</span>' : '') +
           '</li>';
       }).join('');
+      var emptyNote = items ? '' : '<li class="sk-secondary" style="font-size:.82rem;">No entries yet.</li>';
       return '<h2 class="sk-section-head" data-section="' + sectionNum + '">' + escHtml(section.title) + '</h2>' +
-        '<ul class="sk-inventory-list" role="list">' + items + '</ul>';
+        '<ul class="sk-inventory-list" role="list">' + items + emptyNote + '</ul>';
     }).join('');
 
     el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
@@ -786,9 +1205,41 @@
     if (toast) toast.hidden = true;
   });
 
+  /* ── Live data loader ────────────────────────────────────────────────── */
+  /* Fetches /data/*.json produced by sync-vault.js + aggregate-busy.js.    */
+  /* Gracefully falls back to inline sample data when files are absent.      */
+  function loadLiveData() {
+    function tryFetch(url) {
+      return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+    }
+    return Promise.all([
+      tryFetch('/data/tasks.json'),
+      tryFetch('/data/manifest-stats.json'),
+      tryFetch('/data/opportunities.json'),
+      tryFetch('/data/busy-scores.json'),
+      tryFetch('/data/manifest.json'),
+      tryFetch('/data/inventory.json')
+    ]).then(function(results) {
+      var tasks = results[0], stats = results[1], opps  = results[2],
+          busy  = results[3], mfst  = results[4], inv   = results[5];
+      var changed = false;
+      if (tasks && Array.isArray(tasks) && tasks.length > 0)       { TASKS_DATA = tasks;         changed = true; }
+      if (stats && typeof stats === 'object')                       { MANIFEST_STATS = stats;      changed = true; }
+      if (opps  && Array.isArray(opps)  && opps.length  > 0)       { OPPORTUNITIES = opps;        changed = true; }
+      if (busy  && busy.scores)                                     { BUSY_SCORES = busy;          changed = true; }
+      if (mfst  && mfst.active && Array.isArray(mfst.active))      { MANIFEST_DATA = mfst;        changed = true; }
+      if (inv   && inv.sections && Array.isArray(inv.sections))     { INVENTORY_DATA = inv;        changed = true; }
+      return changed;
+    });
+  }
+
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
+    /* Render immediately with inline fallback data */
+    computeTaskIds();
     renderStats();
+    renderRangeBar();
+    renderVizLegend();
     renderHeatmap();
     renderDensity();
     renderSnapshots();
@@ -797,6 +1248,20 @@
     renderOpportunities();
     renderInventory();
     initRouter();
+
+    /* Async: fetch live vault data and re-render data-dependent views */
+    loadLiveData().then(function(changed) {
+      if (!changed) return;
+      computeTaskIds();
+      renderStats();
+      renderHeatmap();
+      renderDensity();
+      renderSnapshots();
+      renderProjects();
+      renderTasks();
+      renderOpportunities();
+      renderInventory();
+    });
 
     /* Install toast wiring */
     var installBtn  = document.getElementById('sk-install-btn');

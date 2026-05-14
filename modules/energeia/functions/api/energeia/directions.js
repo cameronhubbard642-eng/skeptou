@@ -7,13 +7,13 @@
  *   directionLabel — short label stored in slugs.yaml dunamis map (optional)
  *
  * Steps:
- *   1. Validate CF Access JWT
+ *   1. Validate session via auth-core
  *   2. Determine next Greek direction name
  *   3. Dispatch create-dunamis-branch.yml
  *   4. Queue daemon action: duplicate-scrivener-project
  *   5. Return 202
  *
- * Env: AGORA_DISPATCH_PAT, AGORA_REPO, CF_ACCESS_AUD, ENERGEIA_ACTIONS
+ * Env: AGORA_DISPATCH_PAT, AGORA_REPO, ENERGEIA_ACTIONS, HMAC_SECRET, AUTH_DOMAIN
  */
 
 const GREEK = [
@@ -22,11 +22,13 @@ const GREEK = [
   'sigma','tau','upsilon','phi','chi','psi','omega'
 ];
 
+import { requireSession } from '../../_shared/auth.js';
+
 export async function onRequestPost(ctx) {
   const { env, request } = ctx;
 
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) return jsonResponse({ error: 'Unauthorized', detail: authErr }, 401);
+  const authRedirect = await requireSession(request, env);
+  if (authRedirect) return authRedirect;
 
   let body;
   try { body = await request.json(); }
@@ -234,32 +236,4 @@ function upsertDunamisLabel(yamlStr, slug, directionName, label) {
       return block.trimEnd() + '\n    dunamis:\n' + newLine + '\n';
     }
   });
-}
-
-async function validateCFAccess(request, audience) {
-  if (!audience) return null;
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-  try {
-    const [headerB64] = token.split('.');
-    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const certsResp = await fetch('https://skeptou.cloudflareaccess.com/cdn-cgi/access/certs');
-    if (!certsResp.ok) return 'Failed to fetch Access certs';
-    const certs = await certsResp.json();
-    const jwk = (certs.keys || []).find(k => k.kid === header.kid);
-    if (!jwk) return 'No matching JWK';
-    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-    const [, payloadB64, sigB64] = token.split('.');
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const audOk = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audOk) return 'JWT audience mismatch';
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-    return null;
-  } catch (e) {
-    return `JWT validation error: ${e.message}`;
-  }
 }

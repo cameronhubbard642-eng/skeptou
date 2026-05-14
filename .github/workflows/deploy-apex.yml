@@ -1,0 +1,70 @@
+name: Deploy apex (skeptou.com)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/apex/**'
+  workflow_dispatch:
+
+# No Node build, no vault sync, no shared-asset copy — apex is self-contained
+# HTML with all CSS inline. The dist step is a straight copy of the source tree.
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ── Build dist ──────────────────────────────────────────────────────────
+      # Produces:
+      #   dist/index.html
+      #   dist/manifest.json
+      #   dist/icons/favicon.ico
+      #   dist/icons/icon-32.png
+      #   dist/icons/icon-180.png   (apple-touch-icon)
+      #   dist/icons/icon-192.png
+      #   dist/icons/icon-512.png
+      #   dist/icons/icon-512-maskable.png
+      #
+      # index.html references /icons/* and /manifest.json from the site root;
+      # serving static/ contents at / in Cloudflare Pages satisfies those paths.
+      - name: Build dist
+        run: |
+          rm -rf modules/apex/dist
+          mkdir -p modules/apex/dist
+          cp modules/apex/index.html modules/apex/dist/
+          cp -r modules/apex/static/. modules/apex/dist/
+          echo "=== dist/ ==="
+          find modules/apex/dist -not -type d | sort
+
+      # ── Deploy to Cloudflare Pages ──────────────────────────────────────────
+      # Project name: "skeptou" — verify this matches the CF Pages project that
+      # has custom domain skeptou.com bound to it in the CF dashboard.
+      # If the project was created with a different name, update projectName below.
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: skeptou
+          directory: modules/apex/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+    # ── Secrets registry ──────────────────────────────────────────────────────
+    # GitHub Actions repo secrets (Settings → Secrets → Actions):
+    #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED]
+    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED]
+    #   GITHUB_TOKEN           — auto-provided by Actions       [built-in]
+    #
+    # Cloudflare Pages project setup (CF dashboard → Workers & Pages → skeptou):
+    #   Custom domain: skeptou.com  [must be set]
+    #   Build system:  Direct Upload (this workflow manages deploys)

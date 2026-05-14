@@ -1,0 +1,62 @@
+name: Apply Cloudflare Access Login Branding
+
+# Manual dispatch only — one-shot; re-run if design tokens change.
+# Requires:
+#   - CLOUDFLARE_API_TOKEN with "Access: Edit" permission (account-level)
+#   - CLOUDFLARE_ACCOUNT_ID secret (already set for Pages deploys)
+#
+# What this does:
+#   PATCHes /accounts/{id}/access/organizations with login_design fields:
+#     background_color, text_color, logo_path, header_text, footer_text
+#
+# Note: logo_path must be a publicly accessible URL. It points to the
+# raw GitHub URL for assets/branding/cf-access-login/logo.svg on main.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apply-branding:
+    name: PATCH CF Access login_design
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply Sképtou branding to Cloudflare Access login page
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          LOGO_URL="https://raw.githubusercontent.com/cameronhubbard642-eng/skeptou/main/assets/branding/cf-access-login/logo.svg"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/organizations" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "login_design": {
+                "background_color": "#fcf5e5",
+                "text_color":       "#301934",
+                "logo_path":        "'"${LOGO_URL}"'",
+                "header_text":      "",
+                "footer_text":      "Authorized access only."
+              }
+            }')
+
+          HTTP_BODY=$(echo "$RESPONSE" | head -n -1)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+
+          echo "HTTP $HTTP_CODE"
+          echo "$HTTP_BODY" | python3 -m json.tool 2>/dev/null || echo "$HTTP_BODY"
+
+          # Fail the step if CF returned an error
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Cloudflare API returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          SUCCESS=$(echo "$HTTP_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('success','false'))" 2>/dev/null)
+          if [ "$SUCCESS" != "True" ] && [ "$SUCCESS" != "true" ]; then
+            echo "::error::Cloudflare API reported success=false"
+            exit 1
+          fi
+
+          echo "✅ CF Access login branding applied successfully."

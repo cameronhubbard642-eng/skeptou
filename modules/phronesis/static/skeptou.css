@@ -379,6 +379,12 @@ tbody tr:last-child td {
   color: var(--color-mauve, #915f6d);
 }
 
+/* Icons hidden on desktop; shown in bottom tab bar on mobile */
+.sk-nav__icon {
+  display: none;
+  flex-shrink: 0;
+}
+
 /* ── Main layout ── */
 .sk-main {
   padding: 2rem;
@@ -603,6 +609,10 @@ details.sk-collapsed[open] > summary::before {
   color: var(--color-purple, #301934);
   font-size: 0.82rem;
   transition: color 0.12s ease;
+  /* Prevent column-flex parent from expanding to content min-width
+   * (white-space:nowrap title has a wide min-content). Without this the item
+   * overflows the card on narrow viewports instead of ellipsizing. */
+  min-width: 0;
 }
 
 .sk-snapshot__item:last-child {
@@ -705,7 +715,9 @@ details.sk-collapsed[open] > summary::before {
 
 .sk-task-item__title {
   flex: 1;
+  min-width: 0;                 /* allow flex shrink in row-flex parent */
   color: var(--color-purple, #301934);
+  overflow-wrap: break-word;    /* Tasks tab: wrap, don't truncate (full info view) */
 }
 
 .sk-task-item__project {
@@ -725,6 +737,110 @@ details.sk-collapsed[open] > summary::before {
 .sk-priority-high   { color: var(--color-wine,   #722f37); }
 .sk-priority-medium { color: var(--color-steel,  #4682b4); }
 .sk-priority-low    { color: var(--color-quartz, #51414f); }
+
+/* ── Task completion ── */
+.sk-task-check {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--color-mauve, #915f6d);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sk-task-item__check {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 0.4rem;
+  cursor: pointer;
+}
+
+.sk-task-item--done .sk-task-item__title {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+.sk-task-item--done .sk-task-item__due {
+  opacity: 0.35;
+}
+
+/* ── Task priority / due icons ─────────────────────────────────────────── */
+.sk-icon-priority-high  { color: var(--color-wine);       }
+.sk-icon-priority-med   { color: var(--color-mauve);      }
+.sk-icon-priority-low   { color: var(--color-lightSteel); }
+
+.sk-icon-priority-high svg,
+.sk-icon-priority-med  svg,
+.sk-icon-priority-low  svg {
+  display: inline-block;
+  vertical-align: -0.15em;
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+}
+
+.sk-icon-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  color: var(--color-quartz);
+  font-size: 0.8em;
+}
+
+.sk-icon-due svg {
+  width:  13px;
+  height: 13px;
+  fill:   currentColor;
+  flex-shrink: 0;
+}
+
+.sk-icon-due--overdue {
+  color: var(--color-wine);
+  font-weight: 600;
+}
+
+/* Snapshot items with checkbox */
+.sk-snapshot__check {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 0.35rem;
+  cursor: pointer;
+}
+
+.sk-snapshot__item-link {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  transition: color 0.12s ease;
+}
+
+.sk-snapshot__item-link:hover .sk-snapshot__item-title {
+  color: var(--color-mauve, #915f6d);
+}
+
+/* ── Ephemeral error toast ── */
+.sk-ephemeral-toast {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  background: var(--color-wine, #722f37);
+  color: var(--color-parchment, #fcf5e5);
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 10px rgba(48, 25, 52, 0.2);
+  z-index: 1001;
+  max-width: 320px;
+}
+
+.sk-ephemeral-toast[hidden] { display: none; }
 
 /* ── PWA install prompt toast ── */
 .sk-install-toast {
@@ -775,31 +891,413 @@ details.sk-collapsed[open] > summary::before {
   color: var(--color-wine, #722f37);
 }
 
-/* ── Mobile responsive ── */
-@media (max-width: 600px) {
-  .sk-nav {
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-  }
+/* ── Time range preset bar ── */
+.sk-range-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
 
-  .sk-nav__links {
-    gap: 1rem;
+.sk-range-btn {
+  font-family: inherit;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.07em;
+  font-size: 0.68rem;
+  font-weight: 300;
+  padding: 0.2em 0.65em;
+  border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.4);
+  background: transparent;
+  color: var(--color-quartz, #51414f);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  line-height: 1.6;
+}
+
+.sk-range-btn.active {
+  background: var(--color-quartz, #51414f);
+  color: var(--color-parchment, #fcf5e5);
+  border-color: var(--color-quartz, #51414f);
+}
+
+.sk-range-btn:hover:not(.active) {
+  border-color: var(--color-mauve, #915f6d);
+  color: var(--color-purple, #301934);
+}
+
+/* ── Viz legend (type filter swatches) ── */
+.sk-viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.sk-legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.12s ease, border-color 0.12s ease;
+  font-family: inherit;
+  font-size: 0.71rem;
+  line-height: 1;
+}
+
+.sk-legend-swatch.active {
+  opacity: 1;
+}
+
+.sk-legend-swatch:hover {
+  opacity: 0.8;
+  border-color: rgba(145, 95, 109, 0.3);
+}
+
+.sk-legend-color {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sk-legend-label {
+  font-variant-caps: small-caps;
+  color: var(--color-quartz, #51414f);
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+/* ── Opportunity card header (desktop) ── */
+.sk-opp-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Responsive layout ─────────────────────────────────────────────────── */
+
+/* Tablet / large phone landscape: 641px–1024px */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sk-nav {
+    padding: 0.875rem 1.5rem;
+    gap: 1.5rem;
   }
 
   .sk-main {
-    padding: 1.25rem 1rem;
+    max-width: 100%;
+    padding: 1.5rem;
   }
 
+  .sk-snapshots {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Phone portrait: ≤ 640px */
+@media (max-width: 640px) {
+  /* ── Bottom tab bar nav ── */
+  /* 35px extra breathing room below the tab items (on top of safe-area inset)
+   * so the bar sits higher off the bottom edge — easier thumb reach on tall iPhones. */
+  .sk-nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: calc(56px + 35px + env(safe-area-inset-bottom, 0px));
+    padding: 0;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 35px);
+    border-bottom: none;
+    border-top: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+    background: var(--color-parchment, #fcf5e5);
+    align-items: stretch;
+    gap: 0;
+    z-index: 200;
+  }
+
+  .sk-nav__title {
+    display: none;
+  }
+
+  .sk-nav__links {
+    flex: 1;
+    gap: 0;
+    height: 100%;
+  }
+
+  .sk-nav__links li {
+    flex: 1;
+    display: flex;
+  }
+
+  .sk-nav__link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    font-family: 'Cinzel', serif;
+    font-variant-caps: small-caps;
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    padding: 0.3rem 0.1rem;
+    text-align: center;
+    color: var(--color-quartz, #51414f);
+    opacity: 0.6;
+    min-height: 44px;
+    border-top: 2px solid transparent;
+    transition: color 0.12s ease, opacity 0.12s ease, border-color 0.12s ease;
+  }
+
+  .sk-nav__link.active {
+    color: var(--color-wine, #722f37);
+    opacity: 1;
+    border-top-color: var(--color-wine, #722f37);
+  }
+
+  .sk-nav__link:hover {
+    opacity: 0.85;
+  }
+
+  .sk-nav__icon {
+    display: block;
+    width: 24px;
+    height: 24px;
+  }
+
+  /* ── Main content: clear fixed bottom nav (matches nav total height) ── */
+  .sk-main {
+    padding: 1.25rem 1rem;
+    padding-bottom: calc(56px + 35px + env(safe-area-inset-bottom, 0px) + 1.25rem);
+    /* Prevent any child (long nowrap title, wide SVG) from making the page
+     * body horizontally scrollable, which would push the card's right edge
+     * off-screen and make text-overflow:ellipsis appear not to fire. */
+    overflow-x: hidden;
+  }
+
+  /* ── Status summary: compact 3-col ── */
   .sk-status-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 0.625rem;
+    margin-bottom: 1.5rem;
   }
 
+  .sk-stat {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .sk-stat__number {
+    font-size: 1.5rem;
+  }
+
+  /* ── Snapshot cards: single column ── */
+  .sk-snapshots {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  /* ── Snapshot items: touch-height ── */
+  .sk-snapshot__item {
+    min-height: 44px;
+    align-items: center;
+    padding: 0.5rem 0;
+  }
+
+  /* ── Snapshot items: stack title above meta on small screens ──────────────
+   * Problem: long deadline/date strings (flex-shrink:0; white-space:nowrap)
+   * are wider than a mobile card, collapsing the title to 0px and causing
+   * the overflowing meta text to collide with adjacent rows visually.
+   * Fix: flip the title+meta pair from a horizontal row to a vertical stack
+   * so each gets its own line and the title can fill the full card width.
+   * Applied via the inner link wrapper (Next Up) and directly on the items
+   * for Priority Projects / Upcoming Deadlines which have no link wrapper.
+   * ── */
+  .sk-snapshot__item-link,
+  #snap-projects-items .sk-snapshot__item,
+  #snap-opps-items .sk-snapshot__item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    /* overflow:hidden establishes a containing block so the title's
+     * text-overflow:ellipsis fires against THIS element's edge rather
+     * than against the page width when the page is wider than viewport. */
+    overflow: hidden;
+  }
+
+  /* Title: detach from flex:1 sizing (means height in column layout);
+   * stretch to full width so ellipsis still kicks in on very long titles. */
+  .sk-snapshot__item-title {
+    flex: none;
+    width: 100%;
+  }
+
+  /* Meta: release nowrap constraint so long date strings wrap gracefully
+   * instead of blowing out horizontally; slightly smaller than body text. */
+  .sk-snapshot__item-meta {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.68rem;
+    flex-shrink: 1;
+  }
+
+  /* ── Viz: smooth touch scroll ── */
+  .sk-viz {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Viz toggle buttons: larger tap target ── */
+  .sk-viz-btn {
+    min-height: 36px;
+    padding: 0.3em 1em;
+    font-size: 0.78rem;
+  }
+
+  /* ── Range preset buttons: larger tap target ── */
+  .sk-range-btn {
+    min-height: 36px;
+    padding: 0.3em 0.85em;
+    font-size: 0.78rem;
+  }
+
+  /* ── Viz legend swatches: larger ── */
+  .sk-legend-swatch {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
+    min-height: 36px;
+  }
+
+  /* ── Projects table → card layout ── */
+  #projects-content table {
+    display: block;
+  }
+
+  #projects-content thead {
+    display: none;
+  }
+
+  #projects-content tbody {
+    display: block;
+  }
+
+  #projects-content tr {
+    display: block;
+    border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.25);
+    border-top: 3px solid var(--color-mauve, #915f6d);
+    background: rgba(252, 245, 229, 0.5);
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  #projects-content td {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    border-bottom: none;
+    font-size: 0.875rem;
+  }
+
+  #projects-content td::before {
+    content: attr(data-label);
+    font-size: 0.65rem;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.08em;
+    color: var(--color-mauve, #915f6d);
+    flex-shrink: 0;
+    width: 5rem;
+  }
+
+  /* ── Tasks: touch-friendly rows ── */
+  .sk-task-item {
+    min-height: 44px;
+    align-items: center;
+    padding: 0.5rem 0;
+    gap: 0.75rem;
+  }
+
+  .sk-task-check {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .sk-task-item__check {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  /* ── Sort bar: stack controls ── */
+  .sk-sort-bar {
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .sk-sort-bar label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+  }
+
+  .sk-sort-bar select {
+    min-height: 44px;
+    font-size: 0.9rem;
+    padding: 0.4em 0.6em;
+    width: 9rem;
+  }
+
+  /* ── Opportunity cards ── */
   .sk-opp-card {
     padding: 1rem;
   }
 
-  .sk-snapshots {
-    grid-template-columns: 1fr;
+  .sk-opp-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .sk-opp-card__requirement {
+    max-width: 100%;
+  }
+
+  .sk-opp-card__actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sk-opp-card__actions .sk-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* ── Buttons: min tap target ── */
+  .sk-btn {
+    min-height: 44px;
+    padding: 0.4em 1.25em;
+    font-size: 0.82rem;
+  }
+
+  /* ── Toasts: span full width, clear bottom nav ── */
+  .sk-ephemeral-toast {
+    top: 0.75rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  .sk-install-toast {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    right: 1rem;
+    left: 1rem;
+    max-width: calc(100% - 2rem);
+    flex-wrap: wrap;
   }
 }

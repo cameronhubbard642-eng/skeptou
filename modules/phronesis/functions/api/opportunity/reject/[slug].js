@@ -5,15 +5,17 @@
  *
  * Steps:
  *   1. Validate CF Access JWT
- *   2. Fetch opp-<slug>.md from vault repo
+ *   2. Fetch projects/opp-<slug>.md from vault repo
  *   3. Update frontmatter: status → declined, date_declined → today
  *   4. Commit
  *   5. Return 202
  *
  * Env vars (Cloudflare Pages secrets):
  *   VAULT_GITHUB_PAT — repo-scoped PAT, contents:write
- *   VAULT_REPO       — "owner/repo"
- *   CF_ACCESS_AUD    — Cloudflare Access audience tag
+ *   VAULT_REPO       — "owner/repo"  (e.g. "cameronhubbard642-eng/agora")
+ *   VAULT_SUBTREE    — path prefix within repo (e.g. "Organization & Planning")
+ *   HMAC_SECRET      — HMAC session secret (shared with auth.skeptou.com)
+ *   AUTH_DOMAIN      — auth base URL (default "https://auth.skeptou.com")
  */
 
 /* Shared helpers — imported via Cloudflare module pattern.
@@ -22,12 +24,17 @@
  * A future refactor can extract to a shared _lib/ module if Pages allows it.
  */
 
+import { validateSession } from '../../../_shared/auth.js';
+
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) {
-    return jsonResponse({ error: 'Unauthorized', detail: authErr }, 401);
+  /* API endpoints must return JSON errors, not redirect to login — a redirect
+   * followed by fetch(redirect:'follow') causes the UI to see 200 OK from the
+   * login page and incorrectly report success without any write occurring. */
+  const session = await validateSession(request, env);
+  if (!session.authenticated) {
+    return jsonResponse({ error: 'Session required — reload to log in' }, 401);
   }
 
   const slug = params.slug;
@@ -35,18 +42,22 @@ export async function onRequestPost(ctx) {
     return jsonResponse({ error: 'Invalid slug' }, 400);
   }
 
+  /* VAULT_SUBTREE prefix (e.g. "Organization & Planning") */
+  const subtree = (env.VAULT_SUBTREE || '').replace(/\/$/, '');
+  function vp(relPath) { return subtree ? subtree + '/' + relPath : relPath; }
+
   const gh = new GitHubContents(env.VAULT_GITHUB_PAT, env.VAULT_REPO);
 
   try {
-    const oppPath = `opp-${slug}.md`;
-    const oppFile = await gh.getFile(oppPath);
+    const oppPath = `projects/opp-${slug}.md`;
+    const oppFile = await gh.getFile(vp(oppPath));
     const parsed  = parseFrontmatter(oppFile.content);
 
     parsed.frontmatter.status        = 'declined';
     parsed.frontmatter.date_declined = isoDateNow();
 
     const updatedOpp = serializeFrontmatter(parsed.frontmatter) + parsed.body;
-    await gh.putFile(oppPath, updatedOpp, oppFile.sha,
+    await gh.putFile(vp(oppPath), updatedOpp, oppFile.sha,
       `phronesis: reject ${slug} [automated]`);
 
     return jsonResponse({
@@ -62,6 +73,10 @@ export async function onRequestPost(ctx) {
 }
 
 /* ── GitHub Contents API wrapper ── */
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 class GitHubContents {
   constructor(pat, repo) {
     this.pat  = pat;
@@ -70,7 +85,7 @@ class GitHubContents {
   }
 
   async getFile(path) {
-    const resp = await fetch(`${this.base}/${path}`, { headers: this._headers() });
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, { headers: this._headers() });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
     const data = await resp.json();
     return {
@@ -87,7 +102,7 @@ class GitHubContents {
     };
     if (sha) body.sha = sha;
 
-    const resp = await fetch(`${this.base}/${path}`, {
+    const resp = await fetch(`${this.base}/${encodePath(path)}`, {
       method: 'PUT',
       headers: this._headers(),
       body: JSON.stringify(body)
@@ -145,45 +160,3 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-/* ── CF Access JWT validation ── */
-async function validateCFAccess(request, audience) {
-  if (!audience) return null;
-
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-
-  try {
-    const [headerB64] = token.split('.');
-    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-
-    const certsResp = await fetch(`https://skeptou.cloudflareaccess.com/cdn-cgi/access/certs`);
-    if (!certsResp.ok) return 'Failed to fetch Access certs';
-    const certs = await certsResp.json();
-
-    const jwk = (certs.keys || []).find(k => k.kid === header.kid);
-    if (!jwk) return 'No matching JWK for token kid';
-
-    const key = await crypto.subtle.importKey(
-      'jwk', jwk,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false, ['verify']
-    );
-
-    const [, payloadB64, sigB64] = token.split('.');
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const audMatch = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audMatch) return 'JWT audience mismatch';
-
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-
-    return null;
-  } catch (e) {
-    return `JWT validation error: ${e.message}`;
-  }
-}

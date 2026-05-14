@@ -10,7 +10,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'phronesis-v1';
+const CACHE_NAME = 'phronesis-v9';
 
 /* Pre-cache the minimal app shell on install */
 const APP_SHELL = [
@@ -57,7 +57,7 @@ self.addEventListener('fetch', function(event) {
   if (url.pathname.startsWith('/api/')) return;
 
   /* Data files — network-first, cache fallback */
-  if (url.pathname.startsWith('/src/data/')) {
+  if (url.pathname.startsWith('/data/')) {
     event.respondWith(networkFirst(event.request));
     return;
   }

@@ -1,0 +1,63 @@
+name = "auth-worker"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# HTML templates are bundled as text modules at build time
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+
+[vars]
+DEPLOYMENT = ""
+COOKIE_DOMAIN = ""
+BRAND_NAME = ""
+BRAND_URL = ""
+RESEND_FROM = ""
+ADMIN_EMAIL = "camh502@alumni.stanford.edu"
+PII_MINIMIZE = "true"
+
+# ── Sképtou deployment ────────────────────────────────────────────────────────
+
+[env.skeptou]
+name = "auth-skeptou"
+
+[env.skeptou.vars]
+DEPLOYMENT = "skeptou"
+COOKIE_DOMAIN = ".skeptou.com"
+BRAND_NAME = "Sképtou"
+BRAND_URL = "https://skeptou.com"
+RESEND_FROM = "noreply@auth-mail.skeptou.com"
+ADMIN_EMAIL = "camh502@alumni.stanford.edu"
+PII_MINIMIZE = "true"
+
+[[env.skeptou.kv_namespaces]]
+binding = "AUTH_KV"
+id = "f43938aca3b6436d96f33d1377db2974"
+
+[[env.skeptou.routes]]
+pattern = "auth.skeptou.com"
+custom_domain = true
+
+# ── Glossolalia deployment ────────────────────────────────────────────────────
+# Phase 4 — deferred until Cam confirms ready
+
+[env.glossolalia]
+name = "auth-glossolalia"
+
+[env.glossolalia.vars]
+DEPLOYMENT = "glossolalia"
+COOKIE_DOMAIN = ".glossolalia.dev"
+BRAND_NAME = "Glossolalia"
+BRAND_URL = "https://glossolalia.dev"
+RESEND_FROM = "noreply@glossolalia.dev"
+ADMIN_EMAIL = "camh502@alumni.stanford.edu"
+PII_MINIMIZE = "true"
+
+[[env.glossolalia.kv_namespaces]]
+binding = "AUTH_KV"
+id = "<glossolalia-auth-kv-id>"    # fill after: wrangler kv:namespace create AUTH_KV --env glossolalia
+
+# ── Secrets (set via `wrangler secret put` per environment) ──────────────────
+# HMAC_SECRET      — 32-byte base64url key (openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+# RESEND_API_KEY   — Resend API key
+# ADMIN_SECRET     — Bearer token for /admin/* routes

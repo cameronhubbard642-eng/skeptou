@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="52" viewBox="0 0 240 52">
+  <!-- Top rule — mauve #915f6d -->
+  <rect x="0" y="2" width="240" height="1.5" fill="#915f6d"/>
+  <!-- Wordmark — Cinzel, purple #301934 -->
+  <text x="120" y="35"
+    font-family="'Cinzel', 'Trajan Pro', 'Book Antiqua', Palatino, Georgia, serif"
+    font-size="24" font-weight="400" letter-spacing="4"
+    fill="#301934" text-anchor="middle">Sképtou</text>
+  <!-- Bottom rule — mauve #915f6d -->
+  <rect x="0" y="47" width="240" height="1.5" fill="#915f6d"/>
+</svg>
