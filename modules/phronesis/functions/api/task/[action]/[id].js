@@ -25,13 +25,18 @@
  *   AUTH_DOMAIN      — auth base URL (default "https://auth.skeptou.com")
  */
 
-import { requireSession } from '../../../_shared/auth.js';
+import { validateSession } from '../../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  const authRedirect = await requireSession(request, env);
-  if (authRedirect) return authRedirect;
+  /* API endpoints must return JSON errors, not redirect to login — a redirect
+   * followed by fetch(redirect:'follow') causes the UI to see 200 OK from the
+   * login page and incorrectly report success without any write occurring. */
+  const session = await validateSession(request, env);
+  if (!session.authenticated) {
+    return jsonResponse({ error: 'Session required — reload to log in' }, 401);
+  }
 
   /* ── Route params ── */
   const { action, id } = params;

@@ -1099,13 +1099,23 @@
     actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
 
     try {
+      /* redirect:'manual' prevents fetch from following a 302-to-login silently.
+       * Without this, an auth failure returns an opaque 200 (the login page HTML)
+       * which resp.ok=true — causing the UI to report false success and skip the write. */
       const resp = await fetch('/api/opportunity/' + action + '/' + encodeURIComponent(slug), {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' }
       });
 
-      if (resp.ok || resp.status === 202) {
+      /* opaqueredirect = auth 302 that we caught; type=0 = same thing in some browsers */
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        actionsEl.innerHTML = '<span class="sk-error">Session expired — <a href="/" style="color:inherit">reload to log in</a>.</span>';
+        return;
+      }
+
+      if (resp.status === 202) {
         const data = await resp.json().catch(function() { return {}; });
         const verb = action === 'accept' ? 'Accepted' : 'Declined';
         actionsEl.innerHTML = '<span class="sk-secondary" style="font-style:italic;font-size:.85rem;">' +

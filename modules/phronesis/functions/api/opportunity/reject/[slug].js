@@ -24,13 +24,18 @@
  * A future refactor can extract to a shared _lib/ module if Pages allows it.
  */
 
-import { requireSession } from '../../../_shared/auth.js';
+import { validateSession } from '../../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  const authRedirect = await requireSession(request, env);
-  if (authRedirect) return authRedirect;
+  /* API endpoints must return JSON errors, not redirect to login — a redirect
+   * followed by fetch(redirect:'follow') causes the UI to see 200 OK from the
+   * login page and incorrectly report success without any write occurring. */
+  const session = await validateSession(request, env);
+  if (!session.authenticated) {
+    return jsonResponse({ error: 'Session required — reload to log in' }, 401);
+  }
 
   const slug = params.slug;
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
