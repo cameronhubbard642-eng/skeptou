@@ -10,7 +10,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'phronesis-v9';
+const CACHE_NAME = 'phronesis-v10';
 
 /* Pre-cache the minimal app shell on install */
 const APP_SHELL = [
@@ -94,18 +94,31 @@ async function cacheFirst(request) {
 
 async function networkFirst(request) {
   try {
-    const response = await fetch(request);
+    /* redirect:'manual' converts an auth-middleware 302 into an opaqueredirect
+     * instead of a CORS-blocked cross-origin follow, preventing the SW from
+     * silently swallowing auth failures and returning stale/empty JSON. */
+    const response = await fetch(new Request(request, { redirect: 'manual' }));
+
+    /* opaqueredirect (or status 0) = auth 302 caught before CORS could fail.
+     * Return a plain 401 so loadLiveData() surfaces a "session expired" toast. */
+    if (response.type === 'opaqueredirect' || response.status === 0) {
+      return new Response('{"error":"Session required — reload to log in"}', {
+        status: 401,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      });
+    }
+
     if (response.ok && request.method === 'GET') {
       const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+      cache.put(request, response.clone()); /* intentionally not awaited */
     }
     return response;
   } catch (_) {
     const cached = await caches.match(request);
     if (cached) return cached;
-    /* Return empty JSON so callers don't crash on parse */
-    return new Response('{}', {
-      status: 200,
+    /* Genuine network failure (offline) — return 503 so callers know */
+    return new Response('{"error":"Offline — data not cached"}', {
+      status: 503,
       headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   }
