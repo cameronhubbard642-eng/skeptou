@@ -1463,6 +1463,17 @@
             '<option value="cv">CV</option>' +
           '</select>' +
         '</div>' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-paper-dir-label">' +
+            '&alpha; direction label <span style="color:var(--color-wine)">*</span>' +
+          '</label>' +
+          '<input type="text" class="sk-form-input" id="new-paper-dir-label" ' +
+                 'placeholder="e.g. Journal version — Epistemology" ' +
+                 'maxlength="60" autocomplete="off" />' +
+          '<div style="font-size:.8rem;color:var(--color-quartz);margin-top:.2rem;">' +
+            'Short label for the initial &alpha; direction (max 60 chars)' +
+          '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="sk-modal__footer">' +
         '<button class="sk-btn sk-btn--primary" onclick="submitNewPaper()">Create Paper</button>' +
@@ -1483,13 +1494,19 @@
   }
 
   async function submitNewPaper() {
-    var titleEl  = document.getElementById('new-paper-title');
+    var titleEl    = document.getElementById('new-paper-title');
     var abstractEl = document.getElementById('new-paper-abstract');
-    var formatEl = document.getElementById('new-paper-format');
-    var fb       = document.getElementById('new-paper-feedback');
+    var formatEl   = document.getElementById('new-paper-format');
+    var dirLabelEl = document.getElementById('new-paper-dir-label');
+    var fb         = document.getElementById('new-paper-feedback');
 
     if (!titleEl || !titleEl.value.trim()) {
       if (fb) fb.textContent = 'Title is required.';
+      return;
+    }
+    if (!dirLabelEl || !dirLabelEl.value.trim()) {
+      if (fb) fb.textContent = 'α direction label is required.';
+      if (dirLabelEl) dirLabelEl.focus();
       return;
     }
 
@@ -1501,9 +1518,10 @@
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title:    titleEl.value.trim(),
-          abstract: abstractEl ? abstractEl.value.trim() : '',
-          format:   formatEl  ? formatEl.value : 'article'
+          title:          titleEl.value.trim(),
+          abstract:       abstractEl ? abstractEl.value.trim() : '',
+          format:         formatEl   ? formatEl.value : 'article',
+          directionLabel: dirLabelEl.value.trim()
         })
       });
 
@@ -1544,6 +1562,17 @@
           }).join('') +
           '</select>' +
         '</div>' +
+        '<div class="sk-form-group">' +
+          '<label class="sk-form-label" for="new-dir-label">' +
+            'Direction label <span style="color:var(--color-wine)">*</span>' +
+          '</label>' +
+          '<input type="text" class="sk-form-input" id="new-dir-label" ' +
+                 'placeholder="e.g. Journal version — Epistemology" ' +
+                 'maxlength="60" autocomplete="off" />' +
+          '<div style="font-size:.8rem;color:var(--color-quartz);margin-top:.2rem;">' +
+            'Short label for this direction (max 60 chars)' +
+          '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="sk-modal__footer">' +
         '<button class="sk-btn sk-btn--primary" onclick="submitNewDirection(\'' + slug + '\')">Create Direction</button>' +
@@ -1555,9 +1584,15 @@
   }
 
   async function submitNewDirection(slug) {
-    var nameEl = document.getElementById('new-dir-name');
-    var fb     = document.getElementById('new-dir-feedback');
+    var nameEl    = document.getElementById('new-dir-name');
+    var labelEl   = document.getElementById('new-dir-label');
+    var fb        = document.getElementById('new-dir-feedback');
     if (!nameEl || !nameEl.value) return;
+    if (!labelEl || !labelEl.value.trim()) {
+      if (fb) fb.textContent = 'Direction label is required.';
+      if (labelEl) labelEl.focus();
+      return;
+    }
     if (fb) fb.textContent = 'Creating…';
 
     try {
@@ -1565,7 +1600,11 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: slug, name: nameEl.value })
+        body: JSON.stringify({
+          slug:           slug,
+          name:           nameEl.value,
+          directionLabel: labelEl.value.trim()
+        })
       });
 
       if (resp.ok || resp.status === 202) {
