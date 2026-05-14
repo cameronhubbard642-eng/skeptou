@@ -9,7 +9,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'energeia-v5';
+const CACHE_NAME = 'energeia-v6';
 
 const APP_SHELL = [
   '/',

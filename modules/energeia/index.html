@@ -931,6 +931,7 @@
   let currentView   = 'overview';
   let currentSlug   = null;
   let filterStatus  = 'all';
+  let showArchived  = false;
 
   /* ── Hash router ─────────────────────────────────────────────────────── */
   const ALL_VIEWS = ['home', 'overview', 'paper', 'working', 'branches', 'settings'];
@@ -1013,9 +1014,11 @@
       return;
     }
 
-    var activePapers = PAPERS.filter(function(p) { return p.status !== 'archived'; });
+    var activePapers = showArchived
+      ? PAPERS.slice()
+      : PAPERS.filter(function(p) { return p.status !== 'archived'; });
 
-    if (activePapers.length === 0) {
+    if (activePapers.length === 0 && !showArchived) {
       el.innerHTML = '<p class="sk-empty-state">No papers yet. ' +
         '<a href="#overview" onclick="navigate(\'overview\')">Create one →</a></p>';
       return;
@@ -1047,7 +1050,14 @@
       '</div>';
     }).join('');
 
-    el.innerHTML = '<div class="sk-reader-grid">' + cards + '</div>';
+    var toggleBtn = '<div style="text-align:right;margin-bottom:.5rem;">' +
+      '<button class="sk-filter-btn' + (showArchived ? ' active' : '') + '" ' +
+        'onclick="showArchived=!showArchived;renderHome();" ' +
+        'style="font-size:.75rem;">' +
+        (showArchived ? 'Hide archived' : 'Show archived') +
+      '</button></div>';
+
+    el.innerHTML = toggleBtn + '<div class="sk-reader-grid">' + cards + '</div>';
 
     /* Lazy-load iframes via IntersectionObserver */
     var iframes = el.querySelectorAll('iframe[data-src]');
@@ -1081,7 +1091,7 @@
     }
 
     var papers = filterStatus === 'all'
-      ? PAPERS.slice()
+      ? PAPERS.filter(function(p) { return p.status !== 'archived'; })
       : PAPERS.filter(function(p) { return p.status === filterStatus; });
 
     if (papers.length === 0) {
@@ -1166,6 +1176,12 @@
         ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
       '<a class="sk-btn sk-btn--sm sk-btn--accept" href="#working/' + slug + '" onclick="navigate(\'working/' + slug + '\')">Working docs</a>' +
+      (paper.status !== 'archived'
+        ? '<button class="sk-btn sk-btn--sm sk-btn--danger" onclick="openArchivePaperModal(\'' + slug + '\')">Archive paper</button>'
+        : '') +
+      '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
+        'style="background:var(--color-wine);color:#fff;" ' +
+        'onclick="openDeletePaperModal(\'' + slug + '\')">Delete paper…</button>' +
     '</div>';
 
     /* §I Abstract */
@@ -1854,6 +1870,111 @@
       } else if (resp.ok) {
         if (fb) fb.textContent = 'Deleted.';
         setTimeout(closeModal, 1500);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+      if (confirmBtn) confirmBtn.disabled = false;
+    }
+  }
+
+  /* ── Paper archive ───────────────────────────────────────────────────── */
+  function openArchivePaperModal(slug) {
+    var content = '<div class="sk-modal__header"><h2 class="sk-modal__title">Archive paper</h2></div>' +
+      '<div class="sk-modal__body">' +
+        '<p>Archive <strong>' + escHtml(slug) + '</strong>?</p>' +
+        '<ul style="font-size:.88rem;color:var(--color-quartz);margin:.5rem 0 .75rem 1.2rem;">' +
+          '<li>Status set to <em>archived</em> — hidden from Home and Papers by default</li>' +
+          '<li>All active directions moved to archived-dunamis</li>' +
+          '<li>Branches renamed <code>archive/dunamis/&hellip;</code></li>' +
+          '<li><code>papers/' + escHtml(slug) + '/</code> on energeia branch is preserved</li>' +
+        '</ul>' +
+        '<span id="archive-paper-feedback" class="sk-inline-feedback"></span>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--danger" onclick="confirmArchivePaper(\'' + escHtml(slug) + '\')">Archive paper</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+      '</div>';
+    openModal(content);
+  }
+
+  async function confirmArchivePaper(slug) {
+    var confirmBtn = document.querySelector('#sk-modal .sk-btn--danger');
+    var fb         = document.getElementById('archive-paper-feedback');
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (fb) fb.textContent = 'Archiving…';
+
+    try {
+      var resp = await fetch('/api/energeia/papers/' + encodeURIComponent(slug) + '/archive', {
+        method: 'POST', credentials: 'same-origin', redirect: 'manual',
+      });
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        if (confirmBtn) confirmBtn.disabled = false;
+      } else if (resp.ok) {
+        if (fb) fb.textContent = 'Archived.';
+        await loadPapers();
+        setTimeout(function() { closeModal(); navigate('overview'); }, 1200);
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Network error — try again.';
+      if (confirmBtn) confirmBtn.disabled = false;
+    }
+  }
+
+  /* ── Paper permanent delete ──────────────────────────────────────────── */
+  function openDeletePaperModal(slug) {
+    var content = '<div class="sk-modal__header"><h2 class="sk-modal__title" style="color:var(--color-wine);">Delete paper permanently</h2></div>' +
+      '<div class="sk-modal__body">' +
+        '<p><strong>This cannot be undone.</strong></p>' +
+        '<p style="font-size:.88rem;color:var(--color-quartz);">Permanently deletes <strong>' + escHtml(slug) + '</strong>:</p>' +
+        '<ul style="font-size:.88rem;color:var(--color-quartz);margin:.5rem 0 .75rem 1.2rem;">' +
+          '<li>Removed from slugs.yaml</li>' +
+          '<li>All <code>dunamis/' + escHtml(slug) + '-*</code> and <code>archive/dunamis/' + escHtml(slug) + '-*</code> branches deleted</li>' +
+          '<li><code>papers/' + escHtml(slug) + '/</code>, <code>working/' + escHtml(slug) + '/</code>, <code>compiled/' + escHtml(slug) + '/</code> removed from energeia branch</li>' +
+          '<li>An audit log entry is created in the commit message</li>' +
+        '</ul>' +
+        '<label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;">' +
+          '<input type="checkbox" id="delete-paper-confirm-check" onchange="document.getElementById(\'delete-paper-btn\').disabled=!this.checked;" />' +
+          'I understand this is permanent and cannot be reversed' +
+        '</label>' +
+        '<span id="delete-paper-feedback" class="sk-inline-feedback" style="display:block;margin-top:.5rem;"></span>' +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--danger" id="delete-paper-btn" disabled ' +
+          'style="background:var(--color-wine);color:#fff;" ' +
+          'onclick="confirmDeletePaper(\'' + escHtml(slug) + '\')">Delete permanently</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+      '</div>';
+    openModal(content);
+  }
+
+  async function confirmDeletePaper(slug) {
+    var confirmBtn = document.getElementById('delete-paper-btn');
+    var fb         = document.getElementById('delete-paper-feedback');
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (fb) fb.textContent = 'Deleting…';
+
+    try {
+      var resp = await fetch('/api/energeia/papers/' + encodeURIComponent(slug), {
+        method: 'DELETE', credentials: 'same-origin', redirect: 'manual',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'delete-' + slug }),
+      });
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        if (confirmBtn) confirmBtn.disabled = false;
+      } else if (resp.ok) {
+        if (fb) fb.textContent = 'Deleted permanently.';
+        await loadPapers();
+        setTimeout(function() { closeModal(); navigate('overview'); }, 1500);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
