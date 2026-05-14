@@ -6,7 +6,7 @@
  *   note     — optional annotation for the tag
  *   override — "major" | "minor" | null (null = auto-classify by diff %)
  *
- * The workflow (promote-paper.yml on agora) does the actual diff computation,
+ * The workflow (promote.yml on agora) does the actual diff computation,
  * tag application, xelatex compile, and latexdiff.
  *
  * This Worker pre-computes a diff-percentage estimate via GitHub Compare API
@@ -63,9 +63,9 @@ export async function onRequestPost(ctx) {
       env.AGORA_DISPATCH_PAT, env.AGORA_REPO, slug, classification
     );
 
-    /* Dispatch promote-paper.yml on agora repo */
+    /* Dispatch promote.yml on agora repo */
     await dispatchWorkflow(env.AGORA_DISPATCH_PAT, env.AGORA_REPO,
-      'promote-paper.yml', {
+      'promote.yml', {
         branch,
         slug,
         note: note || '',
