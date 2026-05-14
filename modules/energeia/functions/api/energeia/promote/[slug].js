@@ -19,13 +19,13 @@
 
 const DIFF_THRESHOLD_PCT = 10; /* % changed lines → major vs minor */
 
-import { requireSession } from '../../../_shared/auth.js';
+import { validateSession } from '../../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, params, request } = ctx;
 
-  const authRedirect = await requireSession(request, env);
-  if (authRedirect) return authRedirect;
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized — no active session' }, 401);
 
   const slug = params.slug;
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
