@@ -928,6 +928,12 @@ function validateIsoDate(str, filePath) {
   return str;
 }
 
+/* Strip YAML frontmatter block and return the document body only.
+ * Used to populate the body field of per-project detail JSON files. */
+function extractBody(raw) {
+  return raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trimStart();
+}
+
 /* Map a 0-100 prestige score to a human label for display */
 function prestigeText(score) {
   if (!score || score <= 0) return '';
@@ -969,26 +975,50 @@ async function extractProjects() {
   }
 
   console.log(`sync-vault: found ${projFiles.length} proj-*.md files in vault`);
+
+  /* Individual per-project detail files: src/data/projects/<slug>.json
+   * Contains full frontmatter + body for the project detail view in the UI. */
+  const projectsDir = path.join(ROOT, 'src', 'data', 'projects');
+  fs.mkdirSync(projectsDir, { recursive: true });
+
   const projects = [];
   for (const f of projFiles) {
     try {
-      const content = await fetchFile(f.path);
+      const content  = await fetchFile(f.path);
       if (!content) continue;
+      const slug     = f.name.replace(/^proj-/, '').replace(/\.md$/, '');
       const status   = extractFrontmatterField(content, 'status') || 'active';
       const priority = parsePriority(extractFrontmatterField(content, 'priority') || '');
-      const title    = extractFrontmatterField(content, 'title') ||
-        humanizeSlug(f.name.replace(/^proj-/, '').replace(/\.md$/, ''));
-      projects.push({
+      const title    = extractFrontmatterField(content, 'title') || humanizeSlug(slug);
+      const deadline = validateIsoDate(extractFrontmatterField(content, 'deadline'), f.name) || null;
+      const domain   = extractFrontmatterField(content, 'domain') || '';
+
+      const entry = {
+        slug,
         title,
-        type:     extractFrontmatterField(content, 'type')   || 'project',
+        type:     extractFrontmatterField(content, 'type') || 'project',
         status,
         priority,
-        deadline: validateIsoDate(extractFrontmatterField(content, 'deadline'), f.name) || null,
-        domain:   extractFrontmatterField(content, 'domain')   || ''
+        deadline,
+        domain
+      };
+      projects.push(entry);
+
+      /* Write full detail file (manifest entry + extra fields + body) */
+      const detail = Object.assign({}, entry, {
+        requirement:        extractFrontmatterField(content, 'requirement')        || '',
+        prestige:           extractFrontmatterField(content, 'prestige')           || '',
+        linked_opportunity: extractFrontmatterField(content, 'linked_opportunity') || null,
+        stakeholders:       extractFrontmatterField(content, 'stakeholders')       || '',
+        body:               extractBody(content)
       });
+      fs.writeFileSync(path.join(projectsDir, slug + '.json'), JSON.stringify(detail, null, 2));
     } catch (e) {
       console.error(`sync-vault: project parse error ${f.name} —`, e.message);
     }
+  }
+  if (projFiles.length > 0) {
+    console.log(`sync-vault: wrote ${projFiles.length} project detail files → src/data/projects/`);
   }
 
   /* Group projects by status for structured manifest output.

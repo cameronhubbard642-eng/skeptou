@@ -942,6 +942,162 @@ details.sk-collapsed[open] > summary::before {
   margin-bottom: 0.5rem;
 }
 
+/* ── Project detail view ────────────────────────────────────────────────── */
+
+/* Back navigation link */
+.sk-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-variant-caps: small-caps;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: var(--color-mauve, #915f6d);
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.sk-back-link:hover {
+  color: var(--color-wine, #722f37);
+}
+
+/* Project title — Cinzel, prominent */
+.sk-detail__title {
+  font-family: 'Cinzel', 'Palatino Linotype', Palatino, serif;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-purple, #301934);
+  margin-bottom: 0.75rem;
+  font-variant-caps: initial;
+}
+
+/* Short mauve rule directly below title */
+.sk-detail__rule {
+  width: 4rem;
+  margin-inline: 0;
+  margin-block: 0 1.25rem;
+}
+
+/* Meta bar: badge + type/priority chips in a flex row */
+.sk-detail__meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.sk-detail__meta-chip {
+  font-size: 0.78rem;
+  color: var(--color-quartz, #51414f);
+}
+
+.sk-detail__meta-chip .sk-smallcaps {
+  color: var(--color-mauve, #915f6d);
+  margin-right: 0.25em;
+}
+
+/* Definition list for key–value metadata */
+.sk-detail__fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 1.25rem;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+}
+
+.sk-detail__field {
+  display: contents;
+}
+
+.sk-detail__field dt {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  color: var(--color-mauve, #915f6d);
+  font-size: 0.72rem;
+  align-self: baseline;
+  padding-top: 0.1em;
+}
+
+.sk-detail__field dd {
+  color: var(--color-purple, #301934);
+  margin: 0;
+  max-width: 56ch;
+}
+
+/* Rendered markdown body prose */
+.sk-detail__body {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--color-purple, #301934);
+  max-width: 68ch;
+}
+
+.sk-md-h2 {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--color-mauve, #915f6d);
+  font-size: 0.82rem;
+  font-weight: 300;
+  margin: 1.25rem 0 0.4rem;
+}
+
+.sk-md-h3 {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-quartz, #51414f);
+  margin: 0.85rem 0 0.25rem;
+  font-style: italic;
+}
+
+.sk-md-p {
+  margin: 0 0 0.6rem;
+}
+
+.sk-md-list {
+  margin: 0.35rem 0 0.6rem 1.2rem;
+  padding: 0;
+}
+
+.sk-md-list li {
+  margin-bottom: 0.2rem;
+}
+
+.sk-md-rule {
+  border: none;
+  border-top: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.25);
+  margin: 0.75rem 0;
+}
+
+/* Footer: edit source link */
+.sk-detail__footer {
+  margin-top: 0.25rem;
+}
+
+.sk-detail__edit-link {
+  font-variant-caps: small-caps;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--color-mauve, #915f6d);
+  text-decoration: none;
+}
+
+.sk-detail__edit-link:hover {
+  color: var(--color-wine, #722f37);
+}
+
+/* Project link inside task project chip */
+.sk-task-proj-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sk-task-proj-link:hover {
+  color: var(--color-wine, #722f37);
+  text-decoration: underline;
+}
+
 /* ── Responsive layout ─────────────────────────────────────────────────── */
 
 /* Tablet / large phone landscape: 641px–1024px */
