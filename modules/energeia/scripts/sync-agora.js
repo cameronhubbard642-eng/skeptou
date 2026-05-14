@@ -32,9 +32,6 @@ const HEADERS = {
 };
 
 async function ghGet(apiPath) {
-  const { default: fetch } = await import('node-fetch').catch(() => {
-    throw new Error('node-fetch not available — run npm ci');
-  });
   const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${apiPath}?ref=energeia`, { headers: HEADERS });
   if (!r.ok) throw new Error(`GET ${apiPath}: ${r.status} ${r.statusText}`);
   const data = await r.json();

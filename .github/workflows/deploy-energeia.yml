@@ -61,6 +61,11 @@ jobs:
           cp -r modules/energeia/static/. modules/energeia/dist/
           # Pages Functions
           cp -r modules/energeia/functions modules/energeia/dist/functions
+          # Paper data from sync-agora (if sync ran successfully)
+          if [ -f modules/energeia/src/data/papers.json ]; then
+            mkdir -p modules/energeia/dist/data
+            cp modules/energeia/src/data/papers.json modules/energeia/dist/data/
+          fi
           echo "=== dist/ ==="
           find modules/energeia/dist -not -type d | sort
 
