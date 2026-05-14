@@ -1,10 +1,12 @@
 /**
  * POST /api/energeia/archive/:slug/:direction — archive a dunamis direction
  *
- * Queues a daemon action to move the Scrivener project + git worktree to archive.
- * The remote branch is NOT deleted; it stays as a permanent record.
+ * 1. Moves the direction from dunamis: → archived-dunamis: in agora:energeia slugs.yaml
+ * 2. Queues daemon actions for local cleanup (worktree + Scrivener project)
  *
- * Env: ENERGEIA_ACTIONS, HMAC_SECRET, AUTH_DOMAIN
+ * The remote branch is preserved as a permanent record.
+ *
+ * Env: AGORA_DISPATCH_PAT, AGORA_REPO, ENERGEIA_ACTIONS, HMAC_SECRET, AUTH_DOMAIN
  */
 
 import { validateSession } from '../../../../_shared/auth.js';
@@ -18,25 +20,42 @@ export async function onRequestPost(ctx) {
   const slug      = params.slug;
   const direction = params.direction;
 
-  if (!slug      || !/^[a-z0-9-]+$/.test(slug))      return jsonResponse({ error: 'Invalid slug' }, 400);
-  if (!direction || !/^[a-z]+$/.test(direction))      return jsonResponse({ error: 'Invalid direction name' }, 400);
+  if (!slug      || !/^[a-z0-9-]+$/.test(slug))  return jsonResponse({ error: 'Invalid slug' }, 400);
+  if (!direction || !/^[a-z]+$/.test(direction))  return jsonResponse({ error: 'Invalid direction name' }, 400);
+
+  if (!env.AGORA_DISPATCH_PAT || !env.AGORA_REPO) {
+    return jsonResponse({ error: 'agora not configured' }, 503);
+  }
 
   const branch = `dunamis/${slug}-${direction}`;
 
   try {
+    /* 1. Update slugs.yaml: move direction from dunamis → archived-dunamis */
+    const gh = new GitHubContents(env.AGORA_DISPATCH_PAT, env.AGORA_REPO);
+    const file = await gh.getFile('slugs.yaml', 'energeia');
+    const updated = archiveDirectionInYaml(file.content, slug, direction);
+
+    if (updated === file.content) {
+      return jsonResponse({ error: `Direction "${direction}" not found in active dunamis for paper "${slug}"` }, 404);
+    }
+
+    await gh.putFile('slugs.yaml', updated, file.sha,
+      `energeia: archive direction ${slug}-${direction} [automated]`, 'energeia');
+
+    /* 2. Queue daemon actions for local cleanup (non-fatal) */
     if (env.ENERGEIA_ACTIONS) {
       await queueDaemonAction(env.ENERGEIA_ACTIONS, 'archive-scrivener-project',
-        { slug, direction, branch });
+        { slug, direction, branch }).catch(() => {});
       await queueDaemonAction(env.ENERGEIA_ACTIONS, 'remove-worktree',
-        { slug, direction, branch });
+        { slug, direction, branch }).catch(() => {});
     }
 
     return jsonResponse({
-      status: 'queued',
+      status: 'archived',
       slug,
       direction,
       branch,
-      message: `Direction "${direction}" queued for archival. Daemon will move worktree and Scrivener project.`
+      message: `Direction "${direction}" archived. Branch ${branch} is preserved.`
     }, 202);
 
   } catch (err) {
@@ -45,6 +64,154 @@ export async function onRequestPost(ctx) {
   }
 }
 
+/* ── YAML manipulation ──────────────────────────────────────────────────── */
+/*
+ * Moves the named direction from dunamis: to archived-dunamis: within the
+ * target paper's entry. Format (4-space paper keys, 6-space direction entries):
+ *
+ *   - slug: some-paper
+ *     ...
+ *     dunamis:
+ *       alpha: "label"
+ *     archived-dunamis:
+ *       beta: "archived label"
+ */
+function archiveDirectionInYaml(yaml, slug, direction) {
+  const lines = yaml.split('\n');
+  const out   = [];
+
+  let inTargetPaper     = false;
+  let inDunamis         = false;
+  let inArchivedDunamis = false;
+  let capturedLine      = null;   /* the direction line removed from dunamis */
+
+  for (let i = 0; i < lines.length; i++) {
+    const line    = lines[i];
+    const trimmed = line.trim();
+
+    /* ── New paper entry ── */
+    if (trimmed.startsWith('- slug:')) {
+      /* If we captured a line but haven't placed it yet, flush before new paper */
+      if (capturedLine && inTargetPaper) {
+        out.push('    archived-dunamis:');
+        out.push(capturedLine);
+        capturedLine = null;
+      }
+      const thisSlug    = trimmed.replace('- slug:', '').trim().replace(/^"|"$/g, '');
+      inTargetPaper     = (thisSlug === slug);
+      inDunamis         = false;
+      inArchivedDunamis = false;
+      out.push(line);
+      continue;
+    }
+
+    if (!inTargetPaper) { out.push(line); continue; }
+
+    /* ── Block headers ── */
+    if (trimmed === 'dunamis:') {
+      inDunamis = true; inArchivedDunamis = false;
+      out.push(line); continue;
+    }
+    if (trimmed === 'archived-dunamis:') {
+      /* Entering existing archived block — place captured line at end of it */
+      inArchivedDunamis = true; inDunamis = false;
+      out.push(line); continue;
+    }
+
+    /* ── Inside dunamis block ── */
+    if (inDunamis) {
+      /* Exit check: indentation dropped (paper-level key) */
+      if (trimmed && !/^\s{5}/.test(line)) {
+        inDunamis = false;
+        /* If we captured a line and no archived-dunamis block exists yet, create one now */
+        if (capturedLine) {
+          out.push('    archived-dunamis:');
+          out.push(capturedLine);
+          capturedLine = null;
+        }
+        /* Fall through to output this paper-level line */
+      } else {
+        /* Direction entry: word: "label" */
+        if (/^\w+:/.test(trimmed)) {
+          const dname = trimmed.slice(0, trimmed.indexOf(':')).trim();
+          if (dname === direction) {
+            capturedLine = line;  /* capture and skip */
+            continue;
+          }
+        }
+        out.push(line); continue;
+      }
+    }
+
+    /* ── Inside archived-dunamis block ── */
+    if (inArchivedDunamis) {
+      /* Exit check */
+      if (trimmed && !/^\s{5}/.test(line)) {
+        inArchivedDunamis = false;
+        /* Flush captured line before exiting block */
+        if (capturedLine) {
+          out.push(capturedLine);
+          capturedLine = null;
+        }
+        /* Fall through to output this paper-level line */
+      } else {
+        out.push(line); continue;
+      }
+    }
+
+    out.push(line);
+  }
+
+  /* EOF flush */
+  if (capturedLine && inTargetPaper) {
+    out.push('    archived-dunamis:');
+    out.push(capturedLine);
+  }
+
+  return out.join('\n');
+}
+
+/* ── GitHub Contents API ────────────────────────────────────────────────── */
+class GitHubContents {
+  constructor(pat, repo) {
+    this.pat  = pat;
+    this.repo = repo;
+    this.base = `https://api.github.com/repos/${repo}/contents`;
+  }
+  async getFile(path, ref = 'energeia') {
+    const resp = await fetch(`${this.base}/${path}?ref=${ref}`, { headers: this._headers() });
+    if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
+    const data = await resp.json();
+    return { content: atob(data.content.replace(/\s/g, '')), sha: data.sha };
+  }
+  async putFile(path, content, sha, message, branch = 'energeia') {
+    const body = {
+      message,
+      content: btoa(unescape(encodeURIComponent(content))),
+      branch,
+      committer: { name: 'energeia-bot', email: 'energeia@skeptou.com' }
+    };
+    if (sha) body.sha = sha;
+    const resp = await fetch(`${this.base}/${path}`, {
+      method: 'PUT', headers: this._headers(), body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => '');
+      throw new Error(`PUT ${path}: ${resp.status} — ${detail}`);
+    }
+    return resp.json();
+  }
+  _headers() {
+    return {
+      'Authorization': `Bearer ${this.pat}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'energeia-skeptou'
+    };
+  }
+}
+
+/* ── KV daemon action queue ─────────────────────────────────────────────── */
 async function queueDaemonAction(kv, type, payload) {
   const id = crypto.randomUUID();
   await kv.put(`action:${id}`, JSON.stringify({
@@ -61,4 +228,3 @@ function jsonResponse(body, status = 200) {
     status, headers: { 'Content-Type': 'application/json; charset=utf-8' }
   });
 }
-
