@@ -486,13 +486,27 @@
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }
     }).then(function(resp) {
-      if (!resp.ok && resp.status !== 202) throw new Error(resp.statusText);
-    }).catch(function() {
-      /* Revert on error */
+      /* Explicit error cases — throw with a human-readable message */
+      if (resp.status === 401) throw new Error('Session expired — reload to log in.');
+      if (resp.status === 404) throw new Error('Task not found in vault — it may have moved or been renamed.');
+      if (!resp.ok)            throw new Error('Could not save (' + resp.status + ') — try again.');
+      /* 2xx — parse body to detect 'No change needed' (already in target state) */
+      return resp.json();
+    }).then(function(data) {
+      if (data && data.message === 'No change needed') {
+        /* Worker couldn't apply the change — revert the optimistic flip */
+        completedTasks[id] = !checked;
+        renderTasks();
+        renderSnapshots();
+        showEphemeralToast('Already ' + (checked ? 'completed' : 'open') + ' in vault — will resync.');
+      }
+      /* data.message === 'Task updated': optimistic state is correct, nothing to do */
+    }).catch(function(err) {
+      /* Revert on any error */
       completedTasks[id] = !checked;
       renderTasks();
       renderSnapshots();
-      showEphemeralToast('Could not save — check connection and try again.');
+      showEphemeralToast(err.message || 'Could not save — check connection and try again.');
     });
   }
 
