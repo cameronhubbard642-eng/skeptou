@@ -34,6 +34,10 @@ PII_MINIMIZE = "true"
 binding = "AUTH_KV"
 id = "f43938aca3b6436d96f33d1377db2974"
 
+[[env.skeptou.routes]]
+pattern = "auth.skeptou.com"
+custom_domain = true
+
 # ── Glossolalia deployment ────────────────────────────────────────────────────
 # Phase 4 — deferred until Cam confirms ready
 
