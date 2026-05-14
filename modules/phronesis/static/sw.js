@@ -10,7 +10,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'phronesis-v8';
+const CACHE_NAME = 'phronesis-v9';
 
 /* Pre-cache the minimal app shell on install */
 const APP_SHELL = [

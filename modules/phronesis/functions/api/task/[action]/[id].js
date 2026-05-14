@@ -56,6 +56,17 @@ export async function onRequestPost(ctx) {
     return jsonResponse({ error: 'Invalid file path in task id' }, 400);
   }
 
+  /* Detect recurring-expanded ID: title portion contains a second \x00 separator.
+   * sync-vault.js encodes recurring instances as:
+   *   base64url(filePath + '\x00' + titleClean + '\x00' + date)
+   * After decodeTaskId() splits on the first \x00, title becomes "titleClean\x00date".
+   * A raw title.includes(title) search can never match a text-file line, so we
+   * split here and route to handleRecurringException() instead. */
+  const nullIdx     = title.indexOf('\x00');
+  const isRecurring = nullIdx !== -1;
+  const baseTitle   = isRecurring ? title.slice(0, nullIdx) : title;
+  const recurDate   = isRecurring ? title.slice(nullIdx + 1) : null;
+
   /* Apply VAULT_SUBTREE prefix (agora migration hook) */
   const subtree = (env.VAULT_SUBTREE || '').replace(/\/$/, '');
   const fullPath = subtree ? subtree + '/' + filePath : filePath;
@@ -65,18 +76,24 @@ export async function onRequestPost(ctx) {
   try {
     const file = await gh.getFile(fullPath);
 
-    /* Locate the task line by checkbox state + title substring */
+    const lines = file.content.split('\n');
+
+    /* Route recurring-expanded tasks to the exception handler */
+    if (isRecurring) {
+      return await handleRecurringException(gh, fullPath, file, lines, action, baseTitle, recurDate);
+    }
+
+    /* ── Normal task toggle ── */
     const searchMarker  = action === 'complete'   ? '- [ ]' : '- [x]';
     const replaceMarker = action === 'complete'   ? '- [x]' : '- [ ]';
 
-    const lines = file.content.split('\n');
     const lineIdx = lines.findIndex(function(line) {
       return line.includes(searchMarker) && line.includes(title);
     });
 
     if (lineIdx === -1) {
-      /* Already in target state or title not found — treat as success */
-      return jsonResponse({ status: action + 'd', message: 'No change needed' }, 202);
+      /* Task title not found — may have moved or been renamed in the vault */
+      return jsonResponse({ error: 'Task not found in vault file' }, 404);
     }
 
     lines[lineIdx] = lines[lineIdx].replace(searchMarker, replaceMarker);
@@ -94,6 +111,67 @@ export async function onRequestPost(ctx) {
     console.error('Task', action, 'error:', err);
     return jsonResponse({ error: 'Internal error', detail: err.message }, 500);
   }
+}
+
+/* ── Recurring exception handler ───────────────────────────────────────── */
+/*
+ * Completing a recurring instance writes an exception line immediately after the
+ * master recurring line in the vault file:
+ *
+ *   - [ ] Standup [recurring:: daily]        ← master (unchanged)
+ *   - [x] Standup [due:: 2026-05-14]         ← exception written by this fn
+ *
+ * Uncompleting removes that exception line.
+ * The parser in sync-vault.js already understands this convention and suppresses
+ * the completed date from future expansion.
+ */
+async function handleRecurringException(gh, fullPath, file, lines, action, baseTitle, recurDate) {
+  if (action === 'complete') {
+    /* Guard: exception already written for this date? */
+    const alreadyDone = lines.some(function(line) {
+      return line.includes('- [x]') &&
+             line.includes(baseTitle) &&
+             line.includes('[due:: ' + recurDate + ']');
+    });
+    if (alreadyDone) {
+      return jsonResponse({ status: 'completed', message: 'No change needed' }, 202);
+    }
+
+    /* Find master recurring line */
+    const masterIdx = lines.findIndex(function(line) {
+      return line.includes('- [ ]') &&
+             line.includes(baseTitle) &&
+             line.includes('[recurring::');
+    });
+    if (masterIdx === -1) {
+      return jsonResponse({ error: 'Recurring master task not found in vault file' }, 404);
+    }
+
+    /* Preserve the master line's indentation in the exception */
+    const indent = (lines[masterIdx].match(/^(\s*)/) || ['', ''])[1];
+    lines.splice(masterIdx + 1, 0, indent + '- [x] ' + baseTitle + ' [due:: ' + recurDate + ']');
+
+  } else { /* uncomplete */
+    const exIdx = lines.findIndex(function(line) {
+      return line.includes('- [x]') &&
+             line.includes(baseTitle) &&
+             line.includes('[due:: ' + recurDate + ']');
+    });
+    if (exIdx === -1) {
+      /* Exception line absent — instance is already uncompleted */
+      return jsonResponse({ status: 'uncompleted', message: 'No change needed' }, 202);
+    }
+    lines.splice(exIdx, 1);
+  }
+
+  await gh.putFile(
+    fullPath,
+    lines.join('\n'),
+    file.sha,
+    'phronesis: ' + action + ' recurring "' + baseTitle.slice(0, 50) + '" ' + recurDate + ' [automated]'
+  );
+
+  return jsonResponse({ status: action + 'd', message: 'Task updated' }, 202);
 }
 
 /* ── Task ID encode/decode ──────────────────────────────────────────────── */
