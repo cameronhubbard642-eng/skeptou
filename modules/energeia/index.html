@@ -815,72 +815,9 @@
   <script>
   'use strict';
 
-  /* ── Sample data (replaced by CI build: sync-agora.js writes src/data/papers.json) ── */
-  const PAPERS = [
-    {
-      slug: 'epistemic-akrasia',
-      title: 'Epistemic Akrasia and the Norms of Credence',
-      status: 'drafting',
-      currentTag: 'style-II',
-      format: 'article',
-      created: '2026-01-15',
-      mockDiffPct: 24,
-      abstract: 'This paper examines the tension between what an agent believes they ought to believe and what they actually believe, arguing that epistemic akrasia is possible but always irrational. The paper develops a novel account of the relationship between higher-order evidence and doxastic norms.',
-      directions: [
-        { name: 'alpha', branch: 'dunamis/epistemic-akrasia-alpha', status: 'archived', lastCommit: '2026-03-01' },
-        { name: 'beta',  branch: 'dunamis/epistemic-akrasia-beta',  status: 'active',   lastCommit: '2026-05-10' }
-      ],
-      versions: [
-        { tag: 'style-I',  date: '2026-02-01', note: 'Initial canonical',                  lineage: 'dunamis/epistemic-akrasia-alpha', classification: 'major', minors: [] },
-        { tag: 'style-II', date: '2026-04-15', note: 'Referee revisions — restructured §§III-V', lineage: 'dunamis/epistemic-akrasia-beta',  classification: 'major', minors: [] },
-      ]
-    },
-    {
-      slug: 'testimony-trust',
-      title: 'Testimony, Trust, and the Transfer of Epistemic Authority',
-      status: 'submitted',
-      currentTag: 'style-III',
-      format: 'article',
-      created: '2025-08-01',
-      mockDiffPct: 4,
-      abstract: 'I argue against transmissive views of testimonial knowledge, defending instead a generative account on which testimony is a source of knowledge in its own right. The paper identifies a structural asymmetry between transmission and generation that has been overlooked in the literature.',
-      directions: [
-        { name: 'alpha', branch: 'dunamis/testimony-trust-alpha', status: 'archived', lastCommit: '2025-12-01' },
-        { name: 'beta',  branch: 'dunamis/testimony-trust-beta',  status: 'archived', lastCommit: '2026-02-15' },
-        { name: 'gamma', branch: 'dunamis/testimony-trust-gamma', status: 'active',   lastCommit: '2026-04-01' }
-      ],
-      versions: [
-        { tag: 'style-I',   date: '2025-10-01', note: 'First complete draft',             lineage: 'dunamis/testimony-trust-alpha', classification: 'major',
-          minors: [] },
-        { tag: 'style-II',  date: '2025-12-15', note: 'Major restructure §§III-IV',       lineage: 'dunamis/testimony-trust-beta',  classification: 'major',
-          minors: [
-            { tag: 'style-II.1', date: '2026-01-10', note: 'Footnote cleanup + bibliography', lineage: 'dunamis/testimony-trust-beta', classification: 'minor' }
-          ]
-        },
-        { tag: 'style-III', date: '2026-03-01', note: 'Final revision — submitted to BJPS', lineage: 'dunamis/testimony-trust-gamma', classification: 'major',
-          minors: [] },
-      ]
-    },
-    {
-      slug: 'epistemic-cowardice',
-      title: 'Against Epistemic Cowardice',
-      status: 'published',
-      currentTag: 'style-IV',
-      format: 'article',
-      created: '2024-05-01',
-      mockDiffPct: 0,
-      abstract: 'I defend the claim that epistemic cowardice — the deliberate assertion of vague or uncommitted claims to avoid controversy — is a distinct epistemic vice with characteristic features distinguishing it from ordinary epistemic failure.',
-      directions: [
-        { name: 'alpha', branch: 'dunamis/epistemic-cowardice-alpha', status: 'archived', lastCommit: '2025-04-01' }
-      ],
-      versions: [
-        { tag: 'style-I',   date: '2024-07-01', note: 'First draft',                        lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
-        { tag: 'style-II',  date: '2024-10-15', note: 'Phil Studies R1 revisions',          lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
-        { tag: 'style-III', date: '2025-01-20', note: 'R2 revisions',                       lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
-        { tag: 'style-IV',  date: '2025-04-01', note: 'Accepted version (Phil Studies 2025)', lineage: 'dunamis/epistemic-cowardice-alpha', classification: 'major', minors: [] },
-      ]
-    }
-  ];
+  /* ── Paper data — fetched at runtime from /api/energeia/papers-list ── */
+  let PAPERS = [];
+  let _papersLoading = true;
 
   const WORKING_DOCS = {
     'epistemic-akrasia': [
@@ -896,6 +833,34 @@
   };
 
   const DIFF_THRESHOLD = 10; /* % — must match Worker default */
+
+  /* ── Runtime paper loader ────────────────────────────────────────────── */
+  async function loadPapersFromAPI() {
+    try {
+      var resp = await fetch('/api/energeia/papers-list', {
+        credentials: 'same-origin',
+        redirect: 'manual'
+      });
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        _papersLoading = false;
+        if (currentView === 'overview') renderOverview();
+        return;
+      }
+      if (!resp.ok) {
+        _papersLoading = false;
+        if (currentView === 'overview') renderOverview();
+        return;
+      }
+      var data = await resp.json();
+      PAPERS = data.papers || [];
+      _papersLoading = false;
+      if (currentView === 'overview') renderOverview();
+      if (currentView === 'paper' && currentSlug) renderPaperDetail(currentSlug);
+    } catch (_) {
+      _papersLoading = false;
+      if (currentView === 'overview') renderOverview();
+    }
+  }
 
   /* ── State ───────────────────────────────────────────────────────────── */
   let currentView   = 'overview';
@@ -989,6 +954,11 @@
     renderFilterBar();
     var el = document.getElementById('overview-content');
     if (!el) return;
+
+    if (_papersLoading) {
+      el.innerHTML = '<p class="sk-empty-state">Loading papers…</p>';
+      return;
+    }
 
     var papers = filterStatus === 'all'
       ? PAPERS.slice()
@@ -1857,6 +1827,7 @@
   /* ── Init ────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
     initRouter();
+    loadPapersFromAPI();
 
     var installBtn = document.getElementById('sk-install-btn');
     var dismissBtn = document.getElementById('sk-install-dismiss');
