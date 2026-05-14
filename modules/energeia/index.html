@@ -1519,6 +1519,7 @@
       var resp = await fetch('/api/energeia/papers', {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title:          titleEl.value.trim(),
@@ -1528,7 +1529,11 @@
         })
       });
 
-      if (resp.ok || resp.status === 202) {
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        return;
+      }
+      if (resp.status === 202) {
         var data = await resp.json().catch(function() { return {}; });
         if (fb) fb.textContent = data.message || 'Paper created.';
         setTimeout(closeModal, 2000);
@@ -1602,6 +1607,7 @@
       var resp = await fetch('/api/energeia/directions', {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           slug:           slug,
@@ -1610,7 +1616,11 @@
         })
       });
 
-      if (resp.ok || resp.status === 202) {
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        return;
+      }
+      if (resp.status === 202) {
         var data = await resp.json().catch(function() { return {}; });
         if (fb) fb.textContent = data.message || 'Direction created.';
         setTimeout(closeModal, 2000);
@@ -1635,11 +1645,14 @@
                               encodeURIComponent(direction), {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
 
-      if (resp.ok || resp.status === 202) {
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
+      } else if (resp.status === 202) {
         if (btn) btn.textContent = 'Dispatched ✓';
       } else {
         if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
@@ -1663,11 +1676,14 @@
                               encodeURIComponent(direction), {
         method: 'POST',
         credentials: 'same-origin',
+        redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
 
-      if (resp.ok || resp.status === 202) {
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
+      } else if (resp.status === 202) {
         if (btn) btn.textContent = 'Queued ✓';
       } else {
         if (btn) { btn.textContent = 'Error'; btn.disabled = false; }

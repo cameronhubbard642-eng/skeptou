@@ -22,13 +22,13 @@ const GREEK = [
   'sigma','tau','upsilon','phi','chi','psi','omega'
 ];
 
-import { requireSession } from '../../_shared/auth.js';
+import { validateSession } from '../../_shared/auth.js';
 
 export async function onRequestPost(ctx) {
   const { env, request } = ctx;
 
-  const authRedirect = await requireSession(request, env);
-  if (authRedirect) return authRedirect;
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized — no active session' }, 401);
 
   let body;
   try { body = await request.json(); }
