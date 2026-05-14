@@ -502,7 +502,11 @@ async function extractTasks() {
     if (item.type !== 'blob') return false;
     if (!item.path.endsWith('.md')) return false;
     if (subtreePrefix && !item.path.startsWith(subtreePrefix)) return false;
-    return !item.path.split('/').some(function(seg) { return seg.startsWith('.'); });
+    /* Exclude hidden dirs (.obsidian) AND housekeeping dirs (_archive, _templates).
+     * Both conventions signal "not live content" in the O&P vault. */
+    return !item.path.split('/').some(function(seg) {
+      return seg.startsWith('.') || seg.startsWith('_');
+    });
   });
 
   const tasks      = [];
