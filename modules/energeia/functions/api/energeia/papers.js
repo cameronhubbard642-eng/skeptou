@@ -66,7 +66,7 @@ export async function onRequestPost(ctx) {
       await gh.putFile('slugs.yaml', updated, slugsFile.sha,
         `energeia: add paper ${slug} [automated]`, 'energeia');
     } else {
-      const initial = `# slugs.yaml — Energeia canonical paper registry\n\npapers:\n${newEntry}`;
+      const initial = `# slugs.yaml - Energeia canonical paper registry\n\npapers:\n${newEntry}`;
       await gh.putFile('slugs.yaml', initial, null,
         `energeia: init slugs.yaml + add ${slug} [automated]`, 'energeia');
     }
@@ -140,7 +140,7 @@ class GitHubContents {
     const resp = await fetch(`${this.base}/${path}?ref=${ref}`, { headers: this._headers() });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
     const data = await resp.json();
-    return { content: atob(data.content.replace(/\s/g, '')), sha: data.sha };
+    return { content: decodeURIComponent(escape(atob(data.content.replace(/\s/g, '')))), sha: data.sha };
   }
 
   async putFile(path, content, sha, message, branch = 'energeia') {
