@@ -1258,6 +1258,10 @@
     /* Page actions */
     var actions = '<div class="sk-page-actions">' +
       (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
+      '<button class="sk-btn sk-btn--sm" ' +
+        'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
+        'id="compile-canonical-' + slug + '" ' +
+        'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>' +
       (paper.status !== 'published' && paper.status !== 'archived'
         ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
@@ -1861,6 +1865,32 @@
       var resp = await fetch('/api/energeia/compile-draft/' +
                               encodeURIComponent(slug) + '/' +
                               encodeURIComponent(direction), {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
+      } else if (resp.status === 202) {
+        if (btn) btn.textContent = 'Dispatched ✓';
+      } else {
+        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      }
+    } catch (e) {
+      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+    }
+  }
+
+  async function compileCanonical(slug) {
+    var btnId = 'compile-canonical-' + slug;
+    var btn   = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+
+    try {
+      var resp = await fetch('/api/energeia/compile-canonical/' + encodeURIComponent(slug), {
         method: 'POST',
         credentials: 'same-origin',
         redirect: 'manual',
