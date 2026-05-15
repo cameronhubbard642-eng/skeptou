@@ -135,6 +135,15 @@ jobs:
               latexmk -xelatex -interaction=nonstopmode -halt-on-error "$TEX_BASE" || \
                 FAILED="$FAILED $SLUG"
               cd "${GITHUB_WORKSPACE}"
+              # Normalize output to papers/<slug>/main.pdf — the canonical path the
+              # PDF Worker fetches. PAPER_DIR may be papers/<slug>.tex/ for the
+              # Scrivener .tex-folder variant, so the produced PDF is not always
+              # already at papers/<slug>/main.pdf.
+              CANON_PDF="${PAPER_DIR}/${TEX_BASE%.tex}.pdf"
+              if [ -f "$CANON_PDF" ] && [ "$CANON_PDF" != "papers/${SLUG}/main.pdf" ]; then
+                mkdir -p "papers/${SLUG}"
+                cp "$CANON_PDF" "papers/${SLUG}/main.pdf"
+              fi
             fi
           done
           if [ -n "$FAILED" ]; then
