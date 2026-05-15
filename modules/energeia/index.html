@@ -1175,7 +1175,7 @@
       (allDirs.length ? '<div class="sk-paper-card__directions">' + dirPills + '</div>' : '') +
       '<div class="sk-paper-card__actions">' +
         '<button class="sk-btn sk-btn--sm sk-btn--accept" onclick="navigate(\'paper/' + paper.slug + '\')">View →</button>' +
-        (canPromote ? '<button class="sk-btn sk-btn--sm sk-btn--primary" onclick="openPromoteModal(\'' + paper.slug + '\')">Promote</button>' : '') +
+        (canPromote ? '<button class="sk-btn sk-btn--sm sk-btn--primary" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + paper.slug + '\')">Promote</button>' : '') +
         (paper.status !== 'published' && paper.status !== 'archived'
           ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + paper.slug + '\')">New Direction</button>'
           : '') +
@@ -1257,7 +1257,7 @@
 
     /* Page actions */
     var actions = '<div class="sk-page-actions">' +
-      (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
+      (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
       (paper.status !== 'published' && paper.status !== 'archived'
         ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
@@ -1377,6 +1377,7 @@
         '<div class="sk-direction-item__actions">' +
           (isActive
             ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+                'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
@@ -1500,6 +1501,7 @@
           '<div class="sk-branch-item__actions">' +
             (isActive
               ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+                  'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                   'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
                   ' title="Draft PDF — click Compile first if not yet available">Draft PDF</a>' +
