@@ -86,9 +86,11 @@ export async function onRequestPost(ctx) {
       'create-dunamis-branch.yml',
       { slug, direction_name: 'alpha' });
 
-    /* 5. Queue daemon action: scaffold Scrivener project */
+    /* 5. Queue daemon actions: scaffold Scrivener project + create local worktree */
     if (env.ENERGEIA_ACTIONS) {
       await queueDaemonAction(env.ENERGEIA_ACTIONS, 'scaffold-scrivener-project', { slug, title, format });
+      await queueDaemonAction(env.ENERGEIA_ACTIONS, 'create-worktree',
+        { slug, direction: 'alpha', branch: `dunamis/${slug}-alpha` });
     }
 
     return jsonResponse({

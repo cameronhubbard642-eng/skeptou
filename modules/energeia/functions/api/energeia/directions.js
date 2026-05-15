@@ -60,6 +60,8 @@ export async function onRequestPost(ctx) {
     if (env.ENERGEIA_ACTIONS) {
       await queueDaemonAction(env.ENERGEIA_ACTIONS, 'duplicate-scrivener-project',
         { slug, direction: directionName, branch: branchName });
+      await queueDaemonAction(env.ENERGEIA_ACTIONS, 'create-worktree',
+        { slug, direction: directionName, branch: branchName });
     }
 
     /* Update slugs.yaml dunamis map if a label was supplied */
