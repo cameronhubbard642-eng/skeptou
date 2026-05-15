@@ -160,6 +160,26 @@ export async function onRequestGet(ctx) {
     const pdfBytes = await fetchGitHubFile(env.AGORA_DISPATCH_PAT, env.AGORA_REPO, ghPath, ghRef);
 
     if (pdfBytes === null) {
+      /* No PDF — if the last compile failed, surface its error instead of a bare 404.
+         compile-{draft,canonical}.yml write papers/<slug>/compile-status.json. */
+      const statusBytes = await fetchGitHubFile(
+        env.AGORA_DISPATCH_PAT, env.AGORA_REPO, `papers/${slug}/compile-status.json`, ghRef);
+      if (statusBytes !== null) {
+        try {
+          const status = JSON.parse(new TextDecoder().decode(statusBytes));
+          if (status && status.ok === false) {
+            return new Response(JSON.stringify({
+              error:      'Compile failed',
+              detail:     status.error || 'See the compile run log.',
+              compiledAt: status.compiledAt || null,
+              runUrl:     status.runUrl || null,
+            }), {
+              status: 422,
+              headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            });
+          }
+        } catch { /* unparseable status — fall through to the generic 404 */ }
+      }
       const reason = filename.startsWith('draft-')
         ? 'Draft PDF not found — run "Compile draft" on the branch first.'
         : 'PDF not found — this version may not have been compiled yet.';
