@@ -148,7 +148,11 @@ jobs:
             else
               PDF="${OUT_DIR}/${TEX_BASE%.tex}.pdf"
               if [ -f "$PDF" ]; then
-                cp "$PDF" "papers/${SLUG}/main.pdf"
+                # PDF may already be papers/<slug>/main.pdf for the canonical
+                # layout; only copy when OUT_DIR is the .tex-folder variant.
+                if [ "$PDF" != "papers/${SLUG}/main.pdf" ]; then
+                  cp "$PDF" "papers/${SLUG}/main.pdf"
+                fi
                 git add "papers/${SLUG}/main.pdf"
               fi
             fi
