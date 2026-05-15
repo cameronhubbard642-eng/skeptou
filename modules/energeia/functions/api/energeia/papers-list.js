@@ -56,7 +56,7 @@ async function ghGet(pat, repo, filePath) {
   );
   if (!resp.ok) throw new Error(`GET ${filePath}: ${resp.status} ${resp.statusText}`);
   const data = await resp.json();
-  return atob(data.content.replace(/\s/g, ''));
+  return decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
 }
 
 /* ── slugs.yaml parser ────────────────────────────────────────────────── */

@@ -200,7 +200,7 @@ class GitHub {
     const resp = await fetch(`${this.base}/contents/${path}?ref=${ref}`, { headers: this._h() });
     if (!resp.ok) throw new Error(`GET ${path}: ${resp.status} ${resp.statusText}`);
     const data = await resp.json();
-    return { content: atob(data.content.replace(/\s/g, '')), sha: data.sha };
+    return { content: decodeURIComponent(escape(atob(data.content.replace(/\s/g, '')))), sha: data.sha };
   }
 
   async putFile(path, content, sha, message, branch = 'energeia') {
