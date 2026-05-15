@@ -406,13 +406,34 @@
   var completedTasks = {};
 
   /* ── Task toggle handler ─────────────────────────────────────────────── */
-  /* Session-only in Phase 2: the checkbox flips local state but does not
-   * persist across reloads. D1 task-complete persistence lands in Phase 4
-   * (POST /api/tasks/complete/:id). */
+  /* Persists to D1: check → POST /api/tasks/complete/:id; uncheck →
+   * PATCH /api/tasks/:id { status:'open', completed_at:null }.
+   * Optimistic update; reverts on error. */
   function handleTaskToggle(id, checked) {
     completedTasks[id] = checked;
     renderTasks();
     renderSnapshots();
+
+    var req = checked
+      ? fetch('/api/tasks/complete/' + encodeURIComponent(id), {
+          method: 'POST', credentials: 'same-origin'
+        })
+      : fetch('/api/tasks/' + encodeURIComponent(id), {
+          method: 'PATCH', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'open', completed_at: null })
+        });
+
+    req.then(function(resp) {
+      if (resp.status === 401) throw new Error('Session expired — reload to log in.');
+      if (resp.status === 409) return;   /* already in target state — keep optimistic */
+      if (!resp.ok) throw new Error('Could not save (' + resp.status + ') — try again.');
+    }).catch(function(err) {
+      completedTasks[id] = !checked;
+      renderTasks();
+      renderSnapshots();
+      showEphemeralToast(err.message || 'Could not save — check connection and try again.');
+    });
   }
 
   /* ── Ephemeral error toast ───────────────────────────────────────────── */
@@ -1045,13 +1066,10 @@
       const badgeClass  = isPending ? 'sk-badge--pending' : (opp.status === 'confirmed-pursuing' ? 'sk-badge--confirmed' : 'sk-badge--declined');
       const badgeLabel  = isPending ? 'pending decision' : (opp.status === 'confirmed-pursuing' ? 'confirmed' : 'declined');
 
-      /* Accept/Reject write actions land in Phase 4 (POST /api/opportunities/
-       * :slug/accept|reject). Phase 2 is a read-only swap to the D1 API. */
       const actions = isPending
-        ? '<div class="sk-opp-card__actions">' +
-            '<span class="sk-secondary" style="font-size:.78rem;font-style:italic;">' +
-              'Accept / Reject available once write endpoints land (Phase 4).' +
-            '</span>' +
+        ? '<div class="sk-opp-card__actions" id="actions-' + opp.slug + '">' +
+            '<button class="sk-btn sk-btn--accept" onclick="handleOppAction(\'' + opp.slug + '\', \'accept\')">Accept</button>' +
+            '<button class="sk-btn sk-btn--reject" onclick="handleOppAction(\'' + opp.slug + '\', \'reject\')">Reject</button>' +
           '</div>'
         : '';
 
@@ -1085,6 +1103,53 @@
         '</details>';
     }
     el.innerHTML = html;
+  }
+
+  /* ── Opportunity Accept/Reject ───────────────────────────────────────── */
+  /* Accept: POST /api/opportunities/:slug/accept — the Worker archives the
+   * opp, creates a linked project, and creates an SAA planning task in one
+   * batch. Reject: POST .../reject — archives the opp. After either, the
+   * dashboard re-pulls from D1 so the card leaves the pending queue. */
+  async function handleOppAction(slug, action) {
+    var actionsEl = document.getElementById('actions-' + slug);
+    if (!actionsEl) return;
+    actionsEl.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
+    actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
+
+    var url, opts = { method: 'POST', credentials: 'same-origin',
+                      headers: { 'Content-Type': 'application/json' } };
+    if (action === 'accept') {
+      var opp = OPPORTUNITIES.filter(function(o) { return o.slug === slug; })[0] || {};
+      /* Derive the new project from the opportunity; Cam can rename via PATCH. */
+      var projectSlug = slug.replace(/^opp-/, 'proj-');
+      if (projectSlug === slug) projectSlug = 'proj-' + slug;
+      url = '/api/opportunities/' + encodeURIComponent(slug) + '/accept';
+      opts.body = JSON.stringify({ project_slug: projectSlug, project_title: opp.title || slug });
+    } else {
+      url = '/api/opportunities/' + encodeURIComponent(slug) + '/reject';
+    }
+
+    try {
+      var resp = await fetch(url, opts);
+      if (resp.status === 401) {
+        actionsEl.innerHTML = '<span class="sk-error">Session expired — <a href="/" style="color:inherit">reload to log in</a>.</span>';
+        return;
+      }
+      if (resp.ok) {
+        var verb = action === 'accept' ? 'Accepted' : 'Declined';
+        actionsEl.innerHTML = '<span class="sk-secondary" style="font-style:italic;font-size:.85rem;">' + verb + ' — refreshing…</span>';
+        loadLiveData().then(function() {
+          renderStats(); renderSnapshots(); renderProjects();
+          renderTasks(); renderOpportunities();
+        });
+      } else {
+        var err = await resp.json().catch(function() { return {}; });
+        actionsEl.innerHTML = '<span class="sk-error">Error ' + resp.status + ': ' +
+          escHtml(err.error || resp.statusText) + '</span>';
+      }
+    } catch (e) {
+      actionsEl.innerHTML = '<span class="sk-error">Network error — try again.</span>';
+    }
   }
 
   /* ── Inventory view ───────────────────────────────────────────────────── */

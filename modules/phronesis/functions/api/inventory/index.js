@@ -1,10 +1,14 @@
 /**
- * GET /api/inventory — list inventory items (O&P D1 API, Phase 1).
- * Filters: status, category.
+ * /api/inventory — list (GET) + create (POST).
  */
 
 import { handleList } from '../../_shared/op-read.js';
+import { handleCreate } from '../../_shared/op-write.js';
 
 export async function onRequestGet(ctx) {
   return handleList(ctx.request, ctx.env, 'inventory', '/api/inventory');
+}
+
+export async function onRequestPost(ctx) {
+  return handleCreate(ctx.request, ctx.env, 'inventory', '/api/inventory');
 }
