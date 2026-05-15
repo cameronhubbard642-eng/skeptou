@@ -30,8 +30,9 @@ Verify:
 
 ```bash
 npx wrangler@3 d1 info skeptou-op
-# Expect 6 tables: projects, opportunities, tasks, inventory,
-#                   audit_log, service_tokens
+# Expect 7 tables: projects, opportunities, commitments, tasks,
+#                   inventory, audit_log, service_tokens
+# plus 2 views:    active_opportunities, declined_opportunities
 ```
 
 ## Bind to the deployed Pages project

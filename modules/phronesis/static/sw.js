@@ -2,8 +2,9 @@
  *
  * Bump CACHE_NAME to invalidate all caches on next deploy.
  * Strategy map:
- *   /api/*          → network-only  (state-mutating Workers; never cache)
- *   /src/data/*     → network-first (data files; cache fallback for offline)
+ *   /api/* (GET)    → network-first (D1 reads; cached, served stale offline)
+ *   /api/* (writes) → network-only  (state-mutating Workers; never cache)
+ *   /data/*         → network-first (data files; cache fallback for offline)
  *   same-origin *   → cache-first   (app shell, CSS, fonts, icons)
  *   cross-origin    → browser default (Google Fonts CDN etc.)
  */
@@ -53,8 +54,14 @@ self.addEventListener('fetch', function(event) {
   /* Cross-origin (Google Fonts, CDN assets) — pass through */
   if (url.origin !== self.location.origin) return;
 
-  /* API mutations — network-only, never intercept */
-  if (url.pathname.startsWith('/api/')) return;
+  /* API: GET reads → network-first (fresh data, cache fallback offline);
+   * POST/PATCH/DELETE mutations → network-only, never intercept */
+  if (url.pathname.startsWith('/api/')) {
+    if (event.request.method === 'GET') {
+      event.respondWith(networkFirst(event.request));
+    }
+    return;
+  }
 
   /* Data files — network-first, cache fallback */
   if (url.pathname.startsWith('/data/')) {

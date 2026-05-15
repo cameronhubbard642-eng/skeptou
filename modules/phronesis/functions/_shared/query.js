@@ -1,17 +1,18 @@
 /**
  * _shared/query.js — dynamic WHERE/ORDER builder for O&P list endpoints.
  *
- * Per specs/op-d1-migration.md §IV.3. Table names and column names here are
- * a fixed allowlist — never interpolate caller input into SQL identifiers.
+ * Per specs/op-d1-migration.md rev 3 §IV.3. Table names and column names here
+ * are a fixed allowlist — never interpolate caller input into SQL identifiers.
  */
 
 /**
  * Per-table query config:
- *   filters    — { param, col, op } applied when the param is present
- *   sorts      — sort-key → column allowlist
+ *   filters        — { param, col, op } applied when the param is present
+ *   sorts          — sort-key → column allowlist
  *   defaultSortCol — column used when no/unknown sort given
- *   hideSoftDeleted — WHERE fragment added when no `status` filter is given,
- *                     so soft-deleted rows are excluded by default (§IV.3)
+ *   defaultScope   — { unlessParam, clause } — `clause` is added to WHERE unless
+ *                    the caller passed `unlessParam`, so soft-deleted / archived
+ *                    rows are excluded by default.
  */
 export const TABLES = {
   projects: {
@@ -22,28 +23,28 @@ export const TABLES = {
     ],
     sorts: { due: 'due_date', priority: 'priority', created: 'created_at', updated: 'updated_at' },
     defaultSortCol: 'updated_at',
-    hideSoftDeleted: "status != 'archived'",
+    defaultScope: { unlessParam: 'status', clause: "status != 'archived'" },
   },
   opportunities: {
     filters: [
-      { param: 'status',       col: 'status',   op: '=' },
       { param: 'opp_type',     col: 'opp_type', op: '=' },
       { param: 'priority',     col: 'priority', op: '<=' },
       { param: 'prestige_min', col: 'prestige', op: '>=' },
     ],
     sorts: { deadline: 'deadline', priority: 'priority', prestige: 'prestige', created: 'created_at', updated: 'updated_at' },
     defaultSortCol: 'updated_at',
-    hideSoftDeleted: 'archived_at IS NULL',
+    defaultScope: { unlessParam: 'include_archived', clause: 'archived = 0' },
   },
   tasks: {
     filters: [
-      { param: 'status',       col: 'status',       op: '=' },
-      { param: 'project_slug', col: 'project_slug', op: '=' },
-      { param: 'priority',     col: 'priority',     op: '<=' },
+      { param: 'status',      col: 'status',      op: '=' },
+      { param: 'parent_kind', col: 'parent_kind', op: '=' },
+      { param: 'parent_id',   col: 'parent_id',   op: '=' },
+      { param: 'priority',    col: 'priority',    op: '<=' },
     ],
     sorts: { due: 'due_date', priority: 'priority', created: 'created_at', updated: 'updated_at' },
     defaultSortCol: 'updated_at',
-    hideSoftDeleted: "status != 'cancelled'",
+    defaultScope: { unlessParam: 'status', clause: "status != 'cancelled'" },
   },
   inventory: {
     filters: [
@@ -52,7 +53,16 @@ export const TABLES = {
     ],
     sorts: { created: 'created_at', updated: 'updated_at', name: 'name' },
     defaultSortCol: 'updated_at',
-    hideSoftDeleted: "status != 'retired'",
+    defaultScope: { unlessParam: 'status', clause: "status != 'retired'" },
+  },
+  commitments: {
+    filters: [
+      { param: 'status', col: 'status', op: '=' },
+      { param: 'kind',   col: 'kind',   op: '=' },
+    ],
+    sorts: { start: 'start_date', created: 'created_at', updated: 'updated_at', name: 'title' },
+    defaultSortCol: 'updated_at',
+    defaultScope: { unlessParam: 'status', clause: "status != 'archived'" },
   },
 };
 
@@ -75,9 +85,9 @@ export function buildListQuery(table, q) {
     }
   }
 
-  // Exclude soft-deleted rows unless the caller explicitly filters on status.
-  if (q.status === undefined || q.status === '') {
-    where.push(cfg.hideSoftDeleted);
+  // Exclude soft-deleted / archived rows unless the caller opts in.
+  if (cfg.defaultScope && !q[cfg.defaultScope.unlessParam]) {
+    where.push(cfg.defaultScope.clause);
   }
 
   const sortCol = cfg.sorts[q.sort] || cfg.defaultSortCol;
