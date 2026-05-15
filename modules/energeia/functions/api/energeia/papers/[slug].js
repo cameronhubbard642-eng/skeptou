@@ -1,4 +1,5 @@
 /**
+ * PATCH  /api/energeia/papers/:slug — update paper status
  * DELETE /api/energeia/papers/:slug — permanently delete a paper
  *
  * 1. Removes the paper's entry from slugs.yaml on agora:energeia
@@ -16,6 +17,47 @@
  */
 
 import { validateSession } from '../../../_shared/auth.js';
+
+const ALLOWED_STATUSES = ['drafting', 'revising', 'submitted', 'under-review', 'accepted', 'published', 'declined'];
+
+export async function onRequestPatch(ctx) {
+  const { env, params, request } = ctx;
+
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized — no active session' }, 401);
+
+  const slug = params.slug;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) return jsonResponse({ error: 'Invalid slug' }, 400);
+
+  if (!env.AGORA_DISPATCH_PAT || !env.AGORA_REPO) {
+    return jsonResponse({ error: 'agora not configured' }, 503);
+  }
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const newStatus = body.status;
+  if (!newStatus || !ALLOWED_STATUSES.includes(newStatus)) {
+    return jsonResponse(
+      { error: `Invalid status — allowed: ${ALLOWED_STATUSES.join(', ')}` },
+      400
+    );
+  }
+
+  try {
+    const gh     = new GitHub(env.AGORA_DISPATCH_PAT, env.AGORA_REPO);
+    const file   = await gh.getFile('slugs.yaml', 'energeia');
+    const result = updatePaperStatusInYaml(file.content, slug, newStatus);
+    if (!result.found) return jsonResponse({ error: `Paper "${slug}" not found` }, 404);
+
+    await gh.putFile('slugs.yaml', result.yaml, file.sha,
+      `energeia: set ${slug} status → ${newStatus} [automated]`, 'energeia');
+
+    return jsonResponse({ slug, status: newStatus });
+  } catch (err) {
+    console.error('Patch status error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err.message }, 500);
+  }
+}
 
 export async function onRequestDelete(ctx) {
   const { env, params, request } = ctx;
@@ -89,6 +131,54 @@ export async function onRequestDelete(ctx) {
 }
 
 /* ── YAML manipulation ──────────────────────────────────────────────────── */
+/*
+ * Sets the status: field for the given slug in slugs.yaml.
+ * Injects the field after title: if it doesn't already exist.
+ * Returns { found: bool, yaml: string }.
+ */
+function updatePaperStatusInYaml(yaml, slug, newStatus) {
+  const lines = yaml.split('\n');
+  const out   = [];
+  let inTarget      = false;
+  let found         = false;
+  let statusWritten = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('- slug:')) {
+      /* Leaving target without a status line — append before next entry */
+      if (inTarget && !statusWritten) {
+        out.push(`    status: ${newStatus}`);
+        statusWritten = true;
+      }
+      const thisSlug = trimmed.replace('- slug:', '').trim().replace(/^"|"$/g, '');
+      inTarget = (thisSlug === slug);
+      if (inTarget) { found = true; statusWritten = false; }
+    }
+
+    /* Replace existing status line */
+    if (inTarget && /^\s+status:/.test(line) && !statusWritten) {
+      out.push(`    status: ${newStatus}`);
+      statusWritten = true;
+      continue;
+    }
+
+    out.push(line);
+
+    /* Inject after title: if no status line has appeared yet */
+    if (inTarget && !statusWritten && /^\s+title:/.test(line)) {
+      out.push(`    status: ${newStatus}`);
+      statusWritten = true;
+    }
+  }
+
+  /* EOF flush */
+  if (inTarget && !statusWritten) out.push(`    status: ${newStatus}`);
+
+  return { found, yaml: out.join('\n') };
+}
+
 /*
  * Removes the entire paper entry for the given slug from slugs.yaml.
  * Returns { found: bool, yaml: string }.

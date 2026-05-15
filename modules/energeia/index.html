@@ -76,11 +76,35 @@
   }
 
   /* Paper status badges ── */
-  .sk-badge--drafting  { color: var(--color-wine, #722f37);   border-color: var(--color-wine, #722f37);   background: rgba(114,47,55,.06); }
-  .sk-badge--revising  { color: var(--color-mauve, #915f6d);  border-color: var(--color-mauve, #915f6d);  background: rgba(145,95,109,.06); }
-  .sk-badge--submitted { color: var(--color-steel, #4682b4);  border-color: var(--color-steel, #4682b4);  background: rgba(70,130,180,.06); }
-  .sk-badge--published { color: var(--color-quartz, #51414f); border-color: var(--color-quartz, #51414f); background: rgba(81,65,79,.06); }
-  .sk-badge--archived  { color: var(--color-light-steel, #b0c4de); border-color: var(--color-light-steel, #b0c4de); background: rgba(176,196,222,.06); }
+  .sk-badge--drafting      { color: var(--color-wine, #722f37);        border-color: var(--color-wine, #722f37);        background: rgba(114,47,55,.06); }
+  .sk-badge--revising      { color: var(--color-mauve, #915f6d);       border-color: var(--color-mauve, #915f6d);       background: rgba(145,95,109,.06); }
+  .sk-badge--submitted     { color: var(--color-steel, #4682b4);       border-color: var(--color-steel, #4682b4);       background: rgba(70,130,180,.06); }
+  .sk-badge--under-review  { color: #6a9ec0;                           border-color: #6a9ec0;                           background: rgba(106,158,192,.06); }
+  .sk-badge--accepted      { color: var(--color-quartz, #51414f);      border-color: var(--color-quartz, #51414f);      background: rgba(81,65,79,.08); }
+  .sk-badge--published     { color: var(--color-quartz, #51414f);      border-color: var(--color-quartz, #51414f);      background: rgba(81,65,79,.06); }
+  .sk-badge--declined      { color: var(--color-coral, #f08080);       border-color: var(--color-coral, #f08080);       background: rgba(240,128,128,.06); }
+  .sk-badge--archived      { color: var(--color-light-steel, #b0c4de); border-color: var(--color-light-steel, #b0c4de); background: rgba(176,196,222,.06); }
+
+  /* Inline status picker — styled to match badge, with dropdown affordance */
+  .sk-status-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 2px 20px 2px 8px;
+    font-size: .72rem;
+    font-family: inherit;
+    font-variant: small-caps;
+    letter-spacing: .04em;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='currentColor' opacity='.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    background-size: 7px;
+    transition: opacity .15s;
+  }
+  .sk-status-select:hover { opacity: .8; }
+  .sk-status-select:focus { outline: 2px solid currentColor; outline-offset: 2px; }
 
   /* Paper card ── */
   .sk-paper-card {
@@ -90,10 +114,13 @@
     margin-bottom: 1rem;
     background: rgba(252,245,229,.4);
   }
-  .sk-paper-card[data-status="drafting"]  { border-left-color: var(--color-wine, #722f37); }
-  .sk-paper-card[data-status="submitted"] { border-left-color: var(--color-steel, #4682b4); }
-  .sk-paper-card[data-status="published"] { border-left-color: var(--color-quartz, #51414f); }
-  .sk-paper-card[data-status="archived"]  { border-left-color: var(--color-light-steel, #b0c4de); opacity: .75; }
+  .sk-paper-card[data-status="drafting"]      { border-left-color: var(--color-wine, #722f37); }
+  .sk-paper-card[data-status="submitted"]     { border-left-color: var(--color-steel, #4682b4); }
+  .sk-paper-card[data-status="under-review"]  { border-left-color: #6a9ec0; }
+  .sk-paper-card[data-status="accepted"]      { border-left-color: var(--color-quartz, #51414f); }
+  .sk-paper-card[data-status="published"]     { border-left-color: var(--color-quartz, #51414f); }
+  .sk-paper-card[data-status="declined"]      { border-left-color: var(--color-coral, #f08080); }
+  .sk-paper-card[data-status="archived"]      { border-left-color: var(--color-light-steel, #b0c4de); opacity: .75; }
 
   .sk-paper-card__row1 {
     display: flex;
@@ -667,6 +694,11 @@
       /* Clip overlay above bottom nav bar so modal never slides behind it */
       bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     }
+    .sk-status-select {
+      width: 100%;
+      padding: 7px 28px 7px 10px;
+      font-size: .85rem;
+    }
     .sk-modal {
       max-width: 100%;
       width: 100%;
@@ -993,7 +1025,7 @@
   function renderFilterBar() {
     var bar = document.getElementById('overview-filter-bar');
     if (!bar) return;
-    var statuses = ['all', 'drafting', 'revising', 'submitted', 'published', 'archived'];
+    var statuses = ['all', 'drafting', 'revising', 'submitted', 'under-review', 'accepted', 'published', 'declined', 'archived'];
     bar.innerHTML = statuses.map(function(s) {
       return '<button class="sk-filter-btn' + (filterStatus === s ? ' active' : '') + '"' +
         ' onclick="setFilter(\'' + s + '\')">' + (s === 'all' ? 'All' : capitalize(s)) + '</button>';
@@ -1080,7 +1112,7 @@
   }
 
   /* ── Papers Overview ─────────────────────────────────────────────────── */
-  const STATUS_ORDER = ['drafting', 'revising', 'submitted', 'published', 'archived'];
+  const STATUS_ORDER = ['drafting', 'revising', 'submitted', 'under-review', 'accepted', 'published', 'declined', 'archived'];
 
   function renderOverview() {
     renderFilterBar();
@@ -1149,6 +1181,58 @@
           : '') +
       '</div>' +
     '</div>';
+  }
+
+  /* ── Status picker ───────────────────────────────────────────────────── */
+  var PICKER_STATUSES = ['drafting', 'revising', 'submitted', 'under-review', 'accepted', 'published', 'declined'];
+
+  function statusSelectHtml(paper) {
+    var opts = PICKER_STATUSES.map(function(s) {
+      return '<option value="' + s + '"' + (s === paper.status ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    return '<select class="sk-status-select sk-badge sk-badge--' + escHtml(paper.status) + '" ' +
+      'data-slug="' + escHtml(paper.slug) + '" ' +
+      'aria-label="Paper status" ' +
+      'onchange="patchStatus(\'' + escHtml(paper.slug) + '\', this.value)">' +
+      opts + '</select>';
+  }
+
+  function patchStatus(slug, newStatus) {
+    var paper = PAPERS.find(function(p) { return p.slug === slug; });
+    if (!paper) return;
+    var oldStatus = paper.status;
+
+    /* Optimistic update — badge in detail header + card in list */
+    paper.status = newStatus;
+    var sel = document.querySelector('.sk-status-select[data-slug="' + slug + '"]');
+    if (sel) {
+      sel.className = sel.className.replace(/sk-badge--[\w-]+/, 'sk-badge--' + newStatus);
+      sel.value = newStatus;
+    }
+    var card = document.getElementById('card-' + slug);
+    if (card) {
+      card.dataset.status = newStatus;
+      var cardBadge = card.querySelector('.sk-paper-card__row1 .sk-badge');
+      if (cardBadge) { cardBadge.className = 'sk-badge sk-badge--' + newStatus; cardBadge.textContent = newStatus; }
+    }
+
+    fetch('/api/energeia/papers/' + encodeURIComponent(slug), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    }).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    }).catch(function(err) {
+      /* Revert optimistic update */
+      paper.status = oldStatus;
+      if (sel) { sel.className = sel.className.replace(/sk-badge--[\w-]+/, 'sk-badge--' + oldStatus); sel.value = oldStatus; }
+      if (card) {
+        card.dataset.status = oldStatus;
+        var cardBadge = card.querySelector('.sk-paper-card__row1 .sk-badge');
+        if (cardBadge) { cardBadge.className = 'sk-badge sk-badge--' + oldStatus; cardBadge.textContent = oldStatus; }
+      }
+      console.error('Status update failed:', err);
+    });
   }
 
   /* ── Paper Detail ────────────────────────────────────────────────────── */
@@ -1334,7 +1418,7 @@
       '<div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:var(--section-margin);">' +
         '<div>' +
           '<h1 style="margin-bottom:.35rem;">' + escHtml(paper.title) + '</h1>' +
-          '<span class="sk-badge sk-badge--' + paper.status + '">' + paper.status + '</span>' +
+          statusSelectHtml(paper) +
           (paper.currentTag ? '<span class="sk-secondary" style="font-size:.78rem;margin-left:.75rem;">' + escHtml(paper.currentTag) + '</span>' : '') +
         '</div>' +
       '</div>' +
