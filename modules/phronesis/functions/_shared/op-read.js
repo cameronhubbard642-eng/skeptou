@@ -32,7 +32,7 @@ export async function authGate(request, env, routePrefix) {
   return { auth };
 }
 
-function requireDb(env) {
+export function requireDb(env) {
   if (!env.OP_DB) {
     return errorResponse(503, 'DB_UNAVAILABLE', 'OP_DB binding not configured');
   }
