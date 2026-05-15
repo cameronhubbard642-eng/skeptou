@@ -66,7 +66,24 @@ export async function onRequestDelete(ctx) {
       }
     }
 
-    /* 3. Trigger directory cleanup workflow (non-fatal) */
+    /* 3. Queue daemon local cleanup — worktrees + Scrivener (non-fatal) */
+    let daemonQueued = 0;
+    if (env.ENERGEIA_ACTIONS) {
+      for (const branch of deleted) {
+        /* Extract direction from branch name regardless of archive prefix */
+        const stem      = branch.replace(/^(?:archive\/)?dunamis\//, '');
+        const direction = stem.slice(slug.length + 1);
+        await queueDaemonAction(env.ENERGEIA_ACTIONS, 'remove-worktree',
+          { slug, direction, branch }).catch(() => {});
+        daemonQueued++;
+      }
+      /* Trash all Scrivener projects: <slug>.scriv and <slug>-*.scriv */
+      await queueDaemonAction(env.ENERGEIA_ACTIONS, 'delete-scrivener-project',
+        { slug }).catch(() => {});
+      daemonQueued++;
+    }
+
+    /* 4. Trigger directory cleanup workflow on agora (non-fatal) */
     let workflowQueued = false;
     try {
       await gh.dispatchWorkflow('delete-paper.yml', 'main', { slug });
@@ -78,6 +95,7 @@ export async function onRequestDelete(ctx) {
       slug,
       branchesDeleted: deleted,
       failedDeletes,
+      daemonActionsQueued: daemonQueued,
       directoryCleanup: workflowQueued ? 'queued' : 'manual-required',
       message: `Paper "${slug}" permanently deleted. This action is irreversible.`,
     }, 200);
@@ -198,6 +216,18 @@ class GitHub {
       'User-Agent':    'energeia-skeptou',
     };
   }
+}
+
+/* ── KV daemon action queue ─────────────────────────────────────────────── */
+async function queueDaemonAction(kv, type, payload) {
+  const id = crypto.randomUUID();
+  await kv.put(`action:${id}`, JSON.stringify({
+    id, type, payload, status: 'pending', created: new Date().toISOString(),
+  }));
+  const queueRaw = await kv.get('action-queue');
+  const queue = queueRaw ? JSON.parse(queueRaw) : [];
+  queue.push(id);
+  await kv.put('action-queue', JSON.stringify(queue));
 }
 
 function jsonResponse(body, status = 200) {

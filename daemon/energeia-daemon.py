@@ -297,13 +297,23 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
 
 
 def handle_remove_worktree(payload: dict) -> tuple[bool, str]:
-    branch = payload.get('branch', '')
-    if not branch:
-        return False, 'Missing branch'
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    branch    = payload.get('branch', '')
 
-    target = WORKTREES / branch.replace('dunamis/', '')
+    if slug and direction:
+        # Preferred: derive path from slug+direction; immune to branch prefix variations
+        # (archive/dunamis/<slug>-<dir> and dunamis/<slug>-<dir> share the same local path)
+        target = WORKTREES / f'{slug}-{direction}'
+    elif branch:
+        # Fallback: strip 'archive/' prefix then 'dunamis/' prefix
+        stem   = branch.removeprefix('archive/').replace('dunamis/', '', 1)
+        target = WORKTREES / stem
+    else:
+        return False, 'Missing slug+direction or branch'
+
     if not target.exists():
-        return True, 'Worktree not found — already removed'
+        return True, f'Worktree not found at {target} — already removed'
 
     rc, out = run_git(['worktree', 'remove', '--force', str(target)], AGORA_PATH)
     if rc != 0:
@@ -311,6 +321,32 @@ def handle_remove_worktree(payload: dict) -> tuple[bool, str]:
 
     log.info('Removed worktree %s', target)
     return True, f'Worktree removed: {target}'
+
+
+def handle_delete_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug = payload.get('slug', '')
+    if not slug:
+        return False, 'Missing slug'
+
+    trash = SCRIVENER_DIR / '_trash'
+    trash.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%dT%H%M%S')
+
+    moved = []
+    for item in sorted(SCRIVENER_DIR.iterdir()):
+        name = item.name
+        if not name.endswith('.scriv') or not item.is_dir():
+            continue
+        stem = name[:-6]  # strip '.scriv'
+        if stem == slug or stem.startswith(f'{slug}-'):
+            dest = trash / f'{stem}-{timestamp}.scriv'
+            shutil.move(str(item), str(dest))
+            moved.append(name)
+            log.info('Trashed Scrivener project %s → %s', item, dest)
+
+    if not moved:
+        return True, f'No Scrivener projects found for slug "{slug}" — nothing to trash'
+    return True, f'Trashed {len(moved)} Scrivener project(s): {", ".join(moved)}'
 
 
 def handle_scaffold_scrivener_project(payload: dict) -> tuple[bool, str]:
@@ -398,11 +434,12 @@ def handle_configure_scrivener_compile_target(payload: dict) -> tuple[bool, str]
 
 # ── Action dispatch ───────────────────────────────────────────────────────────
 HANDLERS = {
-    'create-worktree':                   handle_create_worktree,
-    'remove-worktree':                   handle_remove_worktree,
-    'scaffold-scrivener-project':        handle_scaffold_scrivener_project,
-    'duplicate-scrivener-project':       handle_duplicate_scrivener_project,
-    'archive-scrivener-project':         handle_archive_scrivener_project,
+    'create-worktree':                    handle_create_worktree,
+    'remove-worktree':                    handle_remove_worktree,
+    'scaffold-scrivener-project':         handle_scaffold_scrivener_project,
+    'duplicate-scrivener-project':        handle_duplicate_scrivener_project,
+    'archive-scrivener-project':          handle_archive_scrivener_project,
+    'delete-scrivener-project':           handle_delete_scrivener_project,
     'configure-scrivener-compile-target': handle_configure_scrivener_compile_target,
 }
 
