@@ -1,0 +1,61 @@
+name: Delete paper (directory cleanup)
+
+# Triggered by DELETE /api/energeia/papers/:slug after slugs.yaml entry and
+# all dunamis branches have already been removed by the Worker.
+# This workflow handles the git-level directory removal on the energeia branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Paper slug to permanently delete
+        required: true
+        type: string
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate slug
+        run: |
+          SLUG="${{ inputs.slug }}"
+          if ! echo "$SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*$'; then
+            echo "Invalid slug: $SLUG" && exit 1
+          fi
+
+      - name: Checkout agora energeia branch
+        uses: actions/checkout@v4
+        with:
+          ref: energeia
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove paper directories
+        id: removal
+        run: |
+          SLUG="${{ inputs.slug }}"
+          CHANGED=false
+          for DIR in "papers/$SLUG" "working/$SLUG" "compiled/$SLUG"; do
+            if [ -d "$DIR" ]; then
+              git rm -rf "$DIR"
+              echo "Removed: $DIR"
+              CHANGED=true
+            else
+              echo "Not found (skipped): $DIR"
+            fi
+          done
+          echo "CHANGED=$CHANGED" >> $GITHUB_ENV
+
+      - name: Commit removal
+        if: env.CHANGED == 'true'
+        run: |
+          git config user.name  "energeia-bot"
+          git config user.email "energeia@skeptou.com"
+          git commit -m "energeia: permanently delete paper ${{ inputs.slug }} — directory cleanup [automated — AUDIT]"
+          git push origin energeia
+
+      - name: No-op summary
+        if: env.CHANGED != 'true'
+        run: echo "No directories found for ${{ inputs.slug }} — nothing to commit."

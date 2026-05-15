@@ -4,9 +4,14 @@ on:
   push:
     branches: [energeia]
     paths:
-      - 'papers/**/main.tex'
-      - 'papers/**/**.tex'
+      - 'papers/**/*.tex'
       - 'templates/**'
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Paper slug to recompile (e.g. nans-genealogy-abstract)
+        required: true
+        type: string
 
 jobs:
   compile:
@@ -25,9 +30,16 @@ jobs:
       - name: Detect changed papers
         id: changed
         run: |
-          # Find paper slugs with changed .tex files in this push
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'papers/**/**.tex' \
-            | sed 's|papers/||' | cut -d/ -f1 | sort -u | tr '\n' ' ')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CHANGED="${{ inputs.slug }}"
+          else
+            # Find paper slugs with changed .tex files in this push.
+            # Normalize Scrivener .tex-folder variant: papers/<slug>.tex/<file>.tex → slug
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'papers/**/*.tex' \
+              | sed 's|papers/||' | cut -d/ -f1 \
+              | sed 's/\.tex$//' \
+              | sort -u | tr '\n' ' ')
+          fi
           echo "SLUGS=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed paper slugs: $CHANGED"
 
@@ -36,31 +48,94 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
+            texlive-xetex texlive-fonts-recommended texlive-latex-extra \
+            texlive-bibtex-extra texlive-fonts-extra \
+            latexmk biber
+
+      - name: Register TeX-installed OTF/TTF fonts with fontconfig
+        if: steps.changed.outputs.SLUGS != ''
+        run: |
+          sudo fc-cache -f /usr/share/texlive/texmf-dist/fonts/opentype/ \
+                        /usr/share/texlive/texmf-dist/fonts/truetype/ 2>/dev/null || true
+          fc-cache -f
 
       - name: Configure TEXINPUTS for Cameron Personal Style
         if: steps.changed.outputs.SLUGS != ''
-        run: echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
+        run: echo "TEXINPUTS=.:$(pwd)/templates//:" >> $GITHUB_ENV
 
       - name: Compile each changed paper
         if: steps.changed.outputs.SLUGS != ''
         run: |
           FAILED=""
           for SLUG in ${{ steps.changed.outputs.SLUGS }}; do
-            TEX="papers/$SLUG/main.tex"
-            if [ ! -f "$TEX" ]; then
-              echo "Skipping $SLUG — no main.tex"
+            # Resolve paper directory: canonical path OR Scrivener .tex-folder variant
+            PAPER_DIR="papers/$SLUG"
+            if [ ! -d "$PAPER_DIR" ] && [ -d "papers/${SLUG}.tex" ]; then
+              PAPER_DIR="papers/${SLUG}.tex"
+              echo "Using Scrivener .tex folder: $PAPER_DIR"
+            fi
+            # Detect main .tex: the non-mmd6- entry file in the paper dir
+            MAIN_TEX=$(find "$PAPER_DIR" -maxdepth 1 -name "*.tex" -not -name "mmd6-*" | head -1)
+            if [ -z "$MAIN_TEX" ]; then
+              echo "Skipping $SLUG — no main .tex found in $PAPER_DIR"
               continue
             fi
-            # Link template personal_style/ beside main.tex so relative font/image
-            # paths in Cameron_Personal_Style.sty resolve from the paper directory.
+            TEX_BASE=$(basename "$MAIN_TEX")
+
+            # Detect format from slugs.yaml (first format in the formats: list)
+            FORMAT=$(awk -v target="$SLUG" '
+              /^- slug:/ {
+                line = $0
+                gsub(/^[[:space:]]*-[[:space:]]*slug:[[:space:]]*/, "", line)
+                gsub(/"/, "", line)
+                in_target = (line == target)
+              }
+              in_target && /[[:space:]]formats:/ {
+                gsub(/.*formats:[[:space:]]*/, "")
+                gsub(/[\[\]"]/, "")
+                split($0, a, ",")
+                val = a[1]
+                gsub(/[[:space:]]/, "", val)
+                print val
+                exit
+              }
+            ' slugs.yaml)
+            FORMAT=${FORMAT:-article}
+
             ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
-                    "papers/$SLUG/personal_style"
-            echo "=== Compiling papers/$SLUG/main.tex ==="
-            cd "papers/$SLUG"
-            latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || \
-              FAILED="$FAILED $SLUG"
-            cd ../..
+                    "${PAPER_DIR}/personal_style"
+            [ ! -f "${PAPER_DIR}/main.bib" ] && touch "${PAPER_DIR}/main.bib" || true
+            echo "=== Compiling ${PAPER_DIR}/$TEX_BASE (format=$FORMAT) ==="
+
+            if [ "$FORMAT" = "slides" ]; then
+              mkdir -p "compiled/$SLUG"
+              cd "$PAPER_DIR"
+              xelatex -interaction=nonstopmode -halt-on-error \
+                -jobname="${SLUG}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || \
+                FAILED="$FAILED $SLUG"
+              [ -f "${SLUG}-slides.pdf" ] && \
+                cp "${SLUG}-slides.pdf" "${GITHUB_WORKSPACE}/compiled/$SLUG/${SLUG}-slides.pdf"
+              cd "${GITHUB_WORKSPACE}"
+            elif [ "$FORMAT" = "dual" ]; then
+              mkdir -p "compiled/$SLUG"
+              cd "$PAPER_DIR"
+              xelatex -interaction=nonstopmode -halt-on-error \
+                -jobname="${SLUG}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || \
+                FAILED="$FAILED $SLUG"
+              xelatex -interaction=nonstopmode -halt-on-error \
+                -jobname="${SLUG}-handout" "\def\HandoutMode{}\input{$TEX_BASE}" || \
+                FAILED="$FAILED $SLUG"
+              [ -f "${SLUG}-slides.pdf" ] && \
+                cp "${SLUG}-slides.pdf"  "${GITHUB_WORKSPACE}/compiled/$SLUG/${SLUG}-slides.pdf"
+              [ -f "${SLUG}-handout.pdf" ] && \
+                cp "${SLUG}-handout.pdf" "${GITHUB_WORKSPACE}/compiled/$SLUG/${SLUG}-handout.pdf"
+              cd "${GITHUB_WORKSPACE}"
+            else
+              cd "$PAPER_DIR"
+              latexmk -xelatex -interaction=nonstopmode -halt-on-error "$TEX_BASE" || \
+                FAILED="$FAILED $SLUG"
+              cd "${GITHUB_WORKSPACE}"
+            fi
           done
           if [ -n "$FAILED" ]; then
             echo "The following papers failed to compile:$FAILED"
@@ -72,7 +147,7 @@ jobs:
         run: |
           git config user.name  "energeia-bot"
           git config user.email "energeia@skeptou.com"
-          git add 'papers/**/main.pdf'
+          git add 'papers/**/*.pdf' 'compiled/**/*.pdf'
           git diff --cached --quiet || \
             git commit -m "energeia: compile canonical PDFs [automated]"
           git push origin energeia

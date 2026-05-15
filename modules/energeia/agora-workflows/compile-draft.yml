@@ -26,57 +26,135 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate inputs
+      - name: Validate inputs and detect main .tex
+        id: setup
         run: |
           SLUG="${{ inputs.slug }}"
           BRANCH="${{ inputs.branch }}"
           if ! echo "$BRANCH" | grep -qE '^dunamis/[a-z0-9-]+-[a-z]+$'; then
             echo "Invalid branch: $BRANCH" && exit 1
           fi
-          TEX_FILE="papers/${SLUG}/main.tex"
-          if [ ! -f "$TEX_FILE" ]; then
-            echo "No main.tex found at $TEX_FILE — nothing to compile"
-            exit 0
+          # Resolve paper directory: canonical path OR Scrivener .tex-folder variant
+          PAPER_DIR="papers/$SLUG"
+          if [ ! -d "$PAPER_DIR" ] && [ -d "papers/${SLUG}.tex" ]; then
+            PAPER_DIR="papers/${SLUG}.tex"
+            echo "Using Scrivener .tex folder: $PAPER_DIR"
           fi
-          echo "TEX_FILE=$TEX_FILE" >> $GITHUB_ENV
-          echo "OUT_DIR=papers/$SLUG" >> $GITHUB_ENV
+          # Detect main .tex: the non-mmd6- entry file in the paper dir
+          MAIN_TEX=$(find "$PAPER_DIR" -maxdepth 1 -name "*.tex" -not -name "mmd6-*" | head -1)
+          if [ -z "$MAIN_TEX" ]; then
+            echo "No main .tex found in $PAPER_DIR — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            TEX_BASE=$(basename "$MAIN_TEX")
+            DIRECTION=$(echo "$BRANCH" | sed "s|dunamis/${SLUG}-||")
+            echo "TEX_BASE=$TEX_BASE"       >> $GITHUB_ENV
+            echo "OUT_DIR=$PAPER_DIR"       >> $GITHUB_ENV
+            echo "DIRECTION=$DIRECTION"     >> $GITHUB_ENV
+            echo "skip=false"               >> $GITHUB_OUTPUT
+          fi
+
+      - name: Detect paper format from energeia slugs.yaml
+        if: success() && steps.setup.outputs.skip != 'true'
+        run: |
+          SLUG="${{ inputs.slug }}"
+          git fetch origin energeia --depth=1 2>/dev/null || true
+          FORMAT=$(git show origin/energeia:slugs.yaml 2>/dev/null | awk -v target="$SLUG" '
+            /^- slug:/ {
+              line = $0
+              gsub(/^[[:space:]]*-[[:space:]]*slug:[[:space:]]*/, "", line)
+              gsub(/"/, "", line)
+              in_target = (line == target)
+            }
+            in_target && /[[:space:]]formats:/ {
+              gsub(/.*formats:[[:space:]]*/, "")
+              gsub(/[\[\]"]/, "")
+              split($0, a, ",")
+              val = a[1]
+              gsub(/[[:space:]]/, "", val)
+              print val
+              exit
+            }
+          ')
+          FORMAT=${FORMAT:-article}
+          echo "FORMAT=$FORMAT" >> $GITHUB_ENV
 
       - name: Install TeX Live (XeLaTeX + latexmk)
+        if: success() && steps.setup.outputs.skip != 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            texlive-xetex texlive-fonts-recommended texlive-latex-extra latexmk
+            texlive-xetex texlive-fonts-recommended texlive-latex-extra \
+            texlive-bibtex-extra texlive-fonts-extra \
+            latexmk biber
+
+      - name: Register TeX-installed OTF/TTF fonts with fontconfig
+        if: success() && steps.setup.outputs.skip != 'true'
+        run: |
+          sudo fc-cache -f /usr/share/texlive/texmf-dist/fonts/opentype/ \
+                        /usr/share/texlive/texmf-dist/fonts/truetype/ 2>/dev/null || true
+          fc-cache -f
 
       - name: Link Cameron_Personal_Style into paper directory
+        if: success() && steps.setup.outputs.skip != 'true'
         run: |
-          # The .sty files use relative paths (./personal_style/fonts/ etc.)
-          # resolved from the working directory at compile time.
-          # Symlinking templates/personal_style/ beside the paper's main.tex
-          # satisfies those relative references without modifying any .sty file.
           ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
-                  "papers/${{ inputs.slug }}/personal_style"
+                  "${OUT_DIR}/personal_style"
 
       - name: Configure TEXINPUTS for Cameron Personal Style
+        if: success() && steps.setup.outputs.skip != 'true'
+        run: echo "TEXINPUTS=.:$(pwd)/templates//:" >> $GITHUB_ENV
+
+      - name: Ensure bibliography stub exists
+        if: success() && steps.setup.outputs.skip != 'true'
         run: |
-          # Belt-and-suspenders: lets xelatex find any additional files in templates/
-          echo "TEXINPUTS=.:$(pwd)/templates//::" >> $GITHUB_ENV
+          [ ! -f "${OUT_DIR}/main.bib" ] && touch "${OUT_DIR}/main.bib" || true
 
       - name: Compile with XeLaTeX
+        if: success() && steps.setup.outputs.skip != 'true'
         run: |
+          SLUG="${{ inputs.slug }}"
           cd "$OUT_DIR"
-          latexmk -xelatex -interaction=nonstopmode -halt-on-error main.tex || {
-            echo "XeLaTeX compilation failed — see log above"
-            exit 1
-          }
+          if [ "$FORMAT" = "slides" ]; then
+            xelatex -interaction=nonstopmode -halt-on-error \
+              -jobname="draft-${DIRECTION}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || {
+              echo "XeLaTeX compilation failed — see log above"; exit 1
+            }
+          elif [ "$FORMAT" = "dual" ]; then
+            xelatex -interaction=nonstopmode -halt-on-error \
+              -jobname="draft-${DIRECTION}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || {
+              echo "XeLaTeX compilation failed (slides pass)"; exit 1
+            }
+            xelatex -interaction=nonstopmode -halt-on-error \
+              -jobname="draft-${DIRECTION}-handout" "\def\HandoutMode{}\input{$TEX_BASE}" || {
+              echo "XeLaTeX compilation failed (handout pass)"; exit 1
+            }
+          else
+            latexmk -xelatex -interaction=nonstopmode -halt-on-error "$TEX_BASE" || {
+              echo "XeLaTeX compilation failed — see log above"; exit 1
+            }
+          fi
 
       - name: Commit compiled PDF
+        if: success() && steps.setup.outputs.skip != 'true'
         run: |
           git config user.name  "energeia-bot"
           git config user.email "energeia@skeptou.com"
-          PDF="papers/${{ inputs.slug }}/main.pdf"
-          if [ -f "$PDF" ]; then
-            git add "$PDF"
-            git diff --cached --quiet || \
-              git commit -m "energeia: compile draft ${{ inputs.slug }} [automated]"
-            git push origin "${{ inputs.branch }}"
+          SLUG="${{ inputs.slug }}"
+          if [ "$FORMAT" = "slides" ] || [ "$FORMAT" = "dual" ]; then
+            # -jobname produced correctly-named draft PDFs directly
+            git add "${OUT_DIR}/*.pdf"
+          else
+            PDF_NAME="${TEX_BASE%.tex}.pdf"
+            PDF="${OUT_DIR}/$PDF_NAME"
+            # Always commit at canonical papers/<slug>/main.pdf — the path the PDF Worker fetches
+            # (OUT_DIR may be papers/<slug>.tex/ for Scrivener .tex-folder output)
+            mkdir -p "papers/${SLUG}"
+            if [ -f "$PDF" ]; then
+              cp "$PDF" "papers/${SLUG}/main.pdf"
+              git add "papers/${SLUG}/main.pdf"
+            fi
           fi
+          git diff --cached --quiet || \
+            git commit -m "energeia: compile draft $SLUG-${DIRECTION} [automated]"
+          git push origin "${{ inputs.branch }}"
