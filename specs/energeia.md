@@ -51,8 +51,9 @@ agora (repo)
 papers:
   - slug: "my-paper"
     title: "Full Paper Title"
-    status: active          # active | archived
-    format: article         # article | slides | dual | letter
+    status: drafting         # drafting | revising | submitted | under-review | accepted | published | declined
+                             # (archived is set by POST /archive, not PATCH)
+    format: article          # article | slides | dual | letter
     currentTag: style-I
     directions:
       dunamis:
@@ -60,6 +61,12 @@ papers:
       archived-dunamis:
         beta: { label: "Beta direction", branch: "archive/dunamis/my-paper-beta" }
 ```
+
+**Status lifecycle:**
+`drafting` → `revising` → `submitted` → `under-review` → `accepted` → `published`
+Terminal/exit: `declined` (re-enter at `revising`), `archived` (via dedicated endpoint).
+
+Papers without a `status:` field are displayed as `drafting` in the UI and will receive an explicit `status: drafting` line the first time PATCH is called.
 
 ---
 
@@ -162,5 +169,6 @@ ls ~/Documents/agora-worktrees/dunamis/<slug>-<dir>/papers/
 | Promote | `POST /api/energeia/papers/:slug/promote` | Dispatches `promote-paper.yml` |
 | Archive direction | `POST /api/energeia/papers/:slug/directions/:dir/archive` | Renames branch; updates `slugs.yaml` |
 | Delete archived direction | `DELETE /api/energeia/papers/:slug/directions/:dir` | Deletes `archive/dunamis/` branch |
+| Update status | `PATCH /api/energeia/papers/:slug` | Body `{ status: "..." }`; allowed values: `drafting \| revising \| submitted \| under-review \| accepted \| published \| declined` |
 | Archive paper | `POST /api/energeia/papers/:slug/archive` | Sets `status: archived`; renames all directions |
 | Delete paper | `DELETE /api/energeia/papers/:slug` | Requires `{ confirm: "delete-<slug>" }` body; irreversible |
