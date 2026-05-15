@@ -113,7 +113,14 @@ def report_complete(action_id: str, ok: bool, message: str = '') -> None:
 # ── Cloudflare KV helpers (direct REST — avoids CF Access gate) ───────────────
 
 def _cf_token() -> str:
-    """Read wrangler OAuth token from ~/.wrangler/config/default.toml."""
+    """Cloudflare API token. Prefers the long-lived CLOUDFLARE_API_TOKEN env
+    var; falls back to the short-lived wrangler OAuth token only if unset.
+
+    The wrangler oauth_token expires hourly and has no refresh here, so a
+    scoped API token is the supported credential for the daemon."""
+    env_token = os.environ.get('CLOUDFLARE_API_TOKEN', '').strip()
+    if env_token:
+        return env_token
     cfg = Path.home() / '.wrangler' / 'config' / 'default.toml'
     try:
         with open(cfg, 'rb') as f:
@@ -249,7 +256,8 @@ def git_auto_commit(worktree: Path, branch: str) -> None:
     if rc != 0:
         log.warning('git commit failed in %s: %s', worktree, out)
         return
-    rc, out = run_git(['push', 'origin', branch], worktree)
+    local_branch = branch.split('/')[-1]
+    rc, out = run_git(['push', 'origin', f'{local_branch}:{branch}'], worktree)
     if rc != 0:
         log.warning('git push failed in %s: %s', worktree, out)
     else:
@@ -262,17 +270,29 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
     if not branch or not slug:
         return False, 'Missing branch or slug'
 
-    target = WORKTREES / branch.replace('dunamis/', '')
+    # branch is the remote branch 'dunamis/<slug>-<dir>'; the local branch and
+    # worktree dir drop the 'dunamis/' prefix so the watcher's push refspec
+    # (local:remote) stays consistent.
+    local_branch = branch.replace('dunamis/', '')
+    target = WORKTREES / local_branch
     if target.exists():
         return True, f'Worktree already exists at {target}'
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    # Fetch the branch first
+    # Fetch the branch first (updates refs/remotes/origin/<branch>)
     rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
     if rc != 0:
         return False, f'git fetch failed: {out}'
 
-    rc, out = run_git(['worktree', 'add', str(target), branch], AGORA_PATH)
+    # Check out the worktree on a real local branch tracking origin/<branch>.
+    # Without this the worktree lands in detached HEAD and pushes fail.
+    rc, _ = run_git(['show-ref', '--verify', '--quiet',
+                     f'refs/heads/{local_branch}'], AGORA_PATH)
+    if rc == 0:
+        rc, out = run_git(['worktree', 'add', str(target), local_branch], AGORA_PATH)
+    else:
+        rc, out = run_git(['worktree', 'add', '--track', '-b', local_branch,
+                           str(target), f'origin/{branch}'], AGORA_PATH)
     if rc != 0:
         return False, f'git worktree add failed: {out}'
 
@@ -323,6 +343,78 @@ def handle_remove_worktree(payload: dict) -> tuple[bool, str]:
     return True, f'Worktree removed: {target}'
 
 
+def _rename_inner_scrivx(pkg: Path, new_stem: str) -> None:
+    """Scrivener requires the inner .scrivx to match the package name; after a
+    copytree it still carries the source stem, so rename it."""
+    for scrivx in pkg.glob('*.scrivx'):
+        target = pkg / f'{new_stem}.scrivx'
+        if scrivx != target:
+            scrivx.rename(target)
+        break
+
+
+def handle_scaffold_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug  = payload.get('slug', '')
+    fmt   = payload.get('format', 'article')
+    if not slug:
+        return False, 'Missing slug'
+
+    dest = SCRIVENER_DIR / f'{slug}.scriv'
+    SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
+
+    if dest.exists():
+        return True, f'Scrivener project already exists at {dest}'
+
+    template = SCRIVENER_DIR / '_templates' / f'{fmt}.scriv'
+    if not template.exists():
+        return False, (f'No Scrivener template for format "{fmt}" at {template} — '
+                       f'add a template there before scaffolding')
+
+    shutil.copytree(template, dest)
+    _rename_inner_scrivx(dest, slug)
+    log.info('Created Scrivener project from template %s: %s', fmt, dest)
+    return True, f'Scrivener project scaffolded at {dest}'
+
+
+def handle_duplicate_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    if not slug or not direction:
+        return False, 'Missing slug or direction'
+
+    src  = SCRIVENER_DIR / f'{slug}.scriv'
+    dest = SCRIVENER_DIR / f'{slug}-{direction}.scriv'
+
+    if not src.exists():
+        return False, f'Source project not found: {src}'
+    if dest.exists():
+        return True, f'Direction project already exists: {dest}'
+
+    shutil.copytree(src, dest)
+    _rename_inner_scrivx(dest, f'{slug}-{direction}')
+    log.info('Duplicated Scrivener project %s → %s', src.name, dest.name)
+    return True, f'Duplicated to {dest}'
+
+
+def handle_archive_scrivener_project(payload: dict) -> tuple[bool, str]:
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    if not slug:
+        return False, 'Missing slug'
+
+    name = f'{slug}-{direction}.scriv' if direction else f'{slug}.scriv'
+    src  = SCRIVENER_DIR / name
+    if not src.exists():
+        return True, f'No Scrivener project found at {src} — nothing to archive'
+
+    archive_dir = SCRIVENER_DIR / 'archive'
+    archive_dir.mkdir(exist_ok=True)
+    dest = archive_dir / name
+    shutil.move(str(src), str(dest))
+    log.info('Archived Scrivener project %s → %s', src, dest)
+    return True, f'Archived to {dest}'
+
+
 def handle_delete_scrivener_project(payload: dict) -> tuple[bool, str]:
     slug = payload.get('slug', '')
     if not slug:
@@ -349,76 +441,6 @@ def handle_delete_scrivener_project(payload: dict) -> tuple[bool, str]:
     return True, f'Trashed {len(moved)} Scrivener project(s): {", ".join(moved)}'
 
 
-def handle_scaffold_scrivener_project(payload: dict) -> tuple[bool, str]:
-    slug  = payload.get('slug', '')
-    title = payload.get('title', slug)
-    fmt   = payload.get('format', 'article')
-    if not slug:
-        return False, 'Missing slug'
-
-    dest = SCRIVENER_DIR / f'{slug}.scriv'
-    SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
-
-    if dest.exists():
-        return True, f'Scrivener project already exists at {dest}'
-
-    # Template project (if available), else create minimal stub
-    template = SCRIVENER_DIR / '_templates' / f'{fmt}.scriv'
-    if template.exists():
-        shutil.copytree(template, dest)
-        log.info('Created Scrivener project from template: %s', dest)
-    else:
-        # Minimal .scriv stub — Cam opens and configures manually
-        dest.mkdir(parents=True)
-        (dest / 'project.scrivx').write_text(
-            f'<?xml version="1.0" encoding="UTF-8"?>\n'
-            f'<ScrivenerProject Version="2.0">\n'
-            f'  <ProjectTarget Type="Words" Current="0">{title}</ProjectTarget>\n'
-            f'</ScrivenerProject>\n'
-        )
-        log.info('Created minimal Scrivener stub at %s — configure compile target manually', dest)
-
-    return True, f'Scrivener project scaffolded at {dest}'
-
-
-def handle_duplicate_scrivener_project(payload: dict) -> tuple[bool, str]:
-    slug      = payload.get('slug', '')
-    direction = payload.get('direction', '')
-    if not slug or not direction:
-        return False, 'Missing slug or direction'
-
-    src  = SCRIVENER_DIR / f'{slug}.scriv'
-    dest = SCRIVENER_DIR / f'{slug}-{direction}.scriv'
-
-    if not src.exists():
-        return False, f'Source project not found: {src}'
-    if dest.exists():
-        return True, f'Direction project already exists: {dest}'
-
-    shutil.copytree(src, dest)
-    log.info('Duplicated Scrivener project %s → %s', src.name, dest.name)
-    return True, f'Duplicated to {dest}'
-
-
-def handle_archive_scrivener_project(payload: dict) -> tuple[bool, str]:
-    slug      = payload.get('slug', '')
-    direction = payload.get('direction', '')
-    if not slug:
-        return False, 'Missing slug'
-
-    name = f'{slug}-{direction}.scriv' if direction else f'{slug}.scriv'
-    src  = SCRIVENER_DIR / name
-    if not src.exists():
-        return True, f'No Scrivener project found at {src} — nothing to archive'
-
-    archive_dir = SCRIVENER_DIR / 'archive'
-    archive_dir.mkdir(exist_ok=True)
-    dest = archive_dir / name
-    shutil.move(str(src), str(dest))
-    log.info('Archived Scrivener project %s → %s', src, dest)
-    return True, f'Archived to {dest}'
-
-
 def handle_configure_scrivener_compile_target(payload: dict) -> tuple[bool, str]:
     # Scrivener compile configuration requires AppleScript on macOS.
     # Auto-configuration via AppleScript is complex and fragile;
@@ -434,12 +456,12 @@ def handle_configure_scrivener_compile_target(payload: dict) -> tuple[bool, str]
 
 # ── Action dispatch ───────────────────────────────────────────────────────────
 HANDLERS = {
-    'create-worktree':                    handle_create_worktree,
-    'remove-worktree':                    handle_remove_worktree,
-    'scaffold-scrivener-project':         handle_scaffold_scrivener_project,
-    'duplicate-scrivener-project':        handle_duplicate_scrivener_project,
-    'archive-scrivener-project':          handle_archive_scrivener_project,
-    'delete-scrivener-project':           handle_delete_scrivener_project,
+    'create-worktree':                   handle_create_worktree,
+    'remove-worktree':                   handle_remove_worktree,
+    'scaffold-scrivener-project':        handle_scaffold_scrivener_project,
+    'duplicate-scrivener-project':       handle_duplicate_scrivener_project,
+    'archive-scrivener-project':         handle_archive_scrivener_project,
+    'delete-scrivener-project':          handle_delete_scrivener_project,
     'configure-scrivener-compile-target': handle_configure_scrivener_compile_target,
 }
 
