@@ -26,14 +26,13 @@
  *     → no-store cache (always fresh; returns 404 until compiled)
  *
  * Auth:
- *   CF Access gates the entire energeia.skeptou.com domain, so any request
- *   reaching this function is already authenticated at the perimeter.
- *   validateCFAccess() is a belt-and-suspenders in-function check.
- *   TODO Phase 2: auth-core engineer (local_1ac2396c-8b4a-4fdc-a19d-55f5787c980b)
- *   will replace validateCFAccess() with @skeptou/auth-client requireAuth().
+ *   Requires a valid energeia HMAC session cookie — same as the other
+ *   energeia API Workers (validateSession from _shared/auth.js).
  *
- * Env: AGORA_DISPATCH_PAT, AGORA_REPO, CF_ACCESS_AUD
+ * Env: AGORA_DISPATCH_PAT, AGORA_REPO, HMAC_SECRET
  */
+
+import { validateSession } from '../../../../_shared/auth.js';
 
 /* ── Validation ──────────────────────────────────────────────────────────── */
 const VALID_SLUG = /^[a-z0-9][a-z0-9-]*$/;
@@ -75,9 +74,9 @@ const TAGGED_HANDOUT_RE  = /^(.+)-(style-[IVXLCDM]+(?:\.\d+)?)-handout\.pdf$/;
 export async function onRequestGet(ctx) {
   const { env, params, request } = ctx;
 
-  /* Auth — belt-and-suspenders; CF Access already gated the domain */
-  const authErr = await validateCFAccess(request, env.CF_ACCESS_AUD);
-  if (authErr) return jsonError('Unauthorized', 401);
+  /* Auth — energeia HMAC session cookie */
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonError('Unauthorized — no active session', 401);
 
   const { slug, filename } = params;
 
@@ -252,35 +251,4 @@ function jsonError(message, status) {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
-}
-
-/* ── CF Access JWT validation (shared pattern across energeia Workers) ───── */
-async function validateCFAccess(request, audience) {
-  if (!audience) return null;
-  const token = request.headers.get('CF-Access-Jwt-Assertion');
-  if (!token) return 'Missing CF-Access-Jwt-Assertion header';
-  try {
-    const [headerB64] = token.split('.');
-    const header = JSON.parse(atob(headerB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const certsResp = await fetch('https://skeptou.cloudflareaccess.com/cdn-cgi/access/certs');
-    if (!certsResp.ok) return 'Failed to fetch Access certs';
-    const certs = await certsResp.json();
-    const jwk = (certs.keys || []).find(k => k.kid === header.kid);
-    if (!jwk) return 'No matching JWK';
-    const key = await crypto.subtle.importKey(
-      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
-    );
-    const [, payloadB64, sigB64] = token.split('.');
-    const sig  = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, sig, data);
-    if (!valid) return 'Invalid JWT signature';
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    const audOk = Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
-    if (!audOk) return 'JWT audience mismatch';
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return 'JWT expired';
-    return null;
-  } catch (e) {
-    return `JWT validation error: ${e.message}`;
-  }
 }
