@@ -276,6 +276,22 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
     if rc != 0:
         return False, f'git worktree add failed: {out}'
 
+    # Sparse-checkout: show only this paper's content + shared infrastructure.
+    # Non-fatal — worktree is usable without it, just not filtered.
+    rc, out = run_git(['sparse-checkout', 'init', '--cone'], target)
+    if rc != 0:
+        log.warning('sparse-checkout init failed in %s: %s', target, out)
+    else:
+        rc, out = run_git(
+            ['sparse-checkout', 'set',
+             f'papers/{slug}', f'working/{slug}', 'templates', 'slugs.yaml'],
+            target
+        )
+        if rc != 0:
+            log.warning('sparse-checkout set failed in %s: %s', target, out)
+        else:
+            log.info('Sparse-checkout: papers/%s, working/%s, templates, slugs.yaml', slug, slug)
+
     log.info('Created worktree %s → %s', branch, target)
     return True, f'Worktree created at {target}'
 
