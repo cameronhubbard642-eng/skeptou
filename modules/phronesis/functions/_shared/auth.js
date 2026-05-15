@@ -119,3 +119,80 @@ export async function validateSession(request, env) {
 
   return { authenticated: true, ...session };
 }
+
+/* ── O&P API authentication (spec/op-d1-migration.md §V) ─────────────────── */
+
+/**
+ * Thrown by authenticateRequest() when no valid session or service token
+ * is present. Callers map this to a 401 response.
+ */
+export class AuthError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+async function sha256Hex(input) {
+  const buf = await crypto.subtle.digest(
+    'SHA-256', new TextEncoder().encode(input),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Validates a raw Bearer token against the service_tokens table in D1.
+ * Returns an AuthContext or null. Returns null (not an error) when the
+ * OP_DB binding is absent so the session path can still be tried.
+ */
+export async function validateServiceToken(rawToken, env) {
+  if (!env.OP_DB || !rawToken) return null;
+
+  const hash = await sha256Hex(rawToken);
+  const row = await env.OP_DB.prepare(
+    'SELECT role_slug, scopes, expires_at FROM service_tokens WHERE token_hash = ? AND active = 1',
+  ).bind(hash).first();
+
+  if (!row) return null;
+  if (new Date(row.expires_at) < new Date()) return null;
+
+  return { actor: row.role_slug, mode: 'service_token', scopes: row.scopes };
+}
+
+/**
+ * Authenticates an /api/* request via one of two paths:
+ *   1. session cookie (phronesis UI)  → actor 'cam'
+ *   2. Bearer service token (O&P specialists) → actor = role slug
+ * Returns an AuthContext { actor, mode, scopes }. Throws AuthError on failure.
+ */
+export async function authenticateRequest(request, env) {
+  const session = await validateSession(request, env);
+  if (session.authenticated) {
+    return { actor: 'cam', mode: 'session', scopes: null };
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const ctx = await validateServiceToken(authHeader.slice(7), env);
+    if (ctx) return ctx;
+  }
+
+  throw new AuthError('No valid session or service token');
+}
+
+/**
+ * Checks whether an AuthContext is authorised for a route prefix.
+ * Session (Cam) has full access. Service tokens are limited to the
+ * route prefixes in their scopes JSON array.
+ */
+export function checkScope(ctx, routePrefix) {
+  if (ctx.mode === 'session') return true;
+  let scopes;
+  try {
+    scopes = JSON.parse(ctx.scopes || '[]');
+  } catch (_) {
+    scopes = [];
+  }
+  return Array.isArray(scopes) && scopes.some((s) => routePrefix.startsWith(s));
+}
