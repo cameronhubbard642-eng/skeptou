@@ -1,0 +1,27 @@
+# wrangler.toml — phronesis (Cloudflare Pages)
+#
+# This file is used for D1 migration management and local Pages dev only.
+# The CI deploy (.github/workflows/deploy-phronesis.yml) runs
+# `wrangler pages deploy .` from modules/phronesis/dist/ and does NOT read
+# this file — Pages bindings for the deployed project are configured in the
+# Cloudflare dashboard (phronesis → Settings → Functions → D1 bindings).
+#
+# Used by:
+#   wrangler d1 migrations apply skeptou-op            (remote)
+#   wrangler d1 migrations apply skeptou-op --local    (local dev DB)
+#   wrangler pages dev dist                            (local Functions dev)
+#
+# See migrations/README.md for the DevOps setup runbook.
+
+name = "phronesis"
+compatibility_date = "2026-05-01"
+pages_build_output_dir = "dist"
+
+# D1 binding consumed by Pages Functions as env.OP_DB.
+# database_id is filled by DevOps after `wrangler d1 create skeptou-op`.
+# The dashboard binding for the deployed project must also be named OP_DB.
+[[d1_databases]]
+binding       = "OP_DB"
+database_name = "skeptou-op"
+database_id   = "REPLACE_AFTER_wrangler_d1_create"
+migrations_dir = "migrations"

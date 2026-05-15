@@ -10,7 +10,9 @@
     "build:data":   "npm run sync && npm run busy && npm run viz",
     "build:quartz": "npx quartz build",
     "build":        "npm run build:data && npm run build:quartz",
-    "dev":          "npx quartz build --serve"
+    "dev":          "npx quartz build --serve",
+    "d1:migrate":       "npx wrangler@3 d1 migrations apply skeptou-op --remote",
+    "d1:migrate:local": "npx wrangler@3 d1 migrations apply skeptou-op --local"
   },
   "engines": {
     "node": ">=20"
