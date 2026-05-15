@@ -194,8 +194,8 @@
 
   <script>
   /* ─── Phronesis SPA — client-side router + view renderers ─── */
-  /* Architecture: hash routing; data from embedded JSON (build-time injected in CI). */
-  /* In production, busy-scores.json and manifest-stats.json are fetched at load.    */
+  /* Architecture: hash routing. Structured O&P data is loaded at runtime from
+   * the D1 API (/api/*); calendar busy-scores from /data/busy-scores.json. */
 
   'use strict';
 
@@ -331,122 +331,14 @@
     return { scores: scores, max_total: maxTotal };
   })();
 
-  var MANIFEST_STATS = {
-    active_projects: 3,
-    pending_decisions: 2,
-    confirmed_pursuing: 4
-  };
-
-  /* Sample opportunity data — replaced at load by /data/opportunities.json when available */
-  var OPPORTUNITIES = [
-    {
-      slug: 'symposium-2026',
-      title: 'Philosophy of Mind Symposium 2026',
-      type: 'commitment',
-      status: 'pending-cam-decision',
-      deadline: '2026-08-15',
-      prestige: 'High / flagship conference',
-      requirement: 'Abstract (500 words) + short CV. Full paper due if accepted.',
-      description: 'Annual symposium on consciousness and intentionality.'
-    },
-    {
-      slug: 'episteme-submission',
-      title: 'Episteme — Special Issue on Disagreement',
-      type: 'opportunity',
-      status: 'pending-cam-decision',
-      deadline: '2026-07-01',
-      prestige: 'High / flagship journal',
-      requirement: 'Full paper, ~8–10k words. Blind review.',
-      description: 'Special issue on peer disagreement and epistemic autonomy.'
-    },
-    {
-      slug: 'uc-workshop',
-      title: 'UC System-Wide Ethics Workshop',
-      type: 'commitment',
-      status: 'confirmed-pursuing',
-      deadline: '2026-06-10',
-      prestige: '',
-      requirement: 'Talk abstract (200 words)',
-      description: 'Workshop on applied ethics across the UC campuses.'
-    },
-    {
-      slug: 'handbook-chapter',
-      title: 'Oxford Handbook of Epistemic Injustice — Chapter Invitation',
-      type: 'opportunity',
-      status: 'confirmed-pursuing',
-      deadline: '2026-09-01',
-      prestige: 'High / flagship press',
-      requirement: 'Full chapter, ~12k words. Invited; no peer review.',
-      description: 'Invited chapter contribution.'
-    },
-    {
-      slug: 'grad-conference',
-      title: 'Graduate Conference Comments (UCR)',
-      type: 'commitment',
-      status: 'declined',
-      deadline: '2026-04-20',
-      prestige: '',
-      requirement: 'Comments + participation (one day)',
-      description: 'Declined due to schedule conflict.'
-    }
-  ];
-
-  /* Sample project data — replaced at load by /data/manifest.json when available.
-   * Shape must match parser v3 output: { active, completed, archived, all }.
-   * Each entry includes slug for click-through to #project/<slug>. */
-  var MANIFEST_DATA = {
-    active: [
-      { slug: 'epistemic-akrasia',       title: 'Epistemic Akrasia paper',     type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-10-01', priority: 'high'   },
-      { slug: 'dissertation-ch5',        title: 'Dissertation Ch. 5 revision', type: 'writing', status: 'confirmed-pursuing', deadline: '2026-08-01', priority: 'high'   },
-      { slug: 'oxford-handbook-chapter', title: 'Oxford Handbook chapter',     type: 'paper',   status: 'confirmed-pursuing', deadline: '2026-09-01', priority: 'medium' }
-    ],
-    completed: [],
-    archived:  [],
-    all:       []
-  };
-
-  /* Sample task data — replaced at load by /data/tasks.json when available.
-   * Convention: sourced from `- [ ]` items in any .md file in the vault subtree.
-   * Priority emojis (anywhere in title): 🔺 high · ⏫ medium · 🔼 low.
-   * Due date: 📅 YYYY-MM-DD or (due: YYYY-MM-DD) inline. */
-  var TASKS_DATA = [
-    { title: 'Submit abstract for Philosophy of Mind Symposium',   project: 'Epistemic Akrasia paper',     due: '2026-06-01', priority: 'high'   },
-    { title: 'Read Fantl & McGrath (2002) on pragmatic encroachment', project: 'Epistemic Akrasia paper', due: '2026-06-05', priority: 'medium' },
-    { title: 'Send referee report — Episteme',                     project: 'Service',                    due: '2026-06-10', priority: 'high'   },
-    { title: 'Revise §3 argument structure (committee feedback)',  project: 'Dissertation Ch. 5 revision', due: '2026-06-15', priority: 'high'   },
-    { title: 'Meeting with committee re Ch. 5 draft',              project: 'Dissertation Ch. 5 revision', due: '2026-06-20', priority: 'high'   },
-    { title: 'Draft §2.1 on testimony norms',                      project: 'Oxford Handbook chapter',    due: '2026-07-01', priority: 'medium' },
-    { title: 'Prepare PHIL 101 syllabus for Fall 2026',            project: 'Teaching',                   due: '2026-07-15', priority: 'medium' },
-    { title: 'Update CV and publications list',                    project: 'Admin',                      due: '2026-08-01', priority: 'low'    }
-  ];
-
-  /* Sample inventory — replaced at load by /data/inventory.json when available */
-  var INVENTORY_DATA = {
-    sections: [
-      {
-        title: 'Papers',
-        items: [
-          { name: 'Epistemic Akrasia (draft)',               note: 'In progress' },
-          { name: 'Testimony and Trust (submitted)',          note: 'Under review — BJPS' },
-          { name: 'Against Epistemic Cowardice (published)', note: 'Phil Studies 2025' }
-        ]
-      },
-      {
-        title: 'Teaching',
-        items: [
-          { name: 'PHIL 101 — Introduction to Philosophy', note: 'Fall 2026' },
-          { name: 'PHIL 215 — Epistemology',               note: 'Spring 2026' }
-        ]
-      },
-      {
-        title: 'Service',
-        items: [
-          { name: 'Referee — Episteme, Phil Quarterly', note: 'Ongoing' },
-          { name: 'Graduate Admissions Committee',       note: '2025–26' }
-        ]
-      }
-    ]
-  };
+  /* ── O&P data ─────────────────────────────────────────────────────────── */
+  /* Empty until loadLiveData() fills it from the D1 API (/api/*). D1 is the
+   * single source of truth — there is no embedded sample fallback. */
+  var MANIFEST_STATS = { active_projects: 0, pending_decisions: 0, open_tasks: 0 };
+  var OPPORTUNITIES  = [];
+  var MANIFEST_DATA  = { active: [], completed: [], archived: [], all: [] };
+  var TASKS_DATA     = [];
+  var INVENTORY_DATA = { sections: [] };
 
   /* ── Priority ordering (shared by Tasks and Snapshots) ─────────────────── */
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
@@ -463,6 +355,7 @@
 
   /* Derive a project slug from a task record's filePath (reliable) or project name (fallback). */
   function projectSlugFromTask(t) {
+    if (t && t.projectSlug) return t.projectSlug;   /* D1 task: real parent slug */
     if (t && t.filePath) {
       var m = /\/proj-([^/]+)\.md$/.exec(t.filePath);
       if (m) return m[1];
@@ -503,8 +396,9 @@
 
   function computeTaskIds() {
     TASKS_DATA.forEach(function(t) {
+      if (t.id) return;            /* D1 tasks already carry a real id */
       if (!t.filePath) t.filePath = taskFilePath(t.project);
-      if (!t.id)       t.id       = taskId(t.filePath, t.title);
+      t.id = taskId(t.filePath, t.title);
     });
   }
 
@@ -512,41 +406,13 @@
   var completedTasks = {};
 
   /* ── Task toggle handler ─────────────────────────────────────────────── */
+  /* Session-only in Phase 2: the checkbox flips local state but does not
+   * persist across reloads. D1 task-complete persistence lands in Phase 4
+   * (POST /api/tasks/complete/:id). */
   function handleTaskToggle(id, checked) {
-    /* Optimistic update */
     completedTasks[id] = checked;
     renderTasks();
     renderSnapshots();
-
-    var action = checked ? 'complete' : 'uncomplete';
-
-    fetch('/api/task/' + action + '/' + encodeURIComponent(id), {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' }
-    }).then(function(resp) {
-      /* Explicit error cases — throw with a human-readable message */
-      if (resp.status === 401) throw new Error('Session expired — reload to log in.');
-      if (resp.status === 404) throw new Error('Task not found in vault — it may have moved or been renamed.');
-      if (!resp.ok)            throw new Error('Could not save (' + resp.status + ') — try again.');
-      /* 2xx — parse body to detect 'No change needed' (already in target state) */
-      return resp.json();
-    }).then(function(data) {
-      if (data && data.message === 'No change needed') {
-        /* Worker couldn't apply the change — revert the optimistic flip */
-        completedTasks[id] = !checked;
-        renderTasks();
-        renderSnapshots();
-        showEphemeralToast('Already ' + (checked ? 'completed' : 'open') + ' in vault — will resync.');
-      }
-      /* data.message === 'Task updated': optimistic state is correct, nothing to do */
-    }).catch(function(err) {
-      /* Revert on any error */
-      completedTasks[id] = !checked;
-      renderTasks();
-      renderSnapshots();
-      showEphemeralToast(err.message || 'Could not save — check connection and try again.');
-    });
   }
 
   /* ── Ephemeral error toast ───────────────────────────────────────────── */
@@ -747,8 +613,8 @@
     if (!grid) return;
     const stats = [
       { n: (MANIFEST_DATA && MANIFEST_DATA.active) ? MANIFEST_DATA.active.length : MANIFEST_STATS.active_projects, label: 'active projects', href: '#projects' },
-      { n: MANIFEST_STATS.pending_decisions,  label: 'pending decisions', href: '#opportunities' },
-      { n: MANIFEST_STATS.confirmed_pursuing, label: 'confirmed',         href: '#opportunities' }
+      { n: MANIFEST_STATS.pending_decisions, label: 'pending decisions', href: '#opportunities' },
+      { n: MANIFEST_STATS.open_tasks,        label: 'open tasks',        href: '#tasks' }
     ];
     grid.innerHTML = stats.map(function(s) {
       return '<div class="sk-stat"><a href="' + s.href + '" onclick="navigate(\'' +
@@ -1072,7 +938,7 @@
     var archivedRows  = makeRows(MANIFEST_DATA.archived  || []);
 
     var html = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
-      'Synced from O&amp;P vault · Last build: <time id="build-time"></time></p>';
+      'Live from the O&amp;P database.</p>';
 
     if (activeRows) {
       html += '<table role="table" aria-label="Active projects">' + HEAD +
@@ -1097,8 +963,6 @@
     }
 
     el.innerHTML = html;
-    var bt = document.getElementById('build-time');
-    if (bt) bt.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   /* ── Tasks view ──────────────────────────────────────────────────────── */
@@ -1120,6 +984,18 @@
 
     function taskRow(t) {
       var done = !!completedTasks[t.id];
+      /* Only project-parented tasks link to a detail page; commitment-parented
+       * tasks show the parent name as plain text (no commitment detail page yet). */
+      var proj = '';
+      if (t.project) {
+        if (t.parentKind === 'project') {
+          var s = projectSlugFromTask(t);
+          proj = ' <span class="sk-task-item__project">· <a class="sk-task-proj-link" href="#project/' + s +
+            '" onclick="navigateToProject(\'' + s + '\');return false;">' + escHtml(t.project) + '</a></span>';
+        } else {
+          proj = ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>';
+        }
+      }
       return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
         '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
           '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
@@ -1127,8 +1003,7 @@
         '</label>' +
         '<span class="sk-task-item__title">' +
           taskPriIcon(t.priority || 'low') + ' ' +
-          escHtml(t.title) +
-          (t.project ? ' <span class="sk-task-item__project">· <a class="sk-task-proj-link" href="#project/' + projectSlugFromTask(t) + '" onclick="navigateToProject(\'' + projectSlugFromTask(t) + '\');return false;">' + escHtml(t.project) + '</a></span>' : '') +
+          escHtml(t.title) + proj +
         '</span>' +
         '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
       '</li>';
@@ -1170,10 +1045,13 @@
       const badgeClass  = isPending ? 'sk-badge--pending' : (opp.status === 'confirmed-pursuing' ? 'sk-badge--confirmed' : 'sk-badge--declined');
       const badgeLabel  = isPending ? 'pending decision' : (opp.status === 'confirmed-pursuing' ? 'confirmed' : 'declined');
 
+      /* Accept/Reject write actions land in Phase 4 (POST /api/opportunities/
+       * :slug/accept|reject). Phase 2 is a read-only swap to the D1 API. */
       const actions = isPending
-        ? '<div class="sk-opp-card__actions" id="actions-' + opp.slug + '">' +
-            '<button class="sk-btn sk-btn--accept" onclick="handleOppAction(\'' + opp.slug + '\', \'accept\')">Accept</button>' +
-            '<button class="sk-btn sk-btn--reject" onclick="handleOppAction(\'' + opp.slug + '\', \'reject\')">Reject</button>' +
+        ? '<div class="sk-opp-card__actions">' +
+            '<span class="sk-secondary" style="font-size:.78rem;font-style:italic;">' +
+              'Accept / Reject available once write endpoints land (Phase 4).' +
+            '</span>' +
           '</div>'
         : '';
 
@@ -1209,47 +1087,6 @@
     el.innerHTML = html;
   }
 
-  /* ── Opportunity Accept/Reject actions ────────────────────────────────── */
-  async function handleOppAction(slug, action) {
-    const actionsEl = document.getElementById('actions-' + slug);
-    if (!actionsEl) return;
-
-    actionsEl.querySelectorAll('button').forEach(function(btn) { btn.disabled = true; });
-    actionsEl.innerHTML += '<span class="sk-loading" style="margin-left:.75rem">Processing…</span>';
-
-    try {
-      /* redirect:'manual' prevents fetch from following a 302-to-login silently.
-       * Without this, an auth failure returns an opaque 200 (the login page HTML)
-       * which resp.ok=true — causing the UI to report false success and skip the write. */
-      const resp = await fetch('/api/opportunity/' + action + '/' + encodeURIComponent(slug), {
-        method: 'POST',
-        credentials: 'same-origin',
-        redirect: 'manual',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      /* opaqueredirect = auth 302 that we caught; type=0 = same thing in some browsers */
-      if (resp.type === 'opaqueredirect' || resp.status === 0) {
-        actionsEl.innerHTML = '<span class="sk-error">Session expired — <a href="/" style="color:inherit">reload to log in</a>.</span>';
-        return;
-      }
-
-      if (resp.status === 202) {
-        const data = await resp.json().catch(function() { return {}; });
-        const verb = action === 'accept' ? 'Accepted' : 'Declined';
-        actionsEl.innerHTML = '<span class="sk-secondary" style="font-style:italic;font-size:.85rem;">' +
-          verb + ' — ' + (data.message || 'Rebuilding…') + '</span>';
-      } else {
-        const err = await resp.json().catch(function() { return { error: 'Unknown error' }; });
-        var msg = err.error || resp.statusText;
-        if (err.detail) msg += ' — ' + err.detail;
-        actionsEl.innerHTML = '<span class="sk-error">Error ' + resp.status + ': ' + escHtml(msg) + '</span>';
-      }
-    } catch (e) {
-      actionsEl.innerHTML = '<span class="sk-error">Network error — try again.</span>';
-    }
-  }
-
   /* ── Inventory view ───────────────────────────────────────────────────── */
   function renderInventory() {
     const el = document.getElementById('inventory-content');
@@ -1268,12 +1105,12 @@
     }).join('');
 
     el.innerHTML = '<p class="sk-secondary" style="font-size:.82rem;margin-bottom:1rem;">' +
-      'Read-only roll-up · Synced from O&amp;P vault</p>' + html;
+      'Read-only roll-up · live from the O&amp;P database.</p>' + html;
   }
 
   /* ── Project detail view ────────────────────────────────────────────── */
 
-  /* Fetch /data/projects/<slug>.json and render into the detail section.
+  /* Fetch GET /api/projects/:slug (D1) and render into the detail section.
    * Gracefully shows an empty-state message on 404 or network failure. */
   async function renderProjectDetail(slug) {
     var el = document.getElementById('project-detail-content');
@@ -1281,10 +1118,10 @@
     el.innerHTML = '<p class="sk-secondary" style="padding:2rem 0;text-align:center;font-size:.85rem;">Loading…</p>';
 
     try {
-      var resp = await fetch('/data/projects/' + encodeURIComponent(slug) + '.json');
+      var resp = await fetch('/api/projects/' + encodeURIComponent(slug), { credentials: 'same-origin' });
       if (!resp.ok) throw new Error('not found');
-      var project = await resp.json();
-      el.innerHTML = buildProjectDetailHTML(project);
+      var body = await resp.json();
+      el.innerHTML = buildProjectDetailHTML(adaptProjectDetail(body.data));
     } catch (_) {
       el.innerHTML =
         '<div style="padding-top:1rem;">' +
@@ -1343,16 +1180,8 @@
       html += '<div class="sk-detail__body">' + renderMarkdown(p.body) + '</div>';
     }
 
-    /* Tasks for this project — matched by filePath or project name */
-    var projTasks = TASKS_DATA.filter(function(t) {
-      if (t.filePath && (
-        t.filePath === 'projects/proj-' + slug + '.md' ||
-        t.filePath.endsWith('/proj-' + slug + '.md')
-      )) return true;
-      /* Fallback: match by humanized slug or by stored title */
-      var humanSlug = slug.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-      return t.project === humanSlug || t.project === p.title;
-    });
+    /* Tasks embedded by GET /api/projects/:slug (parent_kind='project'). */
+    var projTasks = Array.isArray(p.tasks) ? p.tasks : [];
 
     if (projTasks.length > 0) {
       html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
@@ -1527,104 +1356,212 @@
     if (toast) toast.hidden = true;
   });
 
-  /* ── Live data loader ────────────────────────────────────────────────── */
-  /* Fetches /data/*.json produced by sync-vault.js + aggregate-busy.js.    */
-  /* Gracefully falls back to inline sample data when files are absent.      */
-  /* Auth redirect detection: redirect:'manual' turns a CF Pages middleware  */
-  /* 302-to-login into an opaqueredirect instead of a CORS-blocked follow.   */
-  /* If any data file returns 401 (set by the SW on opaqueredirect) or an    */
-  /* opaqueredirect directly (no SW), a session-expired toast is shown.      */
-  function loadLiveData() {
-    var authRedirectSeen = false;
+  /* ── D1 API adapters ─────────────────────────────────────────────────── */
+  /* The phronesis UI was built for the legacy O&P vault JSON shape. These
+   * adapters map rev-3 D1 rows onto that shape so the render functions stay
+   * unchanged. D1 vocabulary differs (status enums, integer priority/prestige);
+   * the legacy strings the renderers expect are derived here. */
 
-    function tryFetch(url) {
-      return fetch(url, { redirect: 'manual' })
+  function priInt2Str(p) {
+    var n = Number(p);
+    return n <= 2 ? 'high' : n === 3 ? 'medium' : 'low';
+  }
+
+  var PRESTIGE_LABELS = { 5: 'Flagship', 4: 'High', 3: 'Notable', 2: 'Modest', 1: 'Minor' };
+  function prestigeLabel(n) {
+    return PRESTIGE_LABELS[Number(n)] || '';
+  }
+
+  /* D1 project row → legacy MANIFEST_DATA entry */
+  function adaptProjectRow(r) {
+    return {
+      slug: r.slug, title: r.title || '',
+      type: r.area || '', status: r.status || 'active',
+      deadline: r.due_date || '', priority: priInt2Str(r.priority)
+    };
+  }
+
+  function adaptProjects(rows) {
+    var d = { active: [], completed: [], archived: [], all: [] };
+    rows.forEach(function(r) {
+      var e = adaptProjectRow(r);
+      d.all.push(e);
+      if (r.status === 'completed')     d.completed.push(e);
+      else if (r.status === 'archived') d.archived.push(e);
+      else                              d.active.push(e);   /* active, paused */
+    });
+    return d;
+  }
+
+  /* D1 opportunity row → legacy OPPORTUNITIES entry.
+   * Legacy status: pending-cam-decision | confirmed-pursuing | declined.
+   * rev 3: archived=0 → still in the decision queue; archived=1 → consumed
+   * (accepted opps become projects; rejected opps render as 'declined'). */
+  function adaptOpps(rows) {
+    return rows.map(function(r) {
+      var status = !r.archived ? 'pending-cam-decision'
+                 : (r.status === 'rejected' ? 'declined' : 'accepted');
+      return {
+        slug: r.slug, title: r.title || '', type: r.opp_type || '',
+        status: status, deadline: r.deadline || '',
+        prestige: prestigeLabel(r.prestige),
+        requirement: r.requirement || '', description: r.description || ''
+      };
+    });
+  }
+
+  /* D1 task row → legacy TASKS_DATA entry. parentTitles maps a parent slug to
+   * its display title so project/commitment-parented tasks show a readable name. */
+  function adaptTasks(rows, parentTitles) {
+    return rows.map(function(r) {
+      var parentSlug = r.parent_id || '';
+      return {
+        id: String(r.id), slug: r.slug, title: r.title || '',
+        due: r.due_date || '', priority: priInt2Str(r.priority),
+        status: r.status || 'open',
+        parentKind: r.parent_kind || null, projectSlug: parentSlug,
+        project: (parentTitles && parentTitles[parentSlug]) || parentSlug
+      };
+    });
+  }
+
+  var INVENTORY_ORDER = ['hardware', 'software', 'subscription', 'reference', 'credential', 'other'];
+  function adaptInventory(rows) {
+    var byCat = {};
+    rows.forEach(function(r) {
+      var c = r.category || 'other';
+      (byCat[c] = byCat[c] || []).push({ name: r.name || '', note: r.notes || '' });
+    });
+    var sections = INVENTORY_ORDER.filter(function(c) { return byCat[c]; })
+      .map(function(c) { return { title: capitalize(c), items: byCat[c] }; });
+    return { sections: sections };
+  }
+
+  /* D1 project row (+ embedded tasks) → shape consumed by buildProjectDetailHTML.
+   * metadata JSON is spread last so extension fields (requirement, prestige,
+   * domain, stakeholders) surface in the detail field list. */
+  function adaptProjectDetail(r) {
+    var meta = {};
+    try { meta = JSON.parse(r.metadata || '{}'); } catch (_) { meta = {}; }
+    var base = {
+      slug: r.slug, title: r.title || '', status: r.status || 'active',
+      type: r.area || '', priority: priInt2Str(r.priority),
+      deadline: r.due_date || '', body: r.description || '',
+      linked_opportunity: r.linked_opp_slug || '',
+      tasks: Array.isArray(r.tasks) ? adaptTasks(r.tasks, {}) : []
+    };
+    return Object.assign(base, meta);
+  }
+
+  /* ── Live data loader ────────────────────────────────────────────────── */
+  /* Reads structured O&P data from the D1 API (/api/*). Calendar busy-scores
+   * stay a build-time artifact (/data/busy-scores.json — not O&P data, not in
+   * D1). Resolves to true when D1 data was applied, false on auth/backend
+   * failure. D1 returning empty arrays still counts as a successful load. */
+  function loadLiveData() {
+    var authFail = false, dbDown = false;
+
+    /* /api/* returns JSON 401 on auth failure and 503 when the D1 binding is
+     * absent — both are plain responses, no redirect to special-case. */
+    function apiGet(path) {
+      return fetch(path, { credentials: 'same-origin' })
         .then(function(r) {
-          /* opaqueredirect = direct auth 302 (no SW or SW bypassed).
-           * status 401     = SW caught the opaqueredirect and converted it.
-           * status 0       = same as opaqueredirect in some browser contexts. */
-          if (r.type === 'opaqueredirect' || r.status === 0 || r.status === 401) {
-            authRedirectSeen = true;
-            console.warn('[phronesis] auth redirect on', url, '— session may have expired');
-            return null;
-          }
-          if (!r.ok) {
-            console.warn('[phronesis] fetch failed:', url, r.status);
-            return null;
-          }
+          if (r.status === 401) { authFail = true; return null; }
+          if (r.status === 503) { dbDown = true;  return null; }
+          if (!r.ok) { console.warn('[phronesis] API', path, r.status); return null; }
           return r.json().catch(function() { return null; });
         })
         .catch(function(e) {
-          console.warn('[phronesis] fetch error:', url, e && e.message);
+          console.warn('[phronesis] API error', path, e && e.message);
           return null;
         });
     }
 
+    /* busy-scores is a static /data/ file behind the auth middleware, so it
+     * can 302 — keep redirect:'manual' detection for that one. */
+    function dataGet(path) {
+      return fetch(path, { redirect: 'manual' })
+        .then(function(r) {
+          if (r.type === 'opaqueredirect' || r.status === 0 || r.status === 401) {
+            authFail = true; return null;
+          }
+          return r.ok ? r.json().catch(function() { return null; }) : null;
+        })
+        .catch(function() { return null; });
+    }
+
     return Promise.all([
-      tryFetch('/data/tasks.json'),
-      tryFetch('/data/manifest-stats.json'),
-      tryFetch('/data/opportunities.json'),
-      tryFetch('/data/busy-scores.json'),
-      tryFetch('/data/manifest.json'),
-      tryFetch('/data/inventory.json')
-    ]).then(function(results) {
-      if (authRedirectSeen) {
+      apiGet('/api/projects?limit=200'),
+      apiGet('/api/opportunities?include_archived=1&limit=200'),
+      apiGet('/api/tasks?limit=200'),
+      apiGet('/api/inventory?limit=200'),
+      apiGet('/api/commitments?limit=200'),
+      dataGet('/data/busy-scores.json')
+    ]).then(function(res) {
+      var projects = res[0], opps = res[1], tasks = res[2],
+          inv = res[3], commits = res[4], busy = res[5];
+
+      if (authFail) {
         showEphemeralToast('Session may have expired — reload to log in.');
         return false;
       }
-
-      var tasks = results[0], stats = results[1], opps  = results[2],
-          busy  = results[3], mfst  = results[4], inv   = results[5];
-      var changed = false;
-      /* length > 0 guards intentionally removed: an empty array from the vault
-       * (e.g. after a wipe) must still replace sample/placeholder data, not be
-       * silently ignored.  null / non-array (fetch fail) still falls through. */
-      if (tasks && Array.isArray(tasks))                            { TASKS_DATA = tasks;         changed = true; }
-      if (stats && typeof stats === 'object')                       { MANIFEST_STATS = stats;      changed = true; }
-      if (opps  && Array.isArray(opps))                             { OPPORTUNITIES = opps;        changed = true; }
-      if (busy  && busy.scores)                                     { BUSY_SCORES = busy;          changed = true; }
-      if (mfst  && mfst.active && Array.isArray(mfst.active))      { MANIFEST_DATA = mfst;        changed = true; }
-      if (inv   && inv.sections && Array.isArray(inv.sections))     { INVENTORY_DATA = inv;        changed = true; }
-      if (!changed) {
-        console.warn('[phronesis] loadLiveData: all fetches returned null — data files may be missing from deploy');
+      if (dbDown && !projects && !opps && !tasks && !inv && !commits) {
+        showEphemeralToast('Data backend not yet configured (D1 binding missing).');
+        return false;
       }
+
+      if (busy && busy.scores) BUSY_SCORES = busy;
+
+      /* parent slug → title map, for task parent labels */
+      var parentTitles = {};
+      if (projects && projects.data) {
+        projects.data.forEach(function(p) { parentTitles[p.slug] = p.title; });
+      }
+      if (commits && commits.data) {
+        commits.data.forEach(function(c) { parentTitles[c.slug] = c.title; });
+      }
+
+      var changed = false;
+      if (projects && Array.isArray(projects.data)) { MANIFEST_DATA = adaptProjects(projects.data); changed = true; }
+      if (opps && Array.isArray(opps.data))         { OPPORTUNITIES = adaptOpps(opps.data);         changed = true; }
+      if (tasks && Array.isArray(tasks.data))       { TASKS_DATA = adaptTasks(tasks.data, parentTitles); changed = true; }
+      if (inv && Array.isArray(inv.data))           { INVENTORY_DATA = adaptInventory(inv.data);    changed = true; }
+
+      /* Dashboard stats are derived client-side from the loaded data. */
+      MANIFEST_STATS = {
+        active_projects: MANIFEST_DATA.active.length,
+        pending_decisions: OPPORTUNITIES.filter(function(o) { return o.status === 'pending-cam-decision'; }).length,
+        open_tasks: TASKS_DATA.filter(function(t) { return t.status !== 'completed' && t.status !== 'cancelled'; }).length
+      };
       return changed;
+    });
+  }
+
+  /* ── Loading skeleton ─────────────────────────────────────────────────── */
+  /* Shown in the O&P containers until loadLiveData() resolves. */
+  function renderSkeletons() {
+    var msg = '<p class="sk-secondary" style="font-size:.85rem;padding:1.5rem 0;text-align:center;">Loading…</p>';
+    ['status-grid', 'projects-content', 'tasks-content', 'opp-content', 'inventory-content',
+     'snap-tasks-items', 'snap-projects-items', 'snap-opps-items'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = msg;
     });
   }
 
   /* ── Init ─────────────────────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {
-    /* Render immediately with inline fallback data */
-    computeTaskIds();
-    renderStats();
+    /* Calendar visualisations render immediately (busy-scores has a sample
+     * default; the live file loads with the rest). O&P views show a loading
+     * skeleton until the D1 API responds. */
     renderRangeBar();
     renderVizLegend();
     renderHeatmap();
     renderDensity();
-    renderSnapshots();
-    renderProjects();
-    renderTasks();
-    renderOpportunities();
-    renderInventory();
+    renderSkeletons();
     initRouter();
 
-    /* Async: fetch live vault data and re-render data-dependent views */
+    /* Async: fetch live data from D1, then render the data-dependent views. */
     loadLiveData().then(function(changed) {
-      if (!changed) {
-        /* loadLiveData returned false: either auth failed (toast already shown)
-         * or vault produced no data. Add a persistent note below the stats grid
-         * so the sample-data state is visible even after the toast disappears. */
-        var grid = document.getElementById('status-grid');
-        if (grid && !document.getElementById('sk-sample-note')) {
-          var note = document.createElement('p');
-          note.id = 'sk-sample-note';
-          note.className = 'sk-secondary';
-          note.style.cssText = 'font-size:.75rem;margin-top:.35rem;';
-          note.textContent = '⚠️ Sample data — vault not yet synced, or session expired (reload to log in).';
-          grid.insertAdjacentElement('afterend', note);
-        }
-        return;
-      }
       computeTaskIds();
       renderStats();
       renderHeatmap();
@@ -1634,6 +1571,21 @@
       renderTasks();
       renderOpportunities();
       renderInventory();
+
+      if (!changed) {
+        /* Auth failed or the D1 backend is unavailable (toast already shown).
+         * Add a persistent note below the stats grid so the empty state is
+         * explained even after the toast disappears. */
+        var grid = document.getElementById('status-grid');
+        if (grid && !document.getElementById('sk-sample-note')) {
+          var note = document.createElement('p');
+          note.id = 'sk-sample-note';
+          note.className = 'sk-secondary';
+          note.style.cssText = 'font-size:.75rem;margin-top:.35rem;';
+          note.textContent = '⚠️ Data unavailable — D1 backend not configured, or session expired (reload to log in).';
+          grid.insertAdjacentElement('afterend', note);
+        }
+      }
     });
 
     /* Install toast wiring */

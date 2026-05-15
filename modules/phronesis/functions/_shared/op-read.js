@@ -104,13 +104,43 @@ export async function handleGetProject(request, env, slug) {
     }
 
     const tasks = await env.OP_DB.prepare(
-      `SELECT * FROM tasks WHERE project_slug = ? AND status != 'cancelled'
+      `SELECT * FROM tasks
+       WHERE parent_kind = 'project' AND parent_id = ? AND status != 'cancelled'
        ORDER BY priority ASC, due_date ASC`,
     ).bind(slug).all();
 
     return itemResponse({ ...project, tasks: tasks.results });
   } catch (err) {
     console.error('get project error:', err);
+    return errorResponse(500, 'DB_ERROR', err.message);
+  }
+}
+
+/** GET /api/commitments/:slug — commitment with embedded non-cancelled tasks. */
+export async function handleGetCommitment(request, env, slug) {
+  const gate = await authGate(request, env, '/api/commitments');
+  if (gate.error) return gate.error;
+  const dbErr = requireDb(env);
+  if (dbErr) return dbErr;
+
+  try {
+    const commitment = await env.OP_DB.prepare(
+      'SELECT * FROM commitments WHERE slug = ?',
+    ).bind(slug).first();
+
+    if (!commitment) {
+      return errorResponse(404, 'NOT_FOUND', `Commitment '${slug}' not found`);
+    }
+
+    const tasks = await env.OP_DB.prepare(
+      `SELECT * FROM tasks
+       WHERE parent_kind = 'commitment' AND parent_id = ? AND status != 'cancelled'
+       ORDER BY priority ASC, due_date ASC`,
+    ).bind(slug).all();
+
+    return itemResponse({ ...commitment, tasks: tasks.results });
+  } catch (err) {
+    console.error('get commitment error:', err);
     return errorResponse(500, 'DB_ERROR', err.message);
   }
 }

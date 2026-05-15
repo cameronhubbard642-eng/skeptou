@@ -40,11 +40,14 @@ export function parseListQuery(url) {
   };
   const rawLimit = num('limit');
   return {
-    status:       p.get('status')   ?? undefined,
-    area:         p.get('area')     ?? undefined,
-    opp_type:     p.get('opp_type') ?? undefined,
-    category:     p.get('category') ?? undefined,
-    project_slug: p.get('project_slug') ?? p.get('project') ?? undefined,
+    status:       p.get('status')      ?? undefined,
+    area:         p.get('area')        ?? undefined,
+    opp_type:     p.get('opp_type')    ?? undefined,
+    category:     p.get('category')    ?? undefined,
+    kind:         p.get('kind')        ?? undefined,
+    parent_kind:  p.get('parent_kind') ?? undefined,
+    parent_id:    p.get('parent_id')   ?? undefined,
+    include_archived: p.get('include_archived') === '1',
     priority:     num('priority'),
     prestige_min: num('prestige_min'),
     sort:         p.get('sort')  ?? undefined,
