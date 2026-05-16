@@ -1247,6 +1247,7 @@
 
     var activeDirs = paper.directions.filter(function(d) { return d.status === 'active'; });
     var canPromote = activeDirs.length > 0 && paper.status !== 'published';
+    var hasCanonical = !!(paper.currentTag && paper.versions && paper.versions.length > 0);
 
     /* Breadcrumb */
     var breadcrumb = '<nav class="sk-breadcrumb">' +
@@ -1258,10 +1259,15 @@
     /* Page actions */
     var actions = '<div class="sk-page-actions">' +
       (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
-      '<button class="sk-btn sk-btn--sm" ' +
-        'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
-        'id="compile-canonical-' + slug + '" ' +
-        'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>' +
+      (hasCanonical
+        ? '<button class="sk-btn sk-btn--sm" ' +
+            'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
+            'id="compile-canonical-' + slug + '" ' +
+            'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>'
+        : '<button class="sk-btn sk-btn--sm" ' +
+            'title="No canonical version yet — promote a draft direction to energeia first." ' +
+            'id="compile-canonical-' + slug + '" ' +
+            'disabled style="opacity:.45;cursor:not-allowed;">Compile Canonical</button>') +
       (paper.status !== 'published' && paper.status !== 'archived'
         ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
