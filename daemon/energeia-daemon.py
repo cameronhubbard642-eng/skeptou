@@ -280,10 +280,20 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
         return True, f'Worktree already exists at {target}'
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    # Fetch the branch first (updates refs/remotes/origin/<branch>)
-    rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
+    # Fetch the branch (updates refs/remotes/origin/<branch>). The create-worktree
+    # action races create-dunamis-branch.yml, so the branch may not exist on the
+    # remote yet — retry for ~2 min while that workflow finishes.
+    rc, out = 1, ''
+    for attempt in range(8):
+        rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
+        if rc == 0:
+            break
+        if attempt < 7:
+            log.info('create-worktree: %s not on remote yet — retrying in 15s (%d/8)',
+                     branch, attempt + 1)
+            time.sleep(15)
     if rc != 0:
-        return False, f'git fetch failed: {out}'
+        return False, f'git fetch failed after retries: {out}'
 
     # Check out the worktree on a real local branch tracking origin/<branch>.
     # Without this the worktree lands in detached HEAD and pushes fail.
