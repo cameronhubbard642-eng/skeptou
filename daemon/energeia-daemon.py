@@ -34,6 +34,7 @@ import shutil
 import hashlib
 import threading
 import platform
+import re
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote as url_quote
@@ -304,13 +305,13 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
     else:
         rc, out = run_git(
             ['sparse-checkout', 'set',
-             f'papers/{slug}', f'working/{slug}', 'templates', 'slugs.yaml'],
+             f'papers/{slug}', f'working/{slug}', 'templates'],
             target
         )
         if rc != 0:
             log.warning('sparse-checkout set failed in %s: %s', target, out)
         else:
-            log.info('Sparse-checkout: papers/%s, working/%s, templates, slugs.yaml', slug, slug)
+            log.info('Sparse-checkout: papers/%s, working/%s, templates (+ root files)', slug, slug)
 
     log.info('Created worktree %s → %s', branch, target)
     return True, f'Worktree created at {target}'
@@ -544,6 +545,111 @@ def notify(title: str, message: str) -> None:
         pass
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
+# ── Reconciliation ────────────────────────────────────────────────────────────
+def _dunamis_branches():
+    """Remote 'dunamis/<slug>-<dir>' branch names. Returns None on failure
+    (caller must then skip pruning — never treat a network blip as 'no branches')."""
+    rc, out = run_git(['ls-remote', '--heads', 'origin', 'dunamis/*'], AGORA_PATH)
+    if rc != 0:
+        log.warning('reconcile: ls-remote failed: %s', out)
+        return None
+    branches = set()
+    for line in out.splitlines():
+        parts = line.split('\t')
+        if len(parts) == 2 and parts[1].startswith('refs/heads/'):
+            branches.add(parts[1][len('refs/heads/'):])
+    return branches
+
+
+def _slugs_yaml_papers() -> dict:
+    """Map paper slug -> first declared format, from slugs.yaml on energeia."""
+    rc, out = run_git(['show', 'origin/energeia:slugs.yaml'], AGORA_PATH)
+    if rc != 0:
+        log.warning('reconcile: could not read slugs.yaml: %s', out)
+        return {}
+    papers, cur = {}, None
+    for line in out.splitlines():
+        m = re.match(r'\s*-\s*slug:\s*"?([a-z0-9-]+)"?', line)
+        if m:
+            cur = m.group(1)
+            papers[cur] = 'article'
+            continue
+        if cur:
+            fm = re.search(r'\bformats:\s*\[?\s*"?([a-z]+)', line)
+            if fm:
+                papers[cur] = fm.group(1)
+    return papers
+
+
+def _apply_sparse_checkout(target: Path, slug: str) -> None:
+    """Scope an existing worktree to just this paper's files + compile templates."""
+    run_git(['sparse-checkout', 'init', '--cone'], target)
+    # Cone mode takes directories only; root files (slugs.yaml, .gitignore)
+    # are always materialised automatically.
+    rc, out = run_git(['sparse-checkout', 'set', f'papers/{slug}',
+                       f'working/{slug}', 'templates'], target)
+    if rc != 0:
+        log.warning('reconcile: sparse-checkout failed in %s: %s', target.name, out)
+
+
+def reconcile() -> None:
+    """Self-healing pass — make agora-worktrees/ and agora-scriv/ match the
+    dunamis branches on the remote and the papers in slugs.yaml. Missed or
+    failed KV actions no longer cause permanent drift."""
+    log.info('reconcile: starting')
+    run_git(['fetch', 'origin', '--prune'], AGORA_PATH)
+    # Clear stale worktree admin entries — a removed worktree dir leaves
+    # '.git/worktrees/<name>' behind, which blocks re-adding that branch.
+    run_git(['worktree', 'prune'], AGORA_PATH)
+
+    # ── Worktrees: one (sparse) per dunamis branch ──
+    desired = _dunamis_branches()
+    if desired is None:
+        log.warning('reconcile: skipping worktree pass — branch list unavailable')
+    else:
+        desired_names = {b.replace('dunamis/', '') for b in desired}
+        WORKTREES.mkdir(parents=True, exist_ok=True)
+        existing = {p.name for p in WORKTREES.iterdir()
+                    if p.is_dir() and not p.name.startswith('.')}
+        for branch in sorted(desired):
+            name = branch.replace('dunamis/', '')
+            slug = name.rsplit('-', 1)[0]
+            if name in existing:
+                _apply_sparse_checkout(WORKTREES / name, slug)
+            else:
+                ok, msg = handle_create_worktree({'branch': branch, 'slug': slug})
+                log.info('reconcile: worktree %s — %s', name, msg)
+        for name in sorted(existing - desired_names):
+            rc, out = run_git(['worktree', 'remove', '--force',
+                               str(WORKTREES / name)], AGORA_PATH)
+            if rc == 0:
+                log.info('reconcile: removed orphan worktree %s', name)
+            else:
+                log.warning('reconcile: could not remove orphan worktree %s: %s', name, out)
+
+    # ── Scrivener projects: one per paper in slugs.yaml ──
+    papers = _slugs_yaml_papers()
+    if papers:
+        SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
+        for slug, fmt in sorted(papers.items()):
+            if not (SCRIVENER_DIR / f'{slug}.scriv').exists():
+                ok, msg = handle_scaffold_scrivener_project({'slug': slug, 'format': fmt})
+                log.info('reconcile: scriv %s — %s', slug, msg)
+        trash = SCRIVENER_DIR / '_trash'
+        for item in sorted(SCRIVENER_DIR.iterdir()):
+            if not (item.is_dir() and item.name.endswith('.scriv')):
+                continue
+            stem = item.name[:-len('.scriv')]
+            if stem in papers or stem.rsplit('-', 1)[0] in papers:
+                continue
+            trash.mkdir(exist_ok=True)
+            ts = datetime.now().strftime('%Y%m%dT%H%M%S')
+            shutil.move(str(item), str(trash / f'{stem}-{ts}.scriv'))
+            log.info('reconcile: trashed orphan Scrivener project %s', item.name)
+
+    log.info('reconcile: done')
+
+
 def main() -> None:
     if not TOKEN:
         log.error('ENERGEIA_TOKEN is not set — daemon cannot authenticate. Exiting.')
@@ -555,6 +661,12 @@ def main() -> None:
     log.info('Worktrees: %s', WORKTREES)
 
     WORKTREES.mkdir(parents=True, exist_ok=True)
+
+    # Initial reconcile — bring agora-worktrees/ and agora-scriv/ in line
+    # with the remote before the watcher and poll loop start.
+    reconcile()
+    last_reconcile = time.time()
+    RECONCILE_INTERVAL = 900  # seconds — periodic self-heal
 
     # Start file watcher
     watcher = PaperWatcher()
@@ -570,6 +682,11 @@ def main() -> None:
         while True:
             # Flush debounced auto-commits
             watcher.flush_pending()
+
+            # Periodic self-healing reconcile
+            if time.time() - last_reconcile >= RECONCILE_INTERVAL:
+                reconcile()
+                last_reconcile = time.time()
 
             # Poll for next action (direct KV — bypasses CF Access)
             resp = kv_next_action()
