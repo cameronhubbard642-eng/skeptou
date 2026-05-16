@@ -340,6 +340,10 @@ def handle_remove_worktree(payload: dict) -> tuple[bool, str]:
     if rc != 0:
         return False, f'git worktree remove failed: {out}'
 
+    # Delete the local branch the worktree held — otherwise it lingers as
+    # an orphan once its dunamis branch is gone.
+    run_git(['branch', '-D', target.name], AGORA_PATH)
+
     log.info('Removed worktree %s', target)
     return True, f'Worktree removed: {target}'
 
@@ -592,6 +596,27 @@ def _apply_sparse_checkout(target: Path, slug: str) -> None:
         log.warning('reconcile: sparse-checkout failed in %s: %s', target.name, out)
 
 
+def _prune_orphan_branches(desired_names: set) -> None:
+    """Delete local branches that tracked a dunamis branch which no longer
+    exists on the remote — leftovers from removed worktrees."""
+    rc, out = run_git(['for-each-ref', '--format=%(refname:short)\t%(upstream:short)',
+                       'refs/heads/'], AGORA_PATH)
+    if rc != 0:
+        return
+    for line in out.splitlines():
+        parts = line.split('\t')
+        if len(parts) != 2:
+            continue
+        branch, upstream = parts
+        if not upstream.startswith('origin/dunamis/') or branch in desired_names:
+            continue
+        rc2, out2 = run_git(['branch', '-D', branch], AGORA_PATH)
+        if rc2 == 0:
+            log.info('reconcile: deleted orphan local branch %s', branch)
+        else:
+            log.warning('reconcile: could not delete orphan local branch %s: %s', branch, out2)
+
+
 def reconcile() -> None:
     """Self-healing pass — make agora-worktrees/ and agora-scriv/ match the
     dunamis branches on the remote and the papers in slugs.yaml. Missed or
@@ -626,6 +651,7 @@ def reconcile() -> None:
                 log.info('reconcile: removed orphan worktree %s', name)
             else:
                 log.warning('reconcile: could not remove orphan worktree %s: %s', name, out)
+        _prune_orphan_branches(desired_names)
 
     # ── Scrivener projects: one per paper in slugs.yaml ──
     papers = _slugs_yaml_papers()
