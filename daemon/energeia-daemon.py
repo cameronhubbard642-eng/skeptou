@@ -258,6 +258,15 @@ def git_auto_commit(worktree: Path, branch: str) -> None:
         log.warning('git commit failed in %s: %s', worktree, out)
         return
     local_branch = branch.split('/')[-1]
+    # The dunamis branch also receives commits from CI (compile-draft pushes
+    # main.pdf + compile-status.json). Rebase onto the remote before pushing,
+    # or the push is rejected non-fast-forward and the local change silently
+    # never reaches GitHub.
+    run_git(['fetch', 'origin', branch], worktree)
+    rc, out = run_git(['rebase', f'origin/{branch}'], worktree)
+    if rc != 0:
+        run_git(['rebase', '--abort'], worktree)
+        log.warning('auto-commit: rebase on origin/%s failed: %s', branch, out)
     rc, out = run_git(['push', 'origin', f'{local_branch}:{branch}'], worktree)
     if rc != 0:
         log.warning('git push failed in %s: %s', worktree, out)
@@ -280,20 +289,13 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
         return True, f'Worktree already exists at {target}'
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    # Fetch the branch (updates refs/remotes/origin/<branch>). The create-worktree
-    # action races create-dunamis-branch.yml, so the branch may not exist on the
-    # remote yet — retry for ~2 min while that workflow finishes.
-    rc, out = 1, ''
-    for attempt in range(8):
-        rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
-        if rc == 0:
-            break
-        if attempt < 7:
-            log.info('create-worktree: %s not on remote yet — retrying in 15s (%d/8)',
-                     branch, attempt + 1)
-            time.sleep(15)
+    # Fetch the branch (updates refs/remotes/origin/<branch>). This action races
+    # create-dunamis-branch.yml — if the branch is not on the remote yet, do NOT
+    # block the daemon waiting. The reconcile pass creates the worktree once the
+    # branch appears (within one reconcile interval).
+    rc, out = run_git(['fetch', 'origin', branch], AGORA_PATH)
     if rc != 0:
-        return False, f'git fetch failed after retries: {out}'
+        return True, f'{branch} not on remote yet — reconcile will create the worktree'
 
     # Check out the worktree on a real local branch tracking origin/<branch>.
     # Without this the worktree lands in detached HEAD and pushes fail.
@@ -322,7 +324,7 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
         if rc != 0:
             log.warning('sparse-checkout set failed in %s: %s', target, out)
         else:
-            log.info('Sparse-checkout: papers/%s, working/%s, templates (+ root files)', slug, slug)
+            log.info('Sparse-checkout: papers/%s, working/%s (+ root files)', slug, slug)
 
     log.info('Created worktree %s → %s', branch, target)
     return True, f'Worktree created at {target}'
@@ -682,16 +684,26 @@ def reconcile() -> None:
     # '.git/worktrees/<name>' behind, which blocks re-adding that branch.
     run_git(['worktree', 'prune'], AGORA_PATH)
 
-    # ── Worktrees: one (sparse) per dunamis branch ──
+    # slugs.yaml is the canonical paper registry — worktrees AND Scrivener
+    # projects are both reconciled against it, so the two stay consistent.
+    papers = _slugs_yaml_papers()
+
+    # ── Worktrees: one (sparse) per dunamis branch of a registered paper ──
     desired = _dunamis_branches()
     if desired is None:
         log.warning('reconcile: skipping worktree pass — branch list unavailable')
+    elif not papers:
+        log.warning('reconcile: skipping worktree pass — slugs.yaml unavailable')
     else:
-        desired_names = {b.replace('dunamis/', '') for b in desired}
+        # Keep only branches whose slug is a paper in slugs.yaml; an orphan
+        # dunamis branch with no registry entry gets no local worktree.
+        valid = {b for b in desired
+                 if b.replace('dunamis/', '').rsplit('-', 1)[0] in papers}
+        desired_names = {b.replace('dunamis/', '') for b in valid}
         WORKTREES.mkdir(parents=True, exist_ok=True)
         existing = {p.name for p in WORKTREES.iterdir()
                     if p.is_dir() and not p.name.startswith('.')}
-        for branch in sorted(desired):
+        for branch in sorted(valid):
             name = branch.replace('dunamis/', '')
             slug = name.rsplit('-', 1)[0]
             if name in existing:
@@ -712,7 +724,6 @@ def reconcile() -> None:
     SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
     archive_dir = SCRIVENER_DIR / 'archive'
     archive_dir.mkdir(exist_ok=True)          # always present, even with no archives
-    papers = _slugs_yaml_papers()
     if papers:
         trash = SCRIVENER_DIR / '_trash'
 
@@ -786,7 +797,7 @@ def main() -> None:
     # with the remote before the watcher and poll loop start.
     reconcile()
     last_reconcile = time.time()
-    RECONCILE_INTERVAL = 900  # seconds — periodic self-heal
+    RECONCILE_INTERVAL = 90  # seconds — periodic self-heal (also the worktree backstop)
 
     # Start file watcher
     watcher = PaperWatcher()
