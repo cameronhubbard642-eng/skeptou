@@ -7,7 +7,7 @@
  *   1. Validate CF Access JWT
  *   2. Derive or validate slug
  *   3. Append entry to agora:energeia slugs.yaml via GitHub Contents API
- *   4. Create papers/<slug>/index.md and working/<slug>/index.md on energeia branch
+ *   4. Create papers/<slug>/{index.md, main.bib} and working/<slug>/index.md on energeia branch
  *   5. Dispatch create-dunamis-branch workflow for initial direction "alpha"
  *   6. Queue daemon action: scaffold-scrivener-project
  *   7. Return 202
@@ -75,6 +75,13 @@ export async function onRequestPost(ctx) {
     const paperIndex = buildPaperIndex(slug, title, abstract, format, today);
     await gh.putFile(`papers/${slug}/index.md`, paperIndex, null,
       `energeia: scaffold papers/${slug} [automated]`, 'energeia');
+
+    /* 2b. Create an empty papers/<slug>/main.bib — Scrivener compile does not
+       emit a .bib, and \\addbibresource{main.bib} needs one to exist. Created
+       here so it lands on every dunamis branch and is editable in the repo. */
+    await gh.putFile(`papers/${slug}/main.bib`,
+      `% Bibliography for ${slug} — add BibTeX entries here.\n`, null,
+      `energeia: scaffold papers/${slug}/main.bib [automated]`, 'energeia');
 
     /* 3. Create working/<slug>/index.md on energeia branch */
     const workingIndex = `# Working — ${title}\n\n*Notes, outlines, and continuous reference material for this paper.*\n\n## Outline\n\n<!-- Add outline here -->\n\n## Notes\n\n<!-- -->\n\n## Bibliography\n\n<!-- -->\n`;
