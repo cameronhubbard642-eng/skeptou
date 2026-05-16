@@ -18,10 +18,10 @@ compatibility_date = "2026-05-01"
 pages_build_output_dir = "dist"
 
 # D1 binding consumed by Pages Functions as env.OP_DB.
-# database_id is filled by DevOps after `wrangler d1 create skeptou-op`.
+# database_id from `wrangler d1 create skeptou-op` (region WNAM, 2026-05-16).
 # The dashboard binding for the deployed project must also be named OP_DB.
 [[d1_databases]]
 binding       = "OP_DB"
 database_name = "skeptou-op"
-database_id   = "REPLACE_AFTER_wrangler_d1_create"
+database_id   = "6321abe6-ed91-4577-8d82-c9dbf688795c"
 migrations_dir = "migrations"
