@@ -307,15 +307,16 @@ def handle_create_worktree(payload: dict) -> tuple[bool, str]:
     if rc != 0:
         return False, f'git worktree add failed: {out}'
 
-    # Sparse-checkout: show only this paper's content + shared infrastructure.
+    # Sparse-checkout: only this paper's own files — papers/<slug> and
+    # working/<slug>. Shared infra (templates/, .github/) is excluded; the
+    # CI compile does a full checkout, so it is unaffected.
     # Non-fatal — worktree is usable without it, just not filtered.
     rc, out = run_git(['sparse-checkout', 'init', '--cone'], target)
     if rc != 0:
         log.warning('sparse-checkout init failed in %s: %s', target, out)
     else:
         rc, out = run_git(
-            ['sparse-checkout', 'set',
-             f'papers/{slug}', f'working/{slug}', 'templates'],
+            ['sparse-checkout', 'set', f'papers/{slug}', f'working/{slug}'],
             target
         )
         if rc != 0:
@@ -640,12 +641,12 @@ def _slugs_yaml_papers() -> dict:
 
 
 def _apply_sparse_checkout(target: Path, slug: str) -> None:
-    """Scope an existing worktree to just this paper's files + compile templates."""
+    """Scope a worktree to just this paper's own files — papers/<slug> and
+    working/<slug>. Shared infra (templates/, .github/) is left out; root
+    files (slugs.yaml, .gitignore) are always materialised by cone mode."""
     run_git(['sparse-checkout', 'init', '--cone'], target)
-    # Cone mode takes directories only; root files (slugs.yaml, .gitignore)
-    # are always materialised automatically.
-    rc, out = run_git(['sparse-checkout', 'set', f'papers/{slug}',
-                       f'working/{slug}', 'templates'], target)
+    rc, out = run_git(['sparse-checkout', 'set',
+                       f'papers/{slug}', f'working/{slug}'], target)
     if rc != 0:
         log.warning('reconcile: sparse-checkout failed in %s: %s', target.name, out)
 
