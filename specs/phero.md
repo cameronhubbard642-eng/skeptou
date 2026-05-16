@@ -1,23 +1,23 @@
-# specs/pharo.md — Pharo Document Sharing Interface
+# specs/phero.md — Phero Document Sharing Interface
 
 **Version:** rev 1
 **Status:** draft — awaiting Cam review
 **Author:** Lead Dev / Architect — Sképtou
 **Date:** 2026-05-16
-**Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `specs/arestia.md`, `ARCHITECTURE.md`
-**Consumers:** DevOps engineer, Pharo engineer, Cam
+**Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `specs/aristeia.md`, `ARCHITECTURE.md`
+**Consumers:** DevOps engineer, Phero engineer, Cam
 
 ---
 
 ## §I — Purpose + scope
 
-### §I.1 — What pharo is
+### §I.1 — What phero is
 
-`pharo.skeptou.com` (Slot 3 — see Q1 in §XIV) is a controlled, outward-facing sharing layer for canonical documents originating from energeia (papers under development or in pipeline) and arestia (published or archived professional documents). It is **not** a storage system, **not** a CMS, and **not** a general-purpose file host. Pharo holds share metadata; it proxies bytes from upstream sources.
+`phero.skeptou.com` (Slot 3 — see Q1 in §XIV) is a controlled, outward-facing sharing layer for canonical documents originating from energeia (papers under development or in pipeline) and aristeia (published or archived professional documents). It is **not** a storage system, **not** a CMS, and **not** a general-purpose file host. Phero holds share metadata; it proxies bytes from upstream sources.
 
-The defining characteristic separating pharo from all other Sképtou modules: **its audience is external recipients** — colleagues, reviewers, search committees, editors, co-authors — who have no auth-core account and no Cloudflare Access credentials. Pharo routes around the Access gate by design: each share URL is either publicly accessible (anonymous model) or gated by a lightweight per-recipient OTP flow (recipient model), neither of which requires an auth-core account.
+The defining characteristic separating phero from all other Sképtou modules: **its audience is external recipients** — colleagues, reviewers, search committees, editors, co-authors — who have no auth-core account and no Cloudflare Access credentials. Phero routes around the Access gate by design: each share URL is either publicly accessible (anonymous model) or gated by a lightweight per-recipient OTP flow (recipient model), neither of which requires an auth-core account.
 
-### §I.2 — What pharo enables
+### §I.2 — What phero enables
 
 | Scenario | Share model | Notes |
 |---|---|---|
@@ -27,29 +27,29 @@ The defining characteristic separating pharo from all other Sképtou modules: **
 | Distributing a preprint to a reading group | Anonymous | Group-wide link; view count tracked |
 | Sending a sensitive document (recommendation letter authored by Cam) | Recipient | Single-recipient; watermark at Phase 3 |
 
-### §I.3 — What pharo does not do
+### §I.3 — What phero does not do
 
-- Store documents (bytes live in energeia R2 or arestia R2; pharo proxies, never stores)
+- Store documents (bytes live in energeia R2 or aristeia R2; phero proxies, never stores)
 - Edit or modify upstream documents
 - Grant the recipient write access to anything
-- Function as a general file host (only energeia and arestia documents can be shared)
+- Function as a general file host (only energeia and aristeia documents can be shared)
 - Serve teaching materials, reports, or internal notes (those belong to paideia and strategia respectively)
 
 ### §I.4 — Downloads are permitted
 
-Unlike strategia and arestia (where the posture is in-browser only, no download UI), pharo explicitly permits downloads. Sharing implies the external reader may need the file — a reviewer needs to annotate, a committee member needs to forward, a colleague needs to cite. Pharo's viewer provides a download button alongside the in-browser reader. There is no policy prohibition on saving the document.
+Unlike strategia and aristeia (where the posture is in-browser only, no download UI), phero explicitly permits downloads. Sharing implies the external reader may need the file — a reviewer needs to annotate, a committee member needs to forward, a colleague needs to cite. Phero's viewer provides a download button alongside the in-browser reader. There is no policy prohibition on saving the document.
 
 ---
 
 ## §II — Architecture overview
 
 ```
-pharo.skeptou.com/<token>        ← Public (no Cloudflare Access gate)
+phero.skeptou.com/<token>        ← Public (no Cloudflare Access gate)
   /<token>                       ← Share landing page / viewer
   /<token>/verify                ← Recipient OTP verification page (recipient model only)
   /                              ← Optional: Cam management UI (Access-gated sub-path)
 
-pharo.skeptou.com/api/*          ← Cloudflare Worker (pharo-worker)
+phero.skeptou.com/api/*          ← Cloudflare Worker (phero-worker)
   POST   /api/shares             ← Create share (Cam session only)
   GET    /api/shares             ← List Cam's shares (Cam session only)
   DELETE /api/shares/:token      ← Revoke (Cam session only)
@@ -58,42 +58,42 @@ pharo.skeptou.com/api/*          ← Cloudflare Worker (pharo-worker)
   POST   /api/share/:token/verify ← Submit OTP, receive scoped cookie (public)
 ```
 
-**Access gate note:** `pharo.skeptou.com/*` is **not** covered by a blanket Cloudflare Access policy. The public share path (`/<token>`) must be reachable by external recipients without Access credentials. Cam's management UI is handled at the Worker level (session auth check), not at the CF Access layer. This is the only Sképtou module where the Access gate is intentionally not blanket.
+**Access gate note:** `phero.skeptou.com/*` is **not** covered by a blanket Cloudflare Access policy. The public share path (`/<token>`) must be reachable by external recipients without Access credentials. Cam's management UI is handled at the Worker level (session auth check), not at the CF Access layer. This is the only Sképtou module where the Access gate is intentionally not blanket.
 
-**Alternative considered:** a sub-path at `pharo.skeptou.com/manage/*` could be Access-gated while `pharo.skeptou.com/<token>` is public. This is the recommended pattern — DevOps configures Access to bypass on the token path pattern and apply only to `/manage/*` and `/api/shares*`.
+**Alternative considered:** a sub-path at `phero.skeptou.com/manage/*` could be Access-gated while `phero.skeptou.com/<token>` is public. This is the recommended pattern — DevOps configures Access to bypass on the token path pattern and apply only to `/manage/*` and `/api/shares*`.
 
 **Storage:**
 
 ```
-D1 (skeptou-pharo)               ← Share metadata, event log, audit log
-                                 ← NO R2 — pharo stores nothing
+D1 (skeptou-phero)               ← Share metadata, event log, audit log
+                                 ← NO R2 — phero stores nothing
 ```
 
 **Upstream proxying:**
 
 ```
-pharo-worker
+phero-worker
   ├─ Calls energeia-worker /api/papers/:slug/content    → with ENERGEIA_SERVICE_TOKEN
-  └─ Calls arestia-worker  /api/publications/:slug/content → with ARESTIA_SERVICE_TOKEN
+  └─ Calls aristeia-worker  /api/publications/:slug/content → with ARISTEIA_SERVICE_TOKEN
 ```
 
 **Worker bindings (wrangler.toml):**
 
 ```toml
 [[d1_databases]]
-binding = "PHARO_DB"
-database_name = "skeptou-pharo"
+binding = "PHERO_DB"
+database_name = "skeptou-phero"
 database_id = "<uuid>"
 
 [vars]
 ENERGEIA_BASE_URL = "https://energeia.skeptou.com"
-ARESTIA_BASE_URL  = "https://arestia.skeptou.com"
+ARISTEIA_BASE_URL  = "https://aristeia.skeptou.com"
 OTP_TTL_MINUTES   = "15"
 SHARE_COOKIE_TTL_HOURS = "24"
 
 # Secrets (set via wrangler secret put):
 # ENERGEIA_SERVICE_TOKEN
-# ARESTIA_SERVICE_TOKEN
+# ARISTEIA_SERVICE_TOKEN
 # OTP_SIGNING_KEY   (HMAC key for OTP generation — reuse auth-core pattern)
 ```
 
@@ -119,7 +119,7 @@ The share token is the sole access credential for a share. Properties:
 
 - **Entropy:** 128 bits from `crypto.getRandomValues()`, base64url-encoded → 22-character URL-safe string
 - **Not guessable:** URL-safe random, not derived from document slug or user identity
-- **URL form:** `pharo.skeptou.com/<token>` — e.g. `pharo.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV`
+- **URL form:** `phero.skeptou.com/<token>` — e.g. `phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV`
 - **Single-use for OTP; multi-access for content:** the token itself is permanent until expiry/revocation; the OTP is single-use
 
 ```typescript
@@ -152,7 +152,7 @@ The Worker implements this by:
 - `source_version = NULL` → call upstream with no version parameter → get current canonical
 - `source_version = "v1.3"` → call `GET /api/papers/:slug/content?version=v1.3` → get pinned version
 
-This is open question Q2 in §XIV.
+This is open question Q1 in §XIV.
 
 ---
 
@@ -160,26 +160,26 @@ This is open question Q2 in §XIV.
 
 ### §V.1 — Migration files
 
-Location: `modules/pharo/migrations/`
+Location: `modules/phero/migrations/`
 
 ```
 0001_initial_schema.sql
 0002_indexes.sql
 ```
 
-Applied via `wrangler d1 migrations apply skeptou-pharo`.
+Applied via `wrangler d1 migrations apply skeptou-phero`.
 
 ### §V.2 — `0001_initial_schema.sql`
 
 ```sql
 -- ============================================================
--- Pharo share metadata — skeptou-pharo D1 database
--- Sképtou / specs/pharo.md rev 1
+-- Phero share metadata — skeptou-phero D1 database
+-- Sképtou / specs/phero.md rev 1
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS shares (
   share_token        TEXT    PRIMARY KEY,            -- 22-char base64url random; the public URL segment
-  source_module      TEXT    NOT NULL CHECK (source_module IN ('energeia','arestia')),
+  source_module      TEXT    NOT NULL CHECK (source_module IN ('energeia','aristeia')),
   source_slug        TEXT    NOT NULL,               -- paper/publication slug in upstream module
   source_version     TEXT,                           -- NULL = live; set = snapshot at creation
   share_model        TEXT    NOT NULL DEFAULT 'anonymous'
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 - `otp_challenges.email_hash` — stores `SHA-256(submitted_email)` so the OTP verification can check `submitted_email == share.recipient_email` without a separate lookup by plaintext.
 - `otp_challenges.code_hash` — OTP code is never stored as plaintext; HMAC-SHA256 of the code is stored; the Worker HMACs the submitted code and compares.
 - `otp_challenges.attempt_count` — incremented on each failed verification; Worker rejects after 5 attempts and issues a new challenge.
-- `share_events` logs every access event for analytics (Q5 in §XIV — view_count and last_viewed visible to Cam).
+- `share_events` logs every access event for analytics (Q4 in §XIV — view_count and last_viewed visible to Cam).
 - `shares.revoked_at` — instant revocation; Worker checks this on every request (no caching of share validity state).
 
 ### §V.3 — `0002_indexes.sql`
@@ -277,7 +277,7 @@ Cam-only. Creates a share record and returns the share URL.
 
 ```typescript
 interface CreateShareBody {
-  source_module:    'energeia' | 'arestia';
+  source_module:    'energeia' | 'aristeia';
   source_slug:      string;             // paper/publication slug in upstream
   share_model:      'anonymous' | 'recipient';
   recipient_email?: string;             // required if share_model = 'recipient'
@@ -291,7 +291,7 @@ interface CreateShareBody {
 1. Validate: `recipient_email` must be present if `share_model = 'recipient'`
 2. If `snapshot_mode = true`: call upstream metadata endpoint to retrieve current `version` tag; store in `source_version`
 3. Generate share token (§III.3)
-4. Insert into `shares` and `audit_log` in one `PHARO_DB.batch()`
+4. Insert into `shares` and `audit_log` in one `PHERO_DB.batch()`
 5. Return share URL and metadata
 
 **Response `201`:**
@@ -299,8 +299,8 @@ interface CreateShareBody {
 {
   "data": {
     "share_token": "aBcDeFgHiJkLmNoPqRsTuV",
-    "share_url":   "https://pharo.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV",
-    "source_module": "arestia",
+    "share_url":   "https://phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV",
+    "source_module": "aristeia",
     "source_slug":   "consciousness-2026-phil-review",
     "source_version": null,
     "share_model":  "anonymous",
@@ -320,8 +320,8 @@ async function createShare(body: CreateShareBody, actor: string, env: Env): Prom
 
   let sourceVersion: string | null = null;
   if (body.snapshot_mode) {
-    const base  = body.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARESTIA_BASE_URL;
-    const token = body.source_module === 'energeia' ? env.ENERGEIA_SERVICE_TOKEN : env.ARESTIA_SERVICE_TOKEN;
+    const base  = body.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARISTEIA_BASE_URL;
+    const token = body.source_module === 'energeia' ? env.ENERGEIA_SERVICE_TOKEN : env.ARISTEIA_SERVICE_TOKEN;
     const path  = body.source_module === 'energeia' ? 'papers' : 'publications';
     const meta  = await fetch(`${base}/api/${path}/${body.source_slug}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -337,13 +337,13 @@ async function createShare(body: CreateShareBody, actor: string, env: Env): Prom
     ? body.expires_at
     : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-  await env.PHARO_DB.batch([
-    env.PHARO_DB.prepare(
+  await env.PHERO_DB.batch([
+    env.PHERO_DB.prepare(
       `INSERT INTO shares (share_token, source_module, source_slug, source_version, share_model, recipient_email, label, expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(shareToken, body.source_module, body.source_slug, sourceVersion,
            body.share_model, body.recipient_email ?? null, body.label ?? null, expiresAt),
-    env.PHARO_DB.prepare(
+    env.PHERO_DB.prepare(
       `INSERT INTO audit_log (row_key, action, actor, snapshot) VALUES (?, 'CREATE', ?, ?)`
     ).bind(shareToken, actor, JSON.stringify({ ...body, source_version: sourceVersion })),
   ]);
@@ -351,7 +351,7 @@ async function createShare(body: CreateShareBody, actor: string, env: Env): Prom
   return Response.json({
     data: {
       share_token:    shareToken,
-      share_url:      `https://pharo.skeptou.com/${shareToken}`,
+      share_url:      `https://phero.skeptou.com/${shareToken}`,
       source_module:  body.source_module,
       source_slug:    body.source_slug,
       source_version: sourceVersion,
@@ -375,7 +375,7 @@ Cam-only. Returns all shares (active + revoked) with view counts.
 
 | Param | Description |
 |---|---|
-| `source_module` | Filter: `energeia` or `arestia` |
+| `source_module` | Filter: `energeia` or `aristeia` |
 | `active` | `true` = active only (non-revoked, non-expired); `false` = all |
 | `share_model` | Filter: `anonymous` or `recipient` |
 | `limit` / `offset` | Pagination |
@@ -396,7 +396,7 @@ Cam-only. Instantly kills the share link.
 3. Write `audit_log` REVOKE row
 4. Return `204`
 
-After revocation, `GET /api/share/:token` returns the revocation response (configurable — see Q6 in §XIV).
+After revocation, `GET /api/share/:token` returns the revocation response (configurable — see Q5 in §XIV).
 
 ---
 
@@ -404,7 +404,7 @@ After revocation, `GET /api/share/:token` returns the revocation response (confi
 
 **Auth:** No auth-core required. Public endpoint. For recipient model: requires scoped share cookie.
 
-This is the primary endpoint hit when a recipient visits `pharo.skeptou.com/<token>`.
+This is the primary endpoint hit when a recipient visits `phero.skeptou.com/<token>`.
 
 **Rate limiting:** enforced at the Cloudflare layer. Recommended: 30 requests/minute per IP on this path; `429` on breach. This prevents token enumeration.
 
@@ -413,7 +413,7 @@ This is the primary endpoint hit when a recipient visits `pharo.skeptou.com/<tok
 ```
 1. Look up share_token in active_shares view
    → NOT FOUND (invalid or expired):  → 404 (never distinguish invalid vs expired)
-   → FOUND, revoked_at IS NOT NULL:   → 410 Gone (or 404 — Q6 in §XIV)
+   → FOUND, revoked_at IS NOT NULL:   → 410 Gone (or 404 — Q5 in §XIV)
 
 2. If share_model = 'recipient':
    → Check for valid scoped share cookie (HMAC-signed: share_token + recipient_email hash)
@@ -423,7 +423,7 @@ This is the primary endpoint hit when a recipient visits `pharo.skeptou.com/<tok
 
 3. Fetch upstream document:
    → source_module = 'energeia': GET energeia /api/papers/:slug/content[?version=...]
-   → source_module = 'arestia':  GET arestia  /api/publications/:slug/content[?version=...]
+   → source_module = 'aristeia':  GET aristeia  /api/publications/:slug/content[?version=...]
 
 4. Update D1 (non-blocking — use ctx.waitUntil()):
    → INCREMENT view_count, SET last_viewed_at
@@ -436,14 +436,14 @@ This is the primary endpoint hit when a recipient visits `pharo.skeptou.com/<tok
    → X-Share-Token: <first 8 chars of token> (audit aid, not secret)
 ```
 
-Note: `Content-Disposition: attachment` (vs `inline` in strategia/arestia) enables the browser's save-file dialog. Cam wants downloads permitted for shared documents.
+Note: `Content-Disposition: attachment` (vs `inline` in strategia/aristeia) enables the browser's save-file dialog. Cam wants downloads permitted for shared documents.
 
 **Handler sketch (simplified):**
 
 ```typescript
 async function serveShare(token: string, request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   // 1. Validate token
-  const share = await env.PHARO_DB.prepare(
+  const share = await env.PHERO_DB.prepare(
     `SELECT * FROM active_shares WHERE share_token = ?`
   ).bind(token).first<ShareRow | null>();
 
@@ -451,15 +451,15 @@ async function serveShare(token: string, request: Request, env: Env, ctx: Execut
 
   // 2. Recipient model gate
   if (share.share_model === 'recipient') {
-    const cookie = getCookie(request, `pharo-session-${token}`);
+    const cookie = getCookie(request, `phero-session-${token}`);
     if (!cookie || !validateShareCookie(cookie, token, share.recipient_email!, env)) {
-      return Response.redirect(`https://pharo.skeptou.com/${token}/verify`, 302);
+      return Response.redirect(`https://phero.skeptou.com/${token}/verify`, 302);
     }
   }
 
   // 3. Fetch from upstream
-  const base    = share.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARESTIA_BASE_URL;
-  const svcTok  = share.source_module === 'energeia' ? env.ENERGEIA_SERVICE_TOKEN : env.ARESTIA_SERVICE_TOKEN;
+  const base    = share.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARISTEIA_BASE_URL;
+  const svcTok  = share.source_module === 'energeia' ? env.ENERGEIA_SERVICE_TOKEN : env.ARISTEIA_SERVICE_TOKEN;
   const path    = share.source_module === 'energeia' ? 'papers' : 'publications';
   const vParam  = share.source_version ? `?version=${share.source_version}` : '';
 
@@ -477,11 +477,11 @@ async function serveShare(token: string, request: Request, env: Env, ctx: Execut
 
   // 4. Non-blocking analytics update
   ctx.waitUntil(
-    env.PHARO_DB.batch([
-      env.PHARO_DB.prepare(
+    env.PHERO_DB.batch([
+      env.PHERO_DB.prepare(
         `UPDATE shares SET view_count = view_count + 1, last_viewed_at = ? WHERE share_token = ?`
       ).bind(new Date().toISOString(), token),
-      env.PHARO_DB.prepare(
+      env.PHERO_DB.prepare(
         `INSERT INTO share_events (share_token, event_type, ip_hash, user_agent)
          VALUES (?, 'view', ?, ?)`
       ).bind(token, sha256(request.headers.get('CF-Connecting-IP') ?? ''), request.headers.get('User-Agent')),
@@ -545,14 +545,14 @@ async function serveShare(token: string, request: Request, env: Env, ctx: Execut
 
 **Scoped share cookie:**
 ```
-Set-Cookie: pharo-session-<token>=<HMAC-signed-value>; HttpOnly; Secure; SameSite=Lax; Max-Age=86400; Path=/<token>
+Set-Cookie: phero-session-<token>=<HMAC-signed-value>; HttpOnly; Secure; SameSite=Lax; Max-Age=86400; Path=/<token>
 ```
 
 The cookie is scoped to the `/<token>` path — it grants access only to this specific share, not to any other share or any other part of the site. TTL: 24 hours (configurable).
 
 **Response `200`:**
 ```json
-{ "message": "verified", "redirect": "https://pharo.skeptou.com/<token>" }
+{ "message": "verified", "redirect": "https://phero.skeptou.com/<token>" }
 ```
 
 Client-side JS on the verify page reads `redirect` and navigates there.
@@ -564,8 +564,8 @@ Client-side JS on the verify page reads `redirect` and navigates there.
 ### §VII.1 — Full flow for a recipient
 
 1. Cam creates a recipient share → receives `share_url`
-2. Cam sends the URL to the recipient via email (pharo does not auto-email the share URL to the recipient — Cam distributes it manually)
-3. Recipient visits `pharo.skeptou.com/<token>`
+2. Cam sends the URL to the recipient via email (phero does not auto-email the share URL to the recipient — Cam distributes it manually)
+3. Recipient visits `phero.skeptou.com/<token>`
 4. Worker checks for valid scoped cookie → none found → redirects to `/<token>/verify`
 5. Verify page renders: "Enter your email to access this document"
 6. Recipient types their email → `POST /api/share/<token>/otp` → "If that email matches, a code has been sent"
@@ -589,7 +589,7 @@ Error states: "That email does not match the share record." (shown only after N 
 
 ### §VIII.1 — Public viewer
 
-The share landing page at `/<token>` renders the document in-browser **and** provides a download button. Unlike strategia and arestia (which suppress download), pharo's viewer is a sharing surface — the point is for the recipient to have the document.
+The share landing page at `/<token>` renders the document in-browser **and** provides a download button. Unlike strategia and aristeia (which suppress download), phero's viewer is a sharing surface — the point is for the recipient to have the document.
 
 | MIME type | Renderer | Download button |
 |---|---|---|
@@ -608,7 +608,7 @@ The viewer header displays:
 
 ### §VIII.3 — Expired / revoked link page
 
-When a token is invalid, expired, or revoked, the Worker returns a styled page (not a raw 404 JSON response). Recommended text: "This link is no longer available." (open question Q6 in §XIV — revoked vs expired vs invalid may warrant different messages).
+When a token is invalid, expired, or revoked, the Worker returns a styled page (not a raw 404 JSON response). Recommended text: "This link is no longer available." (open question Q5 in §XIV — revoked vs expired vs invalid may warrant different messages).
 
 ---
 
@@ -616,7 +616,7 @@ When a token is invalid, expired, or revoked, the Worker returns a styled page (
 
 ### §IX.1 — Scope
 
-A simple management interface at `pharo.skeptou.com/manage` (behind session auth gate in the Worker, not a CF Access gate). Lists all of Cam's shares with:
+A simple management interface at `phero.skeptou.com/manage` (behind session auth gate in the Worker, not a CF Access gate). Lists all of Cam's shares with:
 
 | Column | Source |
 |---|---|
@@ -633,7 +633,7 @@ A simple management interface at `pharo.skeptou.com/manage` (behind session auth
 ### §IX.2 — Create share form
 
 A form at `/manage/new` that maps to `POST /api/shares`:
-- Source module dropdown (energeia / arestia)
+- Source module dropdown (energeia / aristeia)
 - Source document dropdown (fetched from upstream paper/publication list)
 - Share model toggle (Anonymous / Recipient)
 - Recipient email (shown only when Recipient selected)
@@ -652,7 +652,7 @@ Optional PDF overlay for recipient-model shares. At serve time, the Worker uses 
 Watermark content:
 ```
 Shared with: reviewer@university.edu
-Link: pharo.skeptou.com/<first-8-chars-of-token>
+Link: phero.skeptou.com/<first-8-chars-of-token>
 Date: 2026-05-16
 ```
 
@@ -664,7 +664,7 @@ Placed as a semi-transparent footer on each page. Does not modify the upstream R
 - Recommendation: implement watermarking only for PDFs under 20MB in Phase 3; surface a "watermark not applied — document too large" note in the management UI for larger files.
 - Watermarking is opt-in per share (Cam checks "Watermark this share" at creation time). Not all recipient-model shares need it.
 
-This is open question Q4 in §XIV.
+This is open question Q3 in §XIV.
 
 ---
 
@@ -672,7 +672,7 @@ This is open question Q4 in §XIV.
 
 ### §XI.1 — Cam session (write operations)
 
-`POST /api/shares`, `GET /api/shares`, `DELETE /api/shares/:token`, `/manage/*` all require a session cookie. The Worker's `requireCamSession()` check is the same as arestia (§IX.1 of the arestia spec). No service tokens for Cam-facing write operations.
+`POST /api/shares`, `GET /api/shares`, `DELETE /api/shares/:token`, `/manage/*` all require a session cookie. The Worker's `requireCamSession()` check is the same as aristeia (§IX.1 of the aristeia spec). No service tokens for Cam-facing write operations.
 
 ### §XI.2 — Public access (share serving)
 
@@ -680,7 +680,7 @@ This is open question Q4 in §XIV.
 
 ### §XI.3 — Worker-to-Worker service tokens
 
-`ENERGEIA_SERVICE_TOKEN` and `ARESTIA_SERVICE_TOKEN` are Worker secrets used only in the server-side upstream fetch. Never returned in any API response. Scoped for read-only access to the respective module's content endpoints.
+`ENERGEIA_SERVICE_TOKEN` and `ARISTEIA_SERVICE_TOKEN` are Worker secrets used only in the server-side upstream fetch. Never returned in any API response. Scoped for read-only access to the respective module's content endpoints.
 
 ---
 
@@ -715,11 +715,11 @@ The scoped share cookie is:
 
 ### §XII.6 — No Cloudflare Access blanket gate
 
-`pharo.skeptou.com/*` is intentionally not behind a blanket Access policy. The management paths (`/manage/*` and `/api/shares*`) are protected by the Worker's session auth check. This is a deliberate deviation from the standard Sképtou private-subdomain pattern; DevOps and QA must verify that the management API cannot be reached without a valid session even though CF Access is not covering it.
+`phero.skeptou.com/*` is intentionally not behind a blanket Access policy. The management paths (`/manage/*` and `/api/shares*`) are protected by the Worker's session auth check. This is a deliberate deviation from the standard Sképtou private-subdomain pattern; DevOps and QA must verify that the management API cannot be reached without a valid session even though CF Access is not covering it.
 
 ### §XII.7 — Upstream document availability
 
-If the upstream energeia or arestia document is deleted or becomes unavailable after a share is created, `GET /api/share/:token` returns `502 Bad Gateway` (not 404 — the share is still valid, the upstream is the problem). Cam should be able to see in the management UI that a share's upstream document is no longer available (Phase 2+ feature).
+If the upstream energeia or aristeia document is deleted or becomes unavailable after a share is created, `GET /api/share/:token` returns `502 Bad Gateway` (not 404 — the share is still valid, the upstream is the problem). Cam should be able to see in the management UI that a share's upstream document is no longer available (Phase 2+ feature).
 
 ---
 
@@ -730,7 +730,7 @@ If the upstream energeia or arestia document is deleted or becomes unavailable a
 **Scope:** D1 schema applied. Anonymous share model fully functional. Cam can create, list, and revoke shares. Public viewer at `/<token>` serves and downloads documents. View tracking live.
 
 **Deliverables:**
-- D1 migrations applied; `wrangler d1 info skeptou-pharo` shows 4 tables + 1 view
+- D1 migrations applied; `wrangler d1 info skeptou-phero` shows 4 tables + 1 view
 - `POST /api/shares` (anonymous model only in Phase 1)
 - `GET /api/shares` list with filters
 - `DELETE /api/shares/:token` revocation
@@ -739,12 +739,12 @@ If the upstream energeia or arestia document is deleted or becomes unavailable a
 - Public viewer at `/<token>` with PDF.js, download button
 - Expired/revoked page
 - Cam management UI at `/manage` (create + list + revoke)
-- `ENERGEIA_SERVICE_TOKEN` and `ARESTIA_SERVICE_TOKEN` provisioned + validated
+- `ENERGEIA_SERVICE_TOKEN` and `ARISTEIA_SERVICE_TOKEN` provisioned + validated
 
-**Pre-condition:** energeia and arestia read endpoints (`GET /api/papers/:slug/content`, `GET /api/publications/:slug/content`) must be live.
+**Pre-condition:** energeia and aristeia read endpoints (`GET /api/papers/:slug/content`, `GET /api/publications/:slug/content`) must be live.
 
 **Verification:**
-- Create anonymous share for a seeded arestia publication → share URL returns PDF → download works
+- Create anonymous share for a seeded aristeia publication → share URL returns PDF → download works
 - Create anonymous share for an energeia paper → same
 - Revoke share → same URL returns "no longer available" page
 - Share with `expires_at = now + 1 minute` → after expiry, URL returns "no longer available"
@@ -795,39 +795,38 @@ If the upstream energeia or arestia document is deleted or becomes unavailable a
 
 | # | Question | Blocks | Recommendation |
 |---|---|---|---|
-| Q1 | **Module name / slot:** Cam uses "pharo" — possible root φαρός (pharos = lighthouse/beacon). The CLAUDE.md module roster at Slot 3 has `phero.skeptou.com` (φέρω = to carry/bear). Is "pharo" the correct name for this module? Or is the subdomain `phero.skeptou.com`? | DNS / module wiring | Use Cam's "pharo" spelling; update CLAUDE.md Slot 3 to match |
-| Q2 | **Anonymous vs. recipient vs. both as default:** Recommendation is both, with anonymous as default in the create UI. Confirm. | Phase 1 scope | Both; anonymous default |
-| Q3 | **Snapshot vs. live default:** Recommendation is live (share resolves to current canonical). Snapshot opt-in via checkbox at create time. Confirm. | Phase 1 schema | Live default; snapshot opt-in |
-| Q4 | **Default expiry duration:** Recommendation is 90 days default (close to auth-core service token TTL). Options: 30 days, 90 days, 1 year, no expiry. Cam can override per share. | Phase 1 create-share form | 90-day default |
-| Q5 | **View count + last_viewed visible to Cam:** management UI should show view_count and last_viewed_at per share. Confirm. | Phase 1 management UI | Yes — show both |
-| Q6 | **Revoked link response:** when a recipient visits a revoked share, return (a) `410 Gone` with a styled "This link has been revoked" page, or (b) same `404`-style "no longer available" page (no distinction). Recommendation: (a) — distinct revocation page is more informative and professionally appropriate. | Phase 1 revocation handler | (a) distinct 410 page |
-| Q7 | **Watermarking opt-in:** watermarking is Phase 3 and opt-in per share. Confirm this is acceptable; no expectation of watermarking in Phase 1 or 2. | Phase 3 scope | Phase 3; opt-in per share |
-| Q8 | **OTP TTL:** recommendation is 15 minutes for the OTP code and 24 hours for the scoped session cookie. Confirm. | Phase 2 OTP flow | 15 min OTP; 24h cookie |
-| Q9 | **Cam distributes share URL manually:** pharo does not send the share URL to the recipient — Cam copies and pastes or emails it himself. Pharo only sends the OTP email (for recipient model) and that only after the recipient visits the URL. Confirm this is the intended UX. | Phase 1 create-share response | Yes — Cam distributes URL manually |
+| Q1 | **Anonymous vs. recipient vs. both as default:** Recommendation is both, with anonymous as default in the create UI. Confirm. | Phase 1 scope | Both; anonymous default |
+| Q2 | **Snapshot vs. live default:** Recommendation is live (share resolves to current canonical). Snapshot opt-in via checkbox at create time. Confirm. | Phase 1 schema | Live default; snapshot opt-in |
+| Q3 | **Default expiry duration:** Recommendation is 90 days default (close to auth-core service token TTL). Options: 30 days, 90 days, 1 year, no expiry. Cam can override per share. | Phase 1 create-share form | 90-day default |
+| Q4 | **View count + last_viewed visible to Cam:** management UI should show view_count and last_viewed_at per share. Confirm. | Phase 1 management UI | Yes — show both |
+| Q5 | **Revoked link response:** when a recipient visits a revoked share, return (a) `410 Gone` with a styled "This link has been revoked" page, or (b) same `404`-style "no longer available" page (no distinction). Recommendation: (a) — distinct revocation page is more informative and professionally appropriate. | Phase 1 revocation handler | (a) distinct 410 page |
+| Q6 | **Watermarking opt-in:** watermarking is Phase 3 and opt-in per share. Confirm this is acceptable; no expectation of watermarking in Phase 1 or 2. | Phase 3 scope | Phase 3; opt-in per share |
+| Q7 | **OTP TTL:** recommendation is 15 minutes for the OTP code and 24 hours for the scoped session cookie. Confirm. | Phase 2 OTP flow | 15 min OTP; 24h cookie |
+| Q8 | **Cam distributes share URL manually:** phero does not send the share URL to the recipient — Cam copies and pastes or emails it himself. Phero only sends the OTP email (for recipient model) and that only after the recipient visits the URL. Confirm this is the intended UX. | Phase 1 create-share response | Yes — Cam distributes URL manually |
 
 ---
 
 ## §XV — Out of scope
 
-- Storage of any document bytes (pharo proxies only; no R2 bucket)
+- Storage of any document bytes (phero proxies only; no R2 bucket)
 - Generating or editing upstream documents
-- Sharing documents from modules other than energeia and arestia (no strategia reports, no paideia materials, no arbitrary uploads via pharo)
+- Sharing documents from modules other than energeia and aristeia (no strategia reports, no paideia materials, no arbitrary uploads via phero)
 - Public index or gallery of Cam's shared documents (each share is a point-to-point link; no discovery surface)
 - Analytics visible to recipients (view count is Cam-side only)
 - Collaborative annotation or commenting
 - Bulk share creation or programmatic share API (no service tokens on the write side)
-- Short-URL / vanity URL customization (token is random; no `pharo.skeptou.com/my-paper`)
+- Short-URL / vanity URL customization (token is random; no `phero.skeptou.com/my-paper`)
 
 ---
 
 ## §XVI — Definition of done
 
 **Phase 1:**
-- [ ] D1 `skeptou-pharo` created; migrations applied; 4 tables + 1 view verified
+- [ ] D1 `skeptou-phero` created; migrations applied; 4 tables + 1 view verified
 - [ ] `POST /api/shares` creates anonymous share; returns share URL with valid token
 - [ ] `GET /api/shares` returns created shares with view_count and last_viewed_at
 - [ ] `DELETE /api/shares/:token` sets `revoked_at`; subsequent `GET /api/share/:token` returns 410/404
-- [ ] `GET /api/share/:token` with valid anonymous token: fetches from energeia and arestia respectively; streams PDF with `Content-Disposition: attachment`; increments view_count
+- [ ] `GET /api/share/:token` with valid anonymous token: fetches from energeia and aristeia respectively; streams PDF with `Content-Disposition: attachment`; increments view_count
 - [ ] Expired share (`expires_at` in the past) → "no longer available" page; not served
 - [ ] Rate limiting: 31st request from same IP in 60s → `429`
 - [ ] Unauthenticated `POST /api/shares` → `403`

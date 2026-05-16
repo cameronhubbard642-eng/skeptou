@@ -1,21 +1,21 @@
-# specs/arestia.md — Arestia Professional Publications Archive
+# specs/aristeia.md — Aristeia Professional Publications Archive
 
 **Version:** rev 1
 **Status:** draft — awaiting Cam review
 **Author:** Lead Dev / Architect — Sképtou
 **Date:** 2026-05-16
 **Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `ARCHITECTURE.md`
-**Consumers:** DevOps engineer, Arestia engineer, Cam
+**Consumers:** DevOps engineer, Aristeia engineer, Cam
 
 ---
 
 ## §I — Purpose + scope
 
-### §I.1 — What arestia is
+### §I.1 — What aristeia is
 
-`arestia.skeptou.com` (Slot 5) is the canonical, permanent archive for Cam's professional documents and publications. Its defining property is **in-perpetuity storage**: once a document is imported, its archived form is never silently modified or deleted without explicit Cam action and audit trail. It is a curatorial surface, not a live sync.
+`aristeia.skeptou.com` (Slot 5) is the canonical, permanent archive for Cam's professional documents and publications. Its defining property is **in-perpetuity storage**: once a document is imported, its archived form is never silently modified or deleted without explicit Cam action and audit trail. It is a curatorial surface, not a live sync.
 
-Documents that belong in arestia:
+Documents that belong in aristeia:
 
 | Document class | Examples | Format |
 |---|---|---|
@@ -27,7 +27,7 @@ Documents that belong in arestia:
 | CV snapshot versions | Point-in-time CV exports | PDF |
 | Other professional documents | Abstract submissions, dissertation chapters (final) | PDF or Markdown |
 
-Documents that do **not** belong in arestia:
+Documents that do **not** belong in aristeia:
 
 - Teaching materials (syllabi, handouts, rubrics) — future `paideia` module
 - Working drafts under active revision — those live in energeia
@@ -36,13 +36,13 @@ Documents that do **not** belong in arestia:
 
 ### §I.2 — Relationship to energeia
 
-Energeia is the **live pipeline**: Obsidian/Scrivener drafts → compiled LaTeX PDF → versioned publication artifact in agora. Arestia is the **archive sink**: when a paper reaches a publication milestone (accepted, revised-and-resubmitted, formally published), Cam imports the canonical PDF from energeia as a frozen snapshot.
+Energeia is the **live pipeline**: Obsidian/Scrivener drafts → compiled LaTeX PDF → versioned publication artifact in agora. Aristeia is the **archive sink**: when a paper reaches a publication milestone (accepted, revised-and-resubmitted, formally published), Cam imports the canonical PDF from energeia as a frozen snapshot.
 
-The critical constraint: **no live sync**. If Cam edits the paper in energeia and recompiles after import, the arestia archive is not updated automatically. Cam must manually re-import to update the archived version. This is intentional — the archive records what was published at a point in time, not what is currently in the pipeline.
+The critical constraint: **no live sync**. If Cam edits the paper in energeia and recompiles after import, the aristeia archive is not updated automatically. Cam must manually re-import to update the archived version. This is intentional — the archive records what was published at a point in time, not what is currently in the pipeline.
 
 ### §I.3 — Design posture
 
-Arestia is Cam-only on the write side. No specialist service tokens. The write operations are:
+Aristeia is Cam-only on the write side. No specialist service tokens. The write operations are:
 1. Import from energeia (Worker fetches canonical PDF from energeia, saves snapshot in R2)
 2. Out-of-band manual upload (PDF not in energeia — pre-system publications, external book chapters)
 3. Metadata annotation (Cam adds/edits citation metadata and notes post-import)
@@ -55,13 +55,13 @@ All reads are authenticated (any valid auth-core session, consistent with the Ac
 ## §II — Architecture overview
 
 ```
-arestia.skeptou.com/*            ← Cloudflare Pages (static UI shell)
+aristeia.skeptou.com/*            ← Cloudflare Pages (static UI shell)
   /                              ← Publications list / index
   /view/:slug                    ← In-app viewer route
   /import                        ← Import from energeia form (Cam session only)
   /upload                        ← Out-of-band upload form (Cam session only)
 
-arestia.skeptou.com/api/*        ← Cloudflare Worker (arestia-worker)
+aristeia.skeptou.com/api/*        ← Cloudflare Worker (aristeia-worker)
   GET    /api/publications        ← List (filters: pub_type, year, source_paper_slug, canonical)
   GET    /api/publications/:slug  ← Metadata
   GET    /api/publications/:slug/content    ← Stream R2 object (PDF)
@@ -74,22 +74,22 @@ arestia.skeptou.com/api/*        ← Cloudflare Worker (arestia-worker)
 **Storage:**
 
 ```
-R2 (skeptou-arestia)             ← Document bytes (PDFs, snapshots)
-D1 (skeptou-arestia)             ← Publication metadata, import history, audit log
+R2 (skeptou-aristeia)             ← Document bytes (PDFs, snapshots)
+D1 (skeptou-aristeia)             ← Publication metadata, import history, audit log
 ```
 
-**Auth layer:** `@skeptou/auth-client` (auth-core). Session-cookie auth only — no service token path for any write operation. Cloudflare Access gate covers `arestia.skeptou.com/*`.
+**Auth layer:** `@skeptou/auth-client` (auth-core). Session-cookie auth only — no service token path for any write operation. Cloudflare Access gate covers `aristeia.skeptou.com/*`.
 
 **Worker bindings (wrangler.toml):**
 
 ```toml
 [[r2_buckets]]
-binding = "ARESTIA_R2"
-bucket_name = "skeptou-arestia"
+binding = "ARISTEIA_R2"
+bucket_name = "skeptou-aristeia"
 
 [[d1_databases]]
-binding = "ARESTIA_DB"
-database_name = "skeptou-arestia"
+binding = "ARISTEIA_DB"
+database_name = "skeptou-aristeia"
 database_id = "<uuid>"
 
 [vars]
@@ -122,7 +122,7 @@ publications/<slug>/history/<imported_at>.pdf
 
 When Cam re-imports a paper, the prior R2 object is moved to the `history/` prefix before the new canonical is written. This means the current PDF is always at `publications/<slug>/canonical.pdf` and every prior version is preserved in `history/`.
 
-**LaTeX source snapshot (optional — open question Q4 in §XII):**
+**LaTeX source snapshot (optional — open question Q3 in §XII):**
 
 ```
 publications/<slug>/source/canonical.zip
@@ -139,7 +139,7 @@ Same key schema as energeia-sourced; `source_paper_slug` is NULL in D1.
 
 ### §III.3 — Import history model
 
-Rather than a single row per publication that gets overwritten on re-import, arestia uses a two-table model:
+Rather than a single row per publication that gets overwritten on re-import, aristeia uses a two-table model:
 
 - `publications` — one row per publication (canonical state: current title, citation metadata, notes, current R2 key)
 - `import_history` — one row per import event (linked to publication slug, stores version tag, import timestamp, byte size of that snapshot)
@@ -152,21 +152,21 @@ This gives the list view a clean single-entry-per-publication UX, while preservi
 
 ### §IV.1 — Migration files
 
-Location: `modules/arestia/migrations/`
+Location: `modules/aristeia/migrations/`
 
 ```
 0001_initial_schema.sql
 0002_indexes.sql
 ```
 
-Applied via `wrangler d1 migrations apply skeptou-arestia`.
+Applied via `wrangler d1 migrations apply skeptou-aristeia`.
 
 ### §IV.2 — `0001_initial_schema.sql`
 
 ```sql
 -- ============================================================
--- Arestia publication metadata — skeptou-arestia D1 database
--- Sképtou / specs/arestia.md rev 1
+-- Aristeia publication metadata — skeptou-aristeia D1 database
+-- Sképtou / specs/aristeia.md rev 1
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS publications (
@@ -226,11 +226,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 **Design notes:**
 
-- `publications.slug` — Cam-chosen or auto-derived from `source_paper_slug` (e.g. energeia slug → arestia slug). Must be URL-safe.
+- `publications.slug` — Cam-chosen or auto-derived from `source_paper_slug` (e.g. energeia slug → aristeia slug). Must be URL-safe.
 - `publications.imported_at` — timestamp of the most recent import. Updated on re-import (alongside `source_version` and `byte_size`). `created_at` is immutable — records when the publication entry was first created.
 - `publications.archived_at` — soft delete flag. `NULL` = live in the archive. Set to a timestamp on delete. R2 canonical object is **not** deleted on soft delete (see §VIII).
 - `citation_metadata` — JSON blob. Recommended fields: `journal`, `volume`, `issue`, `year`, `pages`, `doi`, `isbn`, `venue`, `publisher`, `editors`, `abstract`. Not enforced at DB level; validated by the PATCH handler.
-- `import_history` — each row is a point-in-time import event. The R2 object at `r2_key_snapshot` is the PDF as it existed at `imported_at`. These objects are retained indefinitely (open question Q5 in §XII).
+- `import_history` — each row is a point-in-time import event. The R2 object at `r2_key_snapshot` is the PDF as it existed at `imported_at`. These objects are retained indefinitely (open question Q4 in §XII).
 - No service token columns — all writes are Cam-session-only; no need to track token-based actors.
 
 ### §IV.3 — `0002_indexes.sql`
@@ -283,7 +283,7 @@ interface CitationMetadata {
 
 ### §V.1 — Import from energeia (pull)
 
-The primary ingestion path. Cam navigates to `/import` in the arestia UI (or runs the equivalent API call), selects a paper slug from energeia, and triggers an import. The arestia Worker:
+The primary ingestion path. Cam navigates to `/import` in the aristeia UI (or runs the equivalent API call), selects a paper slug from energeia, and triggers an import. The aristeia Worker:
 
 1. Calls `GET https://energeia.skeptou.com/api/papers/:source_paper_slug/content` with a scoped service token (§IX.2)
 2. Receives the canonical compiled PDF from energeia
@@ -294,9 +294,9 @@ The primary ingestion path. Cam navigates to `/import` in the arestia UI (or run
 7. Writes an `audit_log` row (`IMPORT` or `REIMPORT`)
 8. Returns `201` with the updated publication metadata
 
-**Fetch of source version:** arestia queries `GET https://energeia.skeptou.com/api/papers/:slug` (metadata endpoint) to retrieve the current `version` tag before fetching content. This version tag is stored in `source_version` on the D1 row and in `import_history`.
+**Fetch of source version:** aristeia queries `GET https://energeia.skeptou.com/api/papers/:slug` (metadata endpoint) to retrieve the current `version` tag before fetching content. This version tag is stored in `source_version` on the D1 row and in `import_history`.
 
-**Re-import flow (paper already in arestia):**
+**Re-import flow (paper already in aristeia):**
 
 ```
 [Prior canonical]   publications/<slug>/canonical.pdf  (e.g. v1.2 bytes)
@@ -337,7 +337,7 @@ async function importFromEnergeia(
   const byteSize = pdfBytes.byteLength;
 
   // 3. Check if publication already exists (re-import)
-  const existing = await env.ARESTIA_DB.prepare(
+  const existing = await env.ARISTEIA_DB.prepare(
     `SELECT slug, r2_key, imported_at FROM publications WHERE slug = ?`
   ).bind(slug).first<{ slug: string; r2_key: string; imported_at: string } | null>();
 
@@ -350,26 +350,26 @@ async function importFromEnergeia(
   if (existing) {
     // 3a. Move current canonical to history before overwriting
     const historyKey = `publications/${slug}/history/${existing.imported_at}.pdf`;
-    const current    = await env.ARESTIA_R2.get(existing.r2_key);
+    const current    = await env.ARISTEIA_R2.get(existing.r2_key);
     if (current) {
-      await env.ARESTIA_R2.put(historyKey, await current.arrayBuffer(), {
+      await env.ARISTEIA_R2.put(historyKey, await current.arrayBuffer(), {
         httpMetadata: { contentType: 'application/pdf' },
       });
       stmts.push(
-        env.ARESTIA_DB.prepare(
+        env.ARISTEIA_DB.prepare(
           `INSERT INTO import_history (publication_slug, source_paper_slug, source_version, r2_key_snapshot, byte_size, imported_at, import_actor)
            SELECT slug, source_paper_slug, source_version, ?, byte_size, imported_at, ? FROM publications WHERE slug = ?`
         ).bind(historyKey, actor, slug)
       );
     }
     stmts.push(
-      env.ARESTIA_DB.prepare(
+      env.ARISTEIA_DB.prepare(
         `UPDATE publications SET source_version=?, r2_key=?, byte_size=?, imported_at=? WHERE slug=?`
       ).bind(sourceVersion, canonicalKey, byteSize, now, slug)
     );
   } else {
     stmts.push(
-      env.ARESTIA_DB.prepare(
+      env.ARISTEIA_DB.prepare(
         `INSERT INTO publications (slug, title, pub_type, source_paper_slug, source_version, r2_key, byte_size)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(slug, title, pub_type, source_paper_slug, sourceVersion, canonicalKey, byteSize)
@@ -377,20 +377,20 @@ async function importFromEnergeia(
   }
 
   stmts.push(
-    env.ARESTIA_DB.prepare(
+    env.ARISTEIA_DB.prepare(
       `INSERT INTO audit_log (table_name, row_key, action, actor, snapshot) VALUES ('publications', ?, ?, ?, ?)`
     ).bind(slug, action, actor, JSON.stringify({ slug, source_paper_slug, source_version: sourceVersion, byte_size: byteSize }))
   );
 
   // 4. Write new canonical to R2
-  await env.ARESTIA_R2.put(canonicalKey, pdfBytes, {
+  await env.ARISTEIA_R2.put(canonicalKey, pdfBytes, {
     httpMetadata: { contentType: 'application/pdf' },
   });
 
   // 5. Commit D1 changes atomically
-  await env.ARESTIA_DB.batch(stmts);
+  await env.ARISTEIA_DB.batch(stmts);
 
-  const row = await env.ARESTIA_DB.prepare(
+  const row = await env.ARISTEIA_DB.prepare(
     `SELECT * FROM publications WHERE slug = ?`
   ).bind(slug).first();
 
@@ -416,7 +416,7 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
 };
 ```
 
-Arestia is narrower than strategia — it focuses on PDFs. Markdown is allowed for cases like plain-text letters or notes. Images are out of scope (a publication is a document, not an image).
+Aristeia is narrower than strategia — it focuses on PDFs. Markdown is allowed for cases like plain-text letters or notes. Images are out of scope (a publication is a document, not an image).
 
 ### §V.3 — Import form UX
 
@@ -542,7 +542,7 @@ Import from energeia. Cam-only.
 **Request body (JSON):**
 ```typescript
 interface ImportBody {
-  slug:              string;   // arestia slug (URL-safe; defaults to source_paper_slug if absent)
+  slug:              string;   // aristeia slug (URL-safe; defaults to source_paper_slug if absent)
   source_paper_slug: string;   // energeia paper slug to fetch
   pub_type:          string;   // pub_type enum
   title:             string;   // publication title (can differ from energeia title)
@@ -647,7 +647,7 @@ Passthrough: fetches available paper list from energeia for the import form drop
 
 Identical configuration to strategia. PDF.js fetches from `/api/publications/:slug/content` using the browser's session cookie. `Content-Disposition: inline` + PDF.js rendering = no native browser PDF toolbar, no download button.
 
-The viewer page adds one arestia-specific affordance: a **"View prior version"** dropdown that lists `import_history` entries. Selecting a prior version fetches `/api/publications/:slug/content?version=<imported_at>`, which streams the historical R2 snapshot. The viewer heading changes to "Viewing archived version — [date]" when a historical version is active.
+The viewer page adds one aristeia-specific affordance: a **"View prior version"** dropdown that lists `import_history` entries. Selecting a prior version fetches `/api/publications/:slug/content?version=<imported_at>`, which streams the historical R2 snapshot. The viewer heading changes to "Viewing archived version — [date]" when a historical version is active.
 
 ### §VII.3 — Citation sidebar
 
@@ -675,13 +675,13 @@ Same policy as strategia: no download button in the UI. Access is for on-screen 
 
 ### §VIII.1 — "In perpetuity" and deletion
 
-Arestia's stated purpose is "dedicated access/storage in perpetuity." This creates tension with the delete option. The resolution recommended here:
+Aristeia's stated purpose is "dedicated access/storage in perpetuity." This creates tension with the delete option. The resolution recommended here:
 
 **Soft delete only.** The D1 row is tombstoned (`archived_at` set). The R2 canonical object and all history snapshots are **retained indefinitely** (not purged on soft delete). The document disappears from the list view and viewer, but all bytes remain in R2 and can be recovered by Cam (or the engineer) via direct R2 access or by unsetting `archived_at`.
 
 Rationale: "in perpetuity" means the published record is preserved against accidental loss. The delete affordance is for mistakes and duplicates — importing the wrong version, a duplicate slug, a mis-categorized upload — not for removing a published paper from existence. By keeping R2 bytes intact, soft delete satisfies the UI need without violating the archival guarantee.
 
-**Open question Q5 (§XII):** Does Cam agree with this interpretation? If a paper was in error (e.g. imported the wrong file), does Cam want R2 bytes purged or retained?
+**Open question Q4 (§XII):** Does Cam agree with this interpretation? If a paper was in error (e.g. imported the wrong file), does Cam want R2 bytes purged or retained?
 
 ### §VIII.2 — Delete flow
 
@@ -698,7 +698,7 @@ Rationale: "in perpetuity" means the published record is preserved against accid
 
 ### §VIII.3 — Cam-session gate
 
-Same pattern as strategia: `auth.mode !== 'session'` check at the handler level. No service token (there are none for arestia) can delete.
+Same pattern as strategia: `auth.mode !== 'session'` check at the handler level. No service token (there are none for aristeia) can delete.
 
 ---
 
@@ -706,7 +706,7 @@ Same pattern as strategia: `auth.mode !== 'session'` check at the handler level.
 
 ### §IX.1 — Session-only write model
 
-All write operations (import, upload, PATCH, delete) require a Cam session cookie. There are no service tokens for the arestia write surface. This reflects the curatorial nature of the archive: publication decisions are Cam's alone.
+All write operations (import, upload, PATCH, delete) require a Cam session cookie. There are no service tokens for the aristeia write surface. This reflects the curatorial nature of the archive: publication decisions are Cam's alone.
 
 The auth check for write routes:
 
@@ -723,11 +723,11 @@ async function requireCamSession(request: Request, env: Env): Promise<AuthContex
 }
 ```
 
-Read routes (`GET /api/publications*`) accept any valid auth-core session, consistent with the Access-gated subdomain. (There are no service tokens at all for arestia, so in practice "any valid session" means Cam's browser session.)
+Read routes (`GET /api/publications*`) accept any valid auth-core session, consistent with the Access-gated subdomain. (There are no service tokens at all for aristeia, so in practice "any valid session" means Cam's browser session.)
 
 ### §IX.2 — Energeia service token (Worker-to-Worker)
 
-The arestia Worker needs to call energeia's API to perform imports. This requires a service token scoped for energeia reads. This is a **Worker-to-Worker** credential — it lives as a Cloudflare Worker secret (`ENERGEIA_SERVICE_TOKEN`), not a user-facing token.
+The aristeia Worker needs to call energeia's API to perform imports. This requires a service token scoped for energeia reads. This is a **Worker-to-Worker** credential — it lives as a Cloudflare Worker secret (`ENERGEIA_SERVICE_TOKEN`), not a user-facing token.
 
 Token provisioning: Cam provisions a read-scoped service token in energeia (following energeia's `spec/energeia.md` service token model), stores it as a Wrangler secret:
 
@@ -746,10 +746,10 @@ This token is never exposed to the browser and is used only in the server-side i
 **Scope:** D1 schema applied, R2 bucket created. Read endpoints live. Static UI shell with list view and in-app PDF.js viewer. No write endpoints yet.
 
 **Deliverables:**
-- D1 migration SQL applied; `wrangler d1 info skeptou-arestia` shows 3 tables + 1 view
-- R2 bucket `skeptou-arestia` created; bound as `ARESTIA_R2`
+- D1 migration SQL applied; `wrangler d1 info skeptou-aristeia` shows 3 tables + 1 view
+- R2 bucket `skeptou-aristeia` created; bound as `ARISTEIA_R2`
 - Worker: `GET /api/publications`, `GET /api/publications/:slug`, `GET /api/publications/:slug/content`
-- Static Pages shell at `arestia.skeptou.com` with list view and `/view/:slug` route
+- Static Pages shell at `aristeia.skeptou.com` with list view and `/view/:slug` route
 - Cloudflare Access policy applied and QA-verified (gate before any real documents)
 
 **Verification:**
@@ -762,7 +762,7 @@ This token is never exposed to the browser and is used only in the server-side i
 
 **Scope:** `POST /api/publications/import` live. `POST /api/publications` (out-of-band) live. `PATCH /api/publications/:slug` live. `GET /api/import/energeia-papers` live. Import form UI at `/import`. Manual upload form at `/upload`. Citation sidebar edit in viewer.
 
-**Pre-condition:** energeia read API (`GET /api/papers`, `GET /api/papers/:slug/content`) must be live before arestia import can be tested end-to-end.
+**Pre-condition:** energeia read API (`GET /api/papers`, `GET /api/papers/:slug/content`) must be live before aristeia import can be tested end-to-end.
 
 **Deliverables:**
 - `ENERGEIA_SERVICE_TOKEN` secret provisioned and validated
@@ -774,7 +774,7 @@ This token is never exposed to the browser and is used only in the server-side i
 - Citation sidebar + inline edit in viewer
 
 **Verification:**
-- Import a live energeia paper → appears in arestia list with correct source_version
+- Import a live energeia paper → appears in aristeia list with correct source_version
 - Re-import same paper → prior canonical appears in history dropdown; `import_history` table shows two rows
 - PATCH citation_metadata → updates reflected in citation sidebar
 - Out-of-band upload (PDF not in energeia) → appears in list with `source_paper_slug = NULL`
@@ -793,9 +793,9 @@ This token is never exposed to the browser and is used only in the server-side i
 - Service token (if any were to be tested) returns `403` on delete attempt
 - Audit log shows INSERT, UPDATE, and DELETE actions with correct actor and snapshots
 
-### Phase 4 — LaTeX source snapshot (if Q4 approved)
+### Phase 4 — LaTeX source snapshot (if Q3 approved)
 
-**Scope:** If Cam approves LaTeX source snapshot capture (§XII Q4), the import handler is extended to also fetch the `.zip` source bundle from energeia and store it at `publications/<slug>/source/canonical.zip`.
+**Scope:** If Cam approves LaTeX source snapshot capture (§XII Q3), the import handler is extended to also fetch the `.zip` source bundle from energeia and store it at `publications/<slug>/source/canonical.zip`.
 
 **Deliverables:** extended import handler; history move for source zip alongside PDF; `/source/content` endpoint (streams zip).
 
@@ -809,7 +809,7 @@ Same standing rule as all private subdomains: DevOps deploys empty Access-gated 
 
 ### §XI.2 — No service tokens on the user-facing write surface
 
-Arestia is intentionally write-restricted to Cam's session. There is no write service token model to leak or compromise. The only service token is the Worker-to-Worker `ENERGEIA_SERVICE_TOKEN`, which is a Wrangler secret (not user-accessible, not returned in any API response).
+Aristeia is intentionally write-restricted to Cam's session. There is no write service token model to leak or compromise. The only service token is the Worker-to-Worker `ENERGEIA_SERVICE_TOKEN`, which is a Wrangler secret (not user-accessible, not returned in any API response).
 
 ### §XI.3 — Content-Security-Policy
 
@@ -825,7 +825,7 @@ Content-Security-Policy: default-src 'self';
 
 ### §XI.4 — DOI and external links
 
-The citation sidebar may display external URLs (DOI links, publisher pages). These open in a new tab (`target="_blank" rel="noopener noreferrer"`). No other external resources are loaded by the viewer. The arestia Worker does not proxy external URLs.
+The citation sidebar may display external URLs (DOI links, publisher pages). These open in a new tab (`target="_blank" rel="noopener noreferrer"`). No other external resources are loaded by the viewer. The aristeia Worker does not proxy external URLs.
 
 ---
 
@@ -833,33 +833,32 @@ The citation sidebar may display external URLs (DOI links, publisher pages). The
 
 | # | Question | Blocks | Recommendation |
 |---|---|---|---|
-| Q1 | **Module name spelling:** Cam used "arestia" throughout. Greek roots: ἀρετή (aretḗ, "excellence/virtue") → transliteration would be "aretia"; ἀριστεία (aristeía, "heroic feat / deeds of the best") → "aristeia". Is "arestia" a deliberate hybrid transliteration, or should the folder/subdomain use "aristeia" or "aretia"? | module slug, subdomain DNS | Use Cam's spelling ("arestia") unless Cam corrects |
-| Q2 | **Re-import: new row vs overwrite:** Spec recommends two-table model (canonical `publications` row updated in place; `import_history` row appended; prior R2 object moved to history prefix). Alternative: each import creates a new `publications` row with a version-suffixed slug. Recommended approach preserves clean list UX (one entry per paper) while keeping full history. Cam confirms? | §IV, §V.1 schema | Two-table model (update publications + append import_history) |
-| Q3 | **Soft delete retention:** On soft delete, R2 canonical and history snapshot bytes are retained indefinitely. Cam's "in perpetuity" framing suggests bytes should never be auto-purged. Confirm: soft delete = tombstone only, R2 retained forever? Or should there be a 30-day R2 purge window after soft delete for true removal? | §VIII.1 | Retain R2 bytes indefinitely; soft delete is UI-only tombstone |
-| Q4 | **LaTeX source snapshot:** Should the import handler also capture the LaTeX source bundle (`.zip`) from energeia alongside the PDF? This preserves the source at the imported version, enabling later recompilation. Adds complexity to import handler + R2 key schema. | Phase 4 scope | Optional; recommend deferring to Phase 4 after PDF import is stable |
-| Q5 | **Energeia API readiness pre-condition:** Phase 2 requires `GET /api/papers/:slug/content` to be live on energeia. Is this endpoint planned in the energeia spec? Confirm energeia engineer brief should include this read endpoint. | Phase 2 import | Yes — flag to energeia engineer |
-| Q6 | **Citation metadata completeness:** The `CitationMetadata` shape in §IV.5 covers standard fields. Any additional fields needed for Cam's specific publication types (e.g., `series`, `conference_location`, `presentation_date`, `co-authors`)? | PATCH handler validation | Treat as extension-friendly; Cam adds fields via `metadata` escape hatch until formally added |
+| Q1 | **Re-import: new row vs overwrite:** Spec recommends two-table model (canonical `publications` row updated in place; `import_history` row appended; prior R2 object moved to history prefix). Alternative: each import creates a new `publications` row with a version-suffixed slug. Recommended approach preserves clean list UX (one entry per paper) while keeping full history. Cam confirms? | §IV, §V.1 schema | Two-table model (update publications + append import_history) |
+| Q2 | **Soft delete retention:** On soft delete, R2 canonical and history snapshot bytes are retained indefinitely. Cam's "in perpetuity" framing suggests bytes should never be auto-purged. Confirm: soft delete = tombstone only, R2 retained forever? Or should there be a 30-day R2 purge window after soft delete for true removal? | §VIII.1 | Retain R2 bytes indefinitely; soft delete is UI-only tombstone |
+| Q3 | **LaTeX source snapshot:** Should the import handler also capture the LaTeX source bundle (`.zip`) from energeia alongside the PDF? This preserves the source at the imported version, enabling later recompilation. Adds complexity to import handler + R2 key schema. | Phase 4 scope | Optional; recommend deferring to Phase 4 after PDF import is stable |
+| Q4 | **Energeia API readiness pre-condition:** Phase 2 requires `GET /api/papers/:slug/content` to be live on energeia. Is this endpoint planned in the energeia spec? Confirm energeia engineer brief should include this read endpoint. | Phase 2 import | Yes — flag to energeia engineer |
+| Q5 | **Citation metadata completeness:** The `CitationMetadata` shape in §IV.5 covers standard fields. Any additional fields needed for Cam's specific publication types (e.g., `series`, `conference_location`, `presentation_date`, `co-authors`)? | PATCH handler validation | Treat as extension-friendly; Cam adds fields via `metadata` escape hatch until formally added |
 
 ---
 
 ## §XIII — Out of scope
 
-- Live sync with energeia (any change in energeia auto-updates arestia) — explicitly excluded
+- Live sync with energeia (any change in energeia auto-updates aristeia) — explicitly excluded
 - Teaching materials (syllabi, handouts, rubrics) — future `paideia` module
 - Report generation — that is strategia
 - Collaboration / sharing with external parties — future `phero` module
 - Version control of citation metadata (only current state stored in D1; historical JSON states not tracked)
 - Full-text search across PDF content
 - DOI resolver / metadata auto-import from CrossRef (possible future extension; not in scope)
-- Public view (arestia is Access-gated; no public-facing publications page — that lives on `energeia.skeptou.com` or `skeptou.com` apex)
+- Public view (aristeia is Access-gated; no public-facing publications page — that lives on `energeia.skeptou.com` or `skeptou.com` apex)
 
 ---
 
 ## §XIV — Definition of done
 
 **Phase 1:**
-- [ ] D1 `skeptou-arestia` created; migrations applied; `wrangler d1 info` shows `publications`, `import_history`, `audit_log` tables and `live_publications` view
-- [ ] R2 bucket `skeptou-arestia` created and bound
+- [ ] D1 `skeptou-aristeia` created; migrations applied; `wrangler d1 info` shows `publications`, `import_history`, `audit_log` tables and `live_publications` view
+- [ ] R2 bucket `skeptou-aristeia` created and bound
 - [ ] `GET /api/publications` → `200` empty array; unauthenticated → `401`
 - [ ] Test publication manually seeded (wrangler d1 + r2 commands); appears in list and renders in PDF.js without triggering browser download dialog
 - [ ] Prior-version dropdown populated from manually seeded `import_history` row; historical snapshot streams via `?version=` param
