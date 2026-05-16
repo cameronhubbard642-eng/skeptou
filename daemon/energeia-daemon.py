@@ -583,28 +583,49 @@ def _dunamis_branches():
     branches = set()
     for line in out.splitlines():
         parts = line.split('\t')
-        if len(parts) == 2 and parts[1].startswith('refs/heads/'):
+        # ls-remote's 'dunamis/*' pattern also tail-matches archive/dunamis/* —
+        # only live dunamis/ branches get a worktree, not archived ones.
+        if len(parts) == 2 and parts[1].startswith('refs/heads/dunamis/'):
             branches.add(parts[1][len('refs/heads/'):])
     return branches
 
 
 def _slugs_yaml_papers() -> dict:
-    """Map paper slug -> first declared format, from slugs.yaml on energeia."""
+    """Parse slugs.yaml on energeia → {slug: {'format': str, 'archived': set()}}.
+    'archived' holds the direction names under the paper's archived-dunamis: block."""
     rc, out = run_git(['show', 'origin/energeia:slugs.yaml'], AGORA_PATH)
     if rc != 0:
         log.warning('reconcile: could not read slugs.yaml: %s', out)
         return {}
-    papers, cur = {}, None
+    papers, cur, block = {}, None, None
     for line in out.splitlines():
         m = re.match(r'\s*-\s*slug:\s*"?([a-z0-9-]+)"?', line)
         if m:
             cur = m.group(1)
-            papers[cur] = 'article'
+            papers[cur] = {'format': 'article', 'status': 'drafting', 'archived': set()}
+            block = None
             continue
-        if cur:
-            fm = re.search(r'\bformats:\s*\[?\s*"?([a-z]+)', line)
-            if fm:
-                papers[cur] = fm.group(1)
+        if not cur:
+            continue
+        stripped = line.strip()
+        fm = re.search(r'\bformats:\s*\[?\s*"?([a-z]+)', line)
+        if fm:
+            papers[cur]['format'] = fm.group(1)
+            continue
+        sm = re.search(r'\bstatus:\s*"?([a-z]+)', line)
+        if sm:
+            papers[cur]['status'] = sm.group(1)
+            continue
+        if stripped == 'dunamis:':
+            block = 'dunamis'; continue
+        if stripped == 'archived-dunamis:':
+            block = 'archived'; continue
+        dm = re.match(r'\s{6}([a-z]+):', line)
+        if dm:
+            if block == 'archived':
+                papers[cur]['archived'].add(dm.group(1))
+        elif stripped and re.match(r'\s{0,4}\S', line):
+            block = None   # a paper-level key — left the direction block
     return papers
 
 
@@ -676,20 +697,59 @@ def reconcile() -> None:
                 log.warning('reconcile: could not remove orphan worktree %s: %s', name, out)
         _prune_orphan_branches(desired_names)
 
-    # ── Scrivener projects: one per paper in slugs.yaml ──
+    # ── Scrivener projects: live in agora-scriv/, archived in agora-scriv/archive/ ──
+    SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
+    archive_dir = SCRIVENER_DIR / 'archive'
+    archive_dir.mkdir(exist_ok=True)          # always present, even with no archives
     papers = _slugs_yaml_papers()
     if papers:
-        SCRIVENER_DIR.mkdir(parents=True, exist_ok=True)
-        for slug, fmt in sorted(papers.items()):
-            if not (SCRIVENER_DIR / f'{slug}.scriv').exists():
-                ok, msg = handle_scaffold_scrivener_project({'slug': slug, 'format': fmt})
-                log.info('reconcile: scriv %s — %s', slug, msg)
         trash = SCRIVENER_DIR / '_trash'
+
+        def _is_archived(stem: str) -> bool:
+            """True if <stem>.scriv belongs in archive/ — its paper is archived,
+            or it is a <slug>-<direction> project whose direction is archived."""
+            if stem in papers:
+                return papers[stem].get('status') == 'archived'
+            base, _, direction = stem.rpartition('-')
+            return bool(base) and base in papers and direction in papers[base]['archived']
+
+        # Scaffold a live .scriv for every non-archived paper that lacks one
+        for slug, info in sorted(papers.items()):
+            if info.get('status') == 'archived':
+                continue
+            if not (SCRIVENER_DIR / f'{slug}.scriv').exists() \
+                    and not (archive_dir / f'{slug}.scriv').exists():
+                ok, msg = handle_scaffold_scrivener_project(
+                    {'slug': slug, 'format': info['format']})
+                log.info('reconcile: scriv %s — %s', slug, msg)
+
+        # Move live-root projects that should be archived into archive/
+        for item in sorted(SCRIVENER_DIR.iterdir()):
+            if not (item.is_dir() and item.name.endswith('.scriv')):
+                continue
+            if _is_archived(item.name[:-len('.scriv')]):
+                dest = archive_dir / item.name
+                if not dest.exists():
+                    shutil.move(str(item), str(dest))
+                    log.info('reconcile: archived Scrivener project %s', item.name)
+
+        # Restore archived projects to the live root if no longer archived
+        for item in sorted(archive_dir.iterdir()):
+            if not (item.is_dir() and item.name.endswith('.scriv')):
+                continue
+            stem = item.name[:-len('.scriv')]
+            if not _is_archived(stem) \
+                    and (stem in papers or stem.rpartition('-')[0] in papers) \
+                    and not (SCRIVENER_DIR / item.name).exists():
+                shutil.move(str(item), str(SCRIVENER_DIR / item.name))
+                log.info('reconcile: restored Scrivener project %s from archive', item.name)
+
+        # Trash orphan projects in the live root (paper no longer exists)
         for item in sorted(SCRIVENER_DIR.iterdir()):
             if not (item.is_dir() and item.name.endswith('.scriv')):
                 continue
             stem = item.name[:-len('.scriv')]
-            if stem in papers or stem.rsplit('-', 1)[0] in papers:
+            if stem in papers or stem.rpartition('-')[0] in papers:
                 continue
             trash.mkdir(exist_ok=True)
             ts = datetime.now().strftime('%Y%m%dT%H%M%S')
