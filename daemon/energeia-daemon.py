@@ -446,6 +446,28 @@ def handle_delete_scrivener_project(payload: dict) -> tuple[bool, str]:
     return True, f'Trashed {len(moved)} Scrivener project(s): {", ".join(moved)}'
 
 
+def handle_delete_scrivener_archive(payload: dict) -> tuple[bool, str]:
+    """Remove an archived Scrivener project (agora-scriv/archive/<name>.scriv)
+    when its direction is permanently deleted. Moves it to _trash/ — reversible."""
+    slug      = payload.get('slug', '')
+    direction = payload.get('direction', '')
+    if not slug:
+        return False, 'Missing slug'
+
+    name = f'{slug}-{direction}.scriv' if direction else f'{slug}.scriv'
+    src  = SCRIVENER_DIR / 'archive' / name
+    if not src.exists():
+        return True, f'No archived Scrivener project at {src} — nothing to delete'
+
+    trash = SCRIVENER_DIR / '_trash'
+    trash.mkdir(exist_ok=True)
+    ts   = datetime.now().strftime('%Y%m%dT%H%M%S')
+    dest = trash / f'{name[:-len(".scriv")]}-{ts}.scriv'
+    shutil.move(str(src), str(dest))
+    log.info('Trashed archived Scrivener project %s → %s', src, dest)
+    return True, f'Archived Scrivener project moved to {dest}'
+
+
 def handle_configure_scrivener_compile_target(payload: dict) -> tuple[bool, str]:
     # Scrivener compile configuration requires AppleScript on macOS.
     # Auto-configuration via AppleScript is complex and fragile;
@@ -467,6 +489,7 @@ HANDLERS = {
     'duplicate-scrivener-project':       handle_duplicate_scrivener_project,
     'archive-scrivener-project':         handle_archive_scrivener_project,
     'delete-scrivener-project':          handle_delete_scrivener_project,
+    'delete-scrivener-archive':          handle_delete_scrivener_archive,
     'configure-scrivener-compile-target': handle_configure_scrivener_compile_target,
 }
 
