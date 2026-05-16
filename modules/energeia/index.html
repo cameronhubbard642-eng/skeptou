@@ -1763,14 +1763,17 @@
       }
       if (resp.status === 202) {
         var data = await resp.json().catch(function() { return {}; });
-        if (fb) fb.textContent = data.message || 'Paper created.';
-        setTimeout(closeModal, 2000);
+        if (fb) fb.textContent = (data.message || 'Paper created.') + ' Refreshing…';
+        setTimeout(function() { location.reload(); }, 1200);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
       }
     } catch (e) {
-      if (fb) fb.textContent = 'Network error — try again.';
+      /* The write reaches GitHub even when the slow response is dropped —
+         reload to show the true current state instead of a dead-end error. */
+      if (fb) fb.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.reload(); }, 2500);
     }
   }
 
@@ -1850,14 +1853,15 @@
       }
       if (resp.status === 202) {
         var data = await resp.json().catch(function() { return {}; });
-        if (fb) fb.textContent = data.message || 'Direction created.';
-        setTimeout(closeModal, 2000);
+        if (fb) fb.textContent = (data.message || 'Direction created.') + ' Refreshing…';
+        setTimeout(function() { location.reload(); }, 1200);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
       }
     } catch (e) {
-      if (fb) fb.textContent = 'Network error — try again.';
+      if (fb) fb.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.reload(); }, 2500);
     }
   }
 
@@ -1938,12 +1942,14 @@
       if (resp.type === 'opaqueredirect' || resp.status === 0) {
         if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
       } else if (resp.status === 202) {
-        if (btn) btn.textContent = 'Queued ✓';
+        if (btn) btn.textContent = 'Archived ✓ — refreshing…';
+        setTimeout(function() { location.reload(); }, 1200);
       } else {
         if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
       }
     } catch (e) {
-      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+      if (btn) btn.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.reload(); }, 2500);
     }
   }
 
@@ -1992,16 +1998,16 @@
         if (fb) fb.textContent = 'Session expired — reload to log in.';
         if (confirmBtn) confirmBtn.disabled = false;
       } else if (resp.ok) {
-        if (fb) fb.textContent = 'Deleted.';
-        setTimeout(closeModal, 1500);
+        if (fb) fb.textContent = 'Deleted ✓ — refreshing…';
+        setTimeout(function() { location.reload(); }, 1200);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
         if (confirmBtn) confirmBtn.disabled = false;
       }
     } catch (e) {
-      if (fb) fb.textContent = 'Network error — try again.';
-      if (confirmBtn) confirmBtn.disabled = false;
+      if (fb) fb.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.reload(); }, 2500);
     }
   }
 
@@ -2039,17 +2045,16 @@
         if (fb) fb.textContent = 'Session expired — reload to log in.';
         if (confirmBtn) confirmBtn.disabled = false;
       } else if (resp.ok) {
-        if (fb) fb.textContent = 'Archived.';
-        await loadPapers();
-        setTimeout(function() { closeModal(); navigate('overview'); }, 1200);
+        if (fb) fb.textContent = 'Archived ✓ — refreshing…';
+        setTimeout(function() { location.hash = '#overview'; location.reload(); }, 1200);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
         if (confirmBtn) confirmBtn.disabled = false;
       }
     } catch (e) {
-      if (fb) fb.textContent = 'Network error — try again.';
-      if (confirmBtn) confirmBtn.disabled = false;
+      if (fb) fb.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.hash = '#overview'; location.reload(); }, 2500);
     }
   }
 
@@ -2096,17 +2101,16 @@
         if (fb) fb.textContent = 'Session expired — reload to log in.';
         if (confirmBtn) confirmBtn.disabled = false;
       } else if (resp.ok) {
-        if (fb) fb.textContent = 'Deleted permanently.';
-        await loadPapers();
-        setTimeout(function() { closeModal(); navigate('overview'); }, 1500);
+        if (fb) fb.textContent = 'Deleted permanently ✓ — refreshing…';
+        setTimeout(function() { location.hash = '#overview'; location.reload(); }, 1200);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
         if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
         if (confirmBtn) confirmBtn.disabled = false;
       }
     } catch (e) {
-      if (fb) fb.textContent = 'Network error — try again.';
-      if (confirmBtn) confirmBtn.disabled = false;
+      if (fb) fb.textContent = 'Refreshing to confirm…';
+      setTimeout(function() { location.hash = '#overview'; location.reload(); }, 2500);
     }
   }
 
