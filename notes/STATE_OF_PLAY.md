@@ -1,7 +1,7 @@
 # STATE_OF_PLAY — Sképtou
 
 **Authoritative project state. Updated by Lead Dev / Architect after each phase milestone.**  
-**Last updated:** 2026-05-16 (specs/strategia.md, specs/aristeia.md, specs/phero.md rev 1 drafted; combined PR on feat/strategia-spec pending push)
+**Last updated:** 2026-05-17 (specs/phero.md rev 4 ratified; brief-phero-phase1.md rev 2; all engineer briefs drafted; feat/strategia-spec branch ready for push)
 
 ---
 
@@ -28,14 +28,15 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 - `specs/op-d1-migration.md` revised to rev 4 (2026-05-15); commitments table added; opportunities recast as decision queue; tasks parent_kind/parent_id polymorphic; accept/reject flows with SAA dispatch; declined_opportunities view; §VIII migration script struck; initial population via O&P specialist API writes; all decisions resolved; engineer-ready
 - `specs/strategia.md` rev 2 — ratified Cam 2026-05-15; all open Qs resolved; R2+D1 document viewer for Claude-generated reports; PDF.js in-app viewer; specialist-scoped service tokens; tombstone delete (Cam-session-only); 3-phase plan; 6 open questions for Cam; awaiting Cam review
 - `specs/aristeia.md` rev 2 — ratified Cam 2026-05-15; all open Qs resolved; R2+D1 in-perpetuity professional publications archive; energeia pull model; versioned imports (publications + import_history two-table); Cam-only writes; Worker-to-Worker ENERGEIA_SERVICE_TOKEN; soft delete (tombstone; R2 retained); citation metadata; 3-phase plan; 6 open Qs for Cam; awaiting Cam review
-- `specs/phero.md` rev 2 — ratified Cam 2026-05-15; P-7 (OTP TTL) pending; D1-only outward-facing share-link layer over energeia + aristeia; anonymous + recipient share models; snapshot vs. live per-share toggle; recipient OTP via Resend; scoped share cookie; CF rate limiting + email enumeration protection; 4-phase plan; 9 open Qs for Cam; awaiting Cam review
+- `specs/phero.md` **rev 4** — ratified Cam 2026-05-15; all P-1–P-8 resolved; P-9/P-10 open (low priority); OTP dropped entirely (P-7); single share model (link + 7-day scoped cookie); custom slugs (Cam-set or 22-char random); `label` annotation field; per-link view tracking via `share_views` table (cf_country, user_agent, referrer); 45-day default expiry; 3-phase plan; ready for engineer brief
+- `specs/brief-phero-phase1.md` **rev 2** — drafted 2026-05-17; reflects rev 4 schema (share_views, validateCustomSlug, generateRandomSlug); management UI with view-history drill-down; ready for engineer
 
 ## What is in progress
 
 - Cam review of `ARCHITECTURE.md`
 - Cam review of `specs/auth-core.md` (rev 1)
 - Cam review of `specs/apex-site.md` (rev 4)
-- Cam review of `specs/strategia.md`, `specs/aristeia.md`, `specs/phero.md` (all rev 1)
+- Cam review of `specs/strategia.md`, `specs/aristeia.md`, `specs/phero.md` (rev 2 / rev 2 / rev 4 respectively)
 - `feat/strategia-spec` branch has feat/strategia-spec: rev 1 merged as PR #52; rev 2 pending push + PR; **push to GitHub pending** (Lead Dev session has no GitHub credentials; needs DevOps session or manual push by Cam — see below)
 
 ## What is blocked
@@ -48,9 +49,9 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
   1. Phase 1 complete (Access gate verified on phronesis subdomain)
   2. PM-O&P schema extension (prestige + requirement fields on opp-*.md; backfill 8 existing files; confirm plan-file path + .ics export path) — sub-routing action in specs/phronesis.md §IX
   3. op-d1-migration.md Phase 1 complete before any phronesis content build begins (D1 is now the data layer for phronesis)
-- **Combined spec PR (strategia + aristeia + phero):** `feat/strategia-spec` branch has 2 commits (strategia rev 1; aristeia + phero rev 1). To open the PR:
+- **Combined spec PR (strategia + aristeia + phero):** `feat/strategia-spec` branch has commits for strategia rev 2, aristeia rev 2, phero rev 4, briefs for all three modules, and brief-energeia-content-endpoint.md. To open the PR:
   - Cam runs: `git push origin feat/strategia-spec` from the skeptou repo, then opens PR on GitHub
-  - PR title: `docs(strategia,aristeia,phero): add module specs rev 1`
+  - PR title: `docs(strategia,aristeia,phero): module specs rev 2 + engineer briefs`
   - Or route through DevOps session (`local_33cdf795-990d-4872-8cbd-291c09838b35`) which holds GitHub credentials
 
 ## What comes next (Phase 1)

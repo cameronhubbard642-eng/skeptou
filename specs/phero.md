@@ -1,7 +1,7 @@
 # specs/phero.md — Phero Document Sharing Interface
 
-**Version:** rev 3
-**Status:** ratified — Cam 2026-05-15 (P-7 + P-3 ruled 2026-05-15)
+**Version:** rev 4
+**Status:** ratified — Cam 2026-05-15 (P-1/P-3/P-7 ruled 2026-05-15)
 **Author:** Lead Dev / Architect — Sképtou
 **Date:** 2026-05-17
 **Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `specs/aristeia.md`, `ARCHITECTURE.md`
@@ -109,27 +109,52 @@ Phero uses one sharing model. There is no anonymous-vs-recipient distinction.
 
 The share token is the access credential. Possession of the URL = access. No OTP, no email verification, no identity enforcement.
 
-**Default expiry:** 30 days (Cam 2026-05-15). Overridable per share at creation time.
+**Default expiry:** 45 days (Cam 2026-05-15). Overridable per share at creation time.
 
-### §III.2 — Share token
+### §III.2 — Share slug (URL segment)
 
-The share token is the sole access credential for a share. Properties:
+The share slug is the URL segment and the primary key for a share. It is either:
 
-- **Entropy:** 128 bits from `crypto.getRandomValues()`, base64url-encoded → 22-character URL-safe string
-- **Not guessable:** URL-safe random, not derived from document slug or user identity
-- **URL form:** `phero.skeptou.com/<token>` — e.g. `phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV`
-- **Multi-access:** the token is permanent until expiry/revocation; multiple visits are permitted
+- **Random (default):** 128 bits from `crypto.getRandomValues()`, base64url-encoded → 22-character URL-safe string. Used when Cam does not specify a custom slug.
+- **Custom (opt-in):** Cam sets a human-meaningful slug at create time (e.g., `dossier-2026-fall`). Must be unique. Format: alphanumeric + hyphens, 4–64 characters, must start and end with alphanumeric.
+
+**URL form:** `phero.skeptou.com/<slug>` — e.g.:
+- Random: `phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV`
+- Custom: `phero.skeptou.com/dossier-2026-fall`
+
+**Human-readable label** (separate from slug, Cam-facing only): stored in `label` column. E.g., label = "Fall 2026 dossier for Smith." Never appears in the URL. Used in Cam's management UI for quick recognition without leaking recipient details in the URL.
+
+**Slug validation:**
+- Regex: `/^[a-z0-9][a-z0-9-]{2,62}[a-z0-9]$/` (lowercase; hyphens allowed in middle only)
+- Length: 4–64 characters
+- Reserved words (rejected): `api`, `share`, `manage`, `admin`, `static`, `assets`, `health`, `robots`, `favicon`, `sitemap`, `login`, `logout`
+- Uniqueness: `UNIQUE` constraint on `slug` column in D1; `409 Conflict` if slug already in use
 
 ```typescript
-function generateShareToken(): string {
+const RESERVED_SLUGS = new Set([
+  'api', 'share', 'manage', 'admin', 'static', 'assets',
+  'health', 'robots', 'favicon', 'sitemap', 'login', 'logout',
+]);
+
+function validateCustomSlug(slug: string): { valid: boolean; error?: string } {
+  if (slug.length < 4 || slug.length > 64)
+    return { valid: false, error: 'slug must be 4–64 characters' };
+  if (!/^[a-z0-9][a-z0-9-]{2,62}[a-z0-9]$/.test(slug))
+    return { valid: false, error: 'slug must be lowercase alphanumeric with hyphens (not at start/end)' };
+  if (RESERVED_SLUGS.has(slug))
+    return { valid: false, error: 'slug is reserved' };
+  return { valid: true };
+}
+
+function generateRandomSlug(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 ```
+
+**Multi-access:** the slug is permanent until expiry/revocation; multiple visits are permitted.
 
 ---
 
@@ -169,41 +194,45 @@ Applied via `wrangler d1 migrations apply skeptou-phero`.
 
 ### §V.2 — `0001_initial_schema.sql`
 
+**Table vs JSON trade-off for view history:** `share_views` is a dedicated table (not a JSON column on `shares`). The management UI drill-down requires date-range filtering, pagination, and per-column ordering (`ORDER BY occurred_at DESC LIMIT ? OFFSET ?`). A JSON column would make all of this awkward in SQLite and would grow unbounded for active shares. The table approach is the clear choice.
+
 ```sql
 -- ============================================================
 -- Phero share metadata — skeptou-phero D1 database
--- Sképtou / specs/phero.md rev 3
+-- Sképtou / specs/phero.md rev 4
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS shares (
-  share_token        TEXT    PRIMARY KEY,            -- 22-char base64url random; the public URL segment
+  slug               TEXT    PRIMARY KEY,                -- URL segment; random 22-char or custom (4–64 chars)
   source_module      TEXT    NOT NULL CHECK (source_module IN ('energeia','aristeia')),
-  source_slug        TEXT    NOT NULL,               -- paper/publication slug in upstream module
-  source_version     TEXT,                           -- NULL = live; set = snapshot at creation
-  recipient_email    TEXT,                           -- optional Cam-side annotation only; NOT enforced for access
-  label              TEXT,                           -- optional Cam-friendly name for the share in the list view
-  expires_at         TEXT,                           -- NULL = no expiry; ISO 8601 timestamp; default 30 days from creation
-  view_count         INTEGER NOT NULL DEFAULT 0,
+  source_slug        TEXT    NOT NULL,
+  source_version     TEXT,                               -- NULL = live; set = snapshot at creation
+  label              TEXT,                               -- human-readable Cam-facing name; never in URL
+  recipient_email    TEXT,                               -- optional Cam annotation; NOT enforced for access
+  expires_at         TEXT,                               -- NULL = no expiry; default 45 days from creation
+  view_count         INTEGER NOT NULL DEFAULT 0,         -- denormalized for fast list rendering
   last_viewed_at     TEXT,
   created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-  revoked_at         TEXT,                           -- NULL = active; set on revocation
+  revoked_at         TEXT,
   metadata           TEXT    NOT NULL DEFAULT '{}'
 );
 
--- Per-view event log (analytics)
-CREATE TABLE IF NOT EXISTS share_events (
+-- Per-access view log — richer than view_count alone; supports per-share history drill-down
+CREATE TABLE IF NOT EXISTS share_views (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  share_token    TEXT    NOT NULL REFERENCES shares(share_token),
+  share_slug     TEXT    NOT NULL REFERENCES shares(slug),
   event_type     TEXT    NOT NULL CHECK (event_type IN ('view','download')),
-  ip_hash        TEXT,                   -- SHA-256(CF-Connecting-IP); for rate limiting audit only
+  ip_hash        TEXT,          -- SHA-256(CF-Connecting-IP)
+  cf_country     TEXT,          -- CF-IPCountry header (2-letter ISO code; 'XX' if unknown)
   user_agent     TEXT,
+  referrer       TEXT,          -- HTTP Referer header (truncated to 256 chars)
   occurred_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
 -- Cam-action audit log
 CREATE TABLE IF NOT EXISTS audit_log (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  row_key      TEXT    NOT NULL,          -- share_token
+  row_key      TEXT    NOT NULL,
   action       TEXT    NOT NULL CHECK (action IN ('CREATE','REVOKE','UPDATE')),
   actor        TEXT    NOT NULL DEFAULT 'cam',
   snapshot     TEXT    NOT NULL DEFAULT '{}',
@@ -213,22 +242,27 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 **Design notes:**
 
-- `share_token` is the full URL-safe token — also the primary key. No separate `id` column.
-- `recipient_email` is an **optional Cam-side annotation** — a note to himself about who he shared the document with and when. It is stored as plaintext in the `shares` row (Cam created the share; he knows the email). It is never read or enforced during the share-serving flow. Subject to P-9 ruling (see §XIV).
-- `share_events` logs view and download events for analytics.
-- `shares.revoked_at` — instant revocation; Worker checks on every request (no caching of share validity).
-- No `otp_challenges` table — OTP model dropped per Cam ruling 2026-05-15.
+- `slug` is the primary key and the URL segment. Custom slugs (Cam-chosen) are validated at create time; random slugs are the fallback. Both use the same column.
+- `label` is a separate Cam-facing display name — distinct from `slug`. Cam can set a meaningful label without exposing it in the URL.
+- `recipient_email` is a Cam-side annotation only; subject to P-9 ruling (§XIV).
+- `view_count` and `last_viewed_at` are denormalized on `shares` for fast list rendering (avoid JOIN on every list request). They are updated atomically alongside the `share_views` INSERT in `ctx.waitUntil()`.
+- `share_views.cf_country`: derived from the `CF-IPCountry` header (set by Cloudflare on every request). Not PII; country-level granularity only.
+- `share_views.referrer`: truncated to 256 chars to bound column size. HTTP Referer is often empty on direct link visits (email clients strip it).
 
 ### §V.3 — `0002_indexes.sql`
 
 ```sql
-CREATE INDEX IF NOT EXISTS idx_shares_source        ON shares(source_module, source_slug);
-CREATE INDEX IF NOT EXISTS idx_shares_created_at    ON shares(created_at);
-CREATE INDEX IF NOT EXISTS idx_shares_expires_at    ON shares(expires_at);
-CREATE INDEX IF NOT EXISTS idx_shares_revoked_at    ON shares(revoked_at);
-CREATE INDEX IF NOT EXISTS idx_events_share_token   ON share_events(share_token);
-CREATE INDEX IF NOT EXISTS idx_events_occurred_at   ON share_events(occurred_at);
-CREATE INDEX IF NOT EXISTS idx_audit_row_key        ON audit_log(row_key);
+CREATE INDEX IF NOT EXISTS idx_shares_source     ON shares(source_module, source_slug);
+CREATE INDEX IF NOT EXISTS idx_shares_created    ON shares(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shares_expires    ON shares(expires_at);
+CREATE INDEX IF NOT EXISTS idx_views_slug        ON share_views(share_slug);
+CREATE INDEX IF NOT EXISTS idx_views_occurred    ON share_views(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_views_country     ON share_views(cf_country);
+
+CREATE VIEW IF NOT EXISTS active_shares AS
+  SELECT * FROM shares
+  WHERE revoked_at IS NULL
+    AND (expires_at IS NULL OR expires_at > strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 ```
 
 ### §V.4 — Active shares view
@@ -257,16 +291,17 @@ Cam-only. Creates a share record and returns the share URL.
 ```typescript
 interface CreateShareBody {
   source_module:    'energeia' | 'aristeia';
-  source_slug:      string;             // paper/publication slug in upstream
-  recipient_email?: string;             // optional Cam annotation only; not enforced for access
-  label?:           string;             // optional human-readable label for Cam's list
-  expires_at?:      string | null;      // ISO 8601; null = no expiry; default: now + 30 days
-  snapshot_mode?:   boolean;            // false = live (default); true = pin to current version
+  source_slug:      string;
+  slug?:            string;            // custom URL slug (optional; random 22-char fallback)
+  label?:           string;            // human-readable Cam-facing label; separate from slug
+  recipient_email?: string;            // optional annotation; never enforced
+  expires_at?:      string | null;     // ISO 8601; null = no expiry; omit = 45-day default
+  snapshot_mode?:   boolean;           // default false (live)
 }
 ```
 
 **Behavior:**
-1. Validate: `source_module` must be `energeia` or `aristeia`; `source_slug` must be non-empty
+1. Validate: `source_module` in (`energeia`,`aristeia`); `source_slug` non-empty; if `slug` provided: validate format + reserved-words check + D1 uniqueness (return `409` if taken)
 2. If `snapshot_mode = true`: call upstream metadata endpoint to retrieve current `version` tag; store in `source_version`
 3. Generate share token (§III.3)
 4. Insert into `shares` and `audit_log` in one `PHERO_DB.batch()`
@@ -276,8 +311,8 @@ interface CreateShareBody {
 ```json
 {
   "data": {
-    "share_token": "aBcDeFgHiJkLmNoPqRsTuV",
-    "share_url":   "https://phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV",
+    "slug":        "aBcDeFgHiJkLmNoPqRsTuV",
+    "share_url":  "https://phero.skeptou.com/aBcDeFgHiJkLmNoPqRsTuV",
     "source_module": "aristeia",
     "source_slug":   "consciousness-2026-phil-review",
     "source_version": null,
@@ -304,15 +339,25 @@ async function createShare(body: CreateShareBody, actor: string, env: Env): Prom
     sourceVersion = metaJson.data.source_version ?? metaJson.data.version ?? null;
   }
 
-  const shareToken = generateShareToken();
+  // Resolve slug: custom if provided and valid, else random
+  let shareSlug: string;
+  if (body.slug) {
+    const check = validateCustomSlug(body.slug);
+    if (!check.valid) return Response.json({ error: check.error }, { status: 400 });
+    shareSlug = body.slug;
+    // Uniqueness enforced by D1 UNIQUE constraint — catch constraint error → 409
+  } else {
+    shareSlug = generateRandomSlug();
+  }
+
   const now        = new Date().toISOString();
   const expiresAt  = body.expires_at !== undefined
     ? body.expires_at
-    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString();
 
   await env.PHERO_DB.batch([
     env.PHERO_DB.prepare(
-      `INSERT INTO shares (share_token, source_module, source_slug, source_version, recipient_email, label, expires_at)
+      `INSERT INTO shares (slug, source_module, source_slug, source_version, label, recipient_email, expires_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).bind(shareToken, body.source_module, body.source_slug, sourceVersion,
            body.recipient_email ?? null, body.label ?? null, expiresAt),
@@ -323,7 +368,7 @@ async function createShare(body: CreateShareBody, actor: string, env: Env): Prom
 
   return Response.json({
     data: {
-      share_token:    shareToken,
+      slug:    shareToken,
       share_url:      `https://phero.skeptou.com/${shareToken}`,
       source_module:  body.source_module,
       source_slug:    body.source_slug,
@@ -384,13 +429,13 @@ After revocation, `GET /api/share/:token` returns the revocation response (confi
    → NOT FOUND (invalid or expired):  → 404 (never distinguish invalid from expired)
    → FOUND, revoked_at IS NOT NULL:   → 410 Gone ("This link has been revoked")
 
-2. Check for valid scoped share cookie: phero-session-<token>
+2. Check for valid scoped share cookie: phero-session-<slug>
    → PRESENT + VALID:   → skip to step 4 (serve document)
    → ABSENT or INVALID: → issue new 7-day scoped cookie, then serve document
 
 3. Issue scoped cookie:
-   Set-Cookie: phero-session-<token>=<HMAC-signed>; HttpOnly; Secure; SameSite=Lax;
-               Max-Age=604800; Path=/<token>
+   Set-Cookie: phero-session-<slug>=<HMAC-signed>; HttpOnly; Secure; SameSite=Lax;
+               Max-Age=604800; Path=/<slug>
    HMAC value: HMAC-SHA256(share_token + created_at + COOKIE_SIGNING_KEY)
 
 4. Fetch upstream document:
@@ -399,7 +444,7 @@ After revocation, `GET /api/share/:token` returns the revocation response (confi
 
 5. Update D1 (non-blocking — ctx.waitUntil()):
    → INCREMENT view_count, SET last_viewed_at
-   → INSERT share_events row (event_type = 'view')
+   → INSERT share_views row (event_type = 'view')
 
 6. Stream upstream response:
    → Content-Type: <from upstream>
@@ -415,14 +460,14 @@ After revocation, `GET /api/share/:token` returns the revocation response (confi
 async function serveShare(token: string, request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   // 1. Validate token
   const share = await env.PHERO_DB.prepare(
-    `SELECT * FROM active_shares WHERE share_token = ?`
+    `SELECT * FROM active_shares WHERE slug = ?`
   ).bind(token).first<ShareRow | null>();
 
   if (!share) return new Response(null, { status: 404 });
   if (share.revoked_at) return revokedResponse(); // 410
 
   // 2. Check cookie
-  const cookieName = `phero-session-${token}`;
+  const cookieName = `phero-session-${slug}`;
   const existingCookie = getCookie(request, cookieName);
   const cookieValid = existingCookie && validateShareCookie(existingCookie, token, env);
 
@@ -437,14 +482,23 @@ async function serveShare(token: string, request: Request, env: Env, ctx: Execut
   });
   if (!upstream.ok) return Response.json({ error: 'upstream unavailable' }, { status: 502 });
 
-  // 4. Non-blocking analytics
+  // 4. Non-blocking analytics — update denormalized counts + insert rich view row
+  const ip     = request.headers.get('CF-Connecting-IP') ?? '';
+  const now    = new Date().toISOString();
   ctx.waitUntil(env.PHERO_DB.batch([
     env.PHERO_DB.prepare(
-      `UPDATE shares SET view_count = view_count + 1, last_viewed_at = ? WHERE share_token = ?`
-    ).bind(new Date().toISOString(), token),
+      `UPDATE shares SET view_count = view_count + 1, last_viewed_at = ? WHERE slug = ?`
+    ).bind(now, slug),
     env.PHERO_DB.prepare(
-      `INSERT INTO share_events (share_token, event_type, ip_hash, user_agent) VALUES (?, 'view', ?, ?)`
-    ).bind(token, sha256(request.headers.get('CF-Connecting-IP') ?? ''), request.headers.get('User-Agent')),
+      `INSERT INTO share_views (share_slug, event_type, ip_hash, cf_country, user_agent, referrer)
+       VALUES (?, 'view', ?, ?, ?, ?)`
+    ).bind(
+      slug,
+      await sha256(ip),
+      request.headers.get('CF-IPCountry') ?? 'XX',
+      (request.headers.get('User-Agent') ?? '').slice(0, 256),
+      (request.headers.get('Referer') ?? '').slice(0, 256),
+    ),
   ]));
 
   // 5. Build response headers
@@ -525,26 +579,42 @@ A simple management interface at `phero.skeptou.com/manage` (behind session auth
 
 | Column | Source |
 |---|---|
-| Label / Document | `label` or `source_slug` |
+| Label / Document | `label` (if set) or `source_slug` |
+| Slug | `slug` (monospace; copy-link button) |
 | Source | `source_module` badge |
-| Model | `anonymous` or `recipient` badge; recipient shows email |
+| Recipient | `recipient_email` annotation (blank if not set) |
 | Created | `created_at` |
 | Expires | `expires_at` or "No expiry" |
 | Views | `view_count` |
 | Last viewed | `last_viewed_at` (relative) |
 | Status | Active / Expired / Revoked |
-| Actions | Copy link, Revoke |
+| Actions | Copy link, View history, Revoke |
 
 ### §IX.2 — Create share form
 
 A form at `/manage/new` that maps to `POST /api/shares`:
 - Source module dropdown (energeia / aristeia)
 - Source document dropdown (fetched from upstream paper/publication list)
-- Share model toggle (Anonymous / Recipient)
-- Recipient email (shown only when Recipient selected)
-- Label (optional)
-- Expiry picker (defaults to 90 days; can be set to no expiry)
+- Label (optional free-text annotation; e.g., "search committee — Smith College"; displayed in management list view)
+- Custom slug field (optional; leave blank to auto-generate a 22-char random slug; validated client-side: 4–64 chars, `^[a-z0-9][a-z0-9-]{2,62}[a-z0-9]$`, reserved words rejected)
+- Recipient annotation (optional; "Shared with" note for Cam's reference only; not enforced for access)
+- Expiry picker (defaults to 45 days; can be set to no expiry)
 - Pin to current version checkbox (snapshot mode)
+
+### §IX.3 — Per-share view history
+
+Each share row has a "View history" action that opens a drill-down panel showing the `share_views` log for that slug. The panel surfaces:
+
+| Column | Source |
+|---|---|
+| # | row order (most-recent first) |
+| Time | `occurred_at` |
+| Event | `event_type` badge (`view` / `download`) |
+| Country | `cf_country` (ISO-3166-1 alpha-2 from CF-IPCountry; `XX` if unknown) |
+| Referrer | `referrer` (truncated to 256 chars; blank if absent) |
+| User agent | `user_agent` (truncated to 256 chars; collapsed by default) |
+
+The panel is paginated (25 rows/page). This data is live from Phase 1 — the `share_views` table is populated from first access and requires no additional Phase 2 work.
 
 ---
 
@@ -591,9 +661,9 @@ This is open question Q3 in §XIV.
 
 ## §XII — Security posture
 
-### §XII.1 — Token entropy
+### §XII.1 — Random slug entropy
 
-128-bit random token (§III.3). At 30 requests/minute rate limit per IP, exhaustive enumeration of the 2^128 token space is computationally infeasible. Token generation uses `crypto.getRandomValues()` (CSPRNG).
+When Cam does not supply a custom slug, the auto-generated slug encodes 128 bits of CSPRNG output as a 22-char base64url string (16 bytes × 8 bits / 6 bits-per-char ≈ 22 chars). At the 30 req/min rate limit per IP, exhaustive enumeration of the 2^128 space is computationally infeasible. Generation uses `crypto.getRandomValues()`. Custom slugs are human-chosen and short; their security comes from the 7-day cookie (not slug entropy) — per-slug rate limiting is the mitigation for guessing short custom slugs.
 
 ### §XII.2 — Brute-force protection
 
@@ -613,7 +683,7 @@ The scoped share cookie is:
 - `HttpOnly` — not accessible to JavaScript on the page
 - `Secure` — HTTPS only
 - `SameSite=Lax` — not sent on cross-site requests (prevents CSRF)
-- Scoped to `Path=/<token>` — no other share or path inherits this cookie
+- Scoped to `Path=/<slug>` — no other share or path inherits this cookie
 - `Max-Age=604800` (7 days; issues fresh cookie on re-visit after expiry if share still active)
 
 ### §XII.6 — No Cloudflare Access blanket gate
@@ -628,45 +698,53 @@ If the upstream energeia or aristeia document is deleted or becomes unavailable 
 
 ## §XIII — Phasing
 
-### Phase 1 — D1 schema + create/list/revoke + share serving + viewer
+### Phase 1 — D1 schema + create/list/revoke + share serving + viewer + view history
 
-**Scope:** D1 schema applied. Share model fully functional (single model — shareable link + 7-day cookie). Cam can create, list, and revoke shares. Public viewer at `/<token>`. View tracking live.
+**Scope:** D1 schema applied. Share model fully functional (single model — shareable link + 7-day cookie). Cam can create, list, and revoke shares. Custom slugs and auto-generated random slugs both supported. Per-link view tracking live from day one. Public viewer at `/<slug>`.
 
 **Pre-condition:** energeia `GET /api/papers/:slug/content` and aristeia `GET /api/publications/:slug/content` live (see `brief-energeia-content-endpoint.md`).
 
 **Deliverables:**
 - D1 migrations applied; `wrangler d1 info skeptou-phero` shows 3 tables + 1 view
-- `POST /api/shares` — create share (anonymous link; `recipient_email` optional annotation)
-- `GET /api/shares` — list with view_count and last_viewed_at
-- `DELETE /api/shares/:token` — revocation (sets `revoked_at`)
-- `GET /api/share/:token` — public serve; issues 7-day scoped cookie; view tracking
-- CF Rate Limiting on token validation path
-- Public viewer at `/<token>` with PDF.js, download button, expired/revoked pages
-- Cam management UI at `/manage` (create + list + revoke)
+- `POST /api/shares` — create share; custom or auto-generated slug; `label` and `recipient_email` optional annotations; 45-day default expiry
+- `GET /api/shares` — list with slug, label, view_count, last_viewed_at
+- `DELETE /api/shares/:slug` — revocation (sets `revoked_at`)
+- `GET /api/share/:slug` — public serve; issues 7-day scoped cookie; logs to `share_views` (ip_hash, cf_country, user_agent, referrer)
+- `validateCustomSlug()` and `generateRandomSlug()` implemented; reserved words rejected at API layer
+- CF Rate Limiting on share validation path
+- Public viewer at `/<slug>` with PDF.js, download button, expired/revoked pages
+- Cam management UI at `/manage` (create + list + revoke + per-share view-history drill-down)
 - `ENERGEIA_SERVICE_TOKEN` and `ARISTEIA_SERVICE_TOKEN` provisioned
 
 **Verification:**
 - Create share for seeded aristeia publication → visit URL → cookie set → PDF served → download works
 - Create share for energeia paper → same
+- Create share with custom slug `my-paper-2026` → URL is `phero.skeptou.com/my-paper-2026` → works
+- Attempt custom slug `admin` → rejected with validation error ("slug is reserved")
+- Attempt custom slug `ab` (too short) → rejected ("slug must be 4–64 characters")
+- Create share without custom slug → auto-generated 22-char base64url slug in URL
+- Create share with `label = "Search committee — Smith 2026"` → label appears in management list
 - Revisit within 7 days → served immediately (cookie present)
 - Revoke share → same URL → `410` revoked page
 - Share with `expires_at = now + 1 minute` → after expiry → `404` "no longer available"
+- View history drill-down: visit share URL → "View history" in management UI shows event row with occurred_at, event_type, cf_country
 - Rate limit: 31st request from same IP within a minute → `429`
+- Unauthenticated `POST /api/shares` → `403`
 - Unauthenticated `GET /api/shares` → `403`
 
-### Phase 2 — Watermarking + analytics
+### Phase 2 — Watermarking
 
-**Scope:** Optional per-share PDF watermarking. View analytics in management UI.
+**Scope:** Optional per-share PDF watermarking stamped at serve time.
 
 **Deliverables:**
 - PDF watermark overlay using `pdf-lib` WASM (for PDFs under 20 MB)
-- "Watermark" checkbox in create-share form
-- Per-share analytics page in management UI: view events timeline, view_count graph
+- "Watermark this share" checkbox in create-share form; stored in `shares.metadata`
+- Management UI: "watermark applied" or "watermark not applied (document too large)" badge per share
 - Optional: Resend notification to Cam when a share is 7 days from expiry
 
-### Phase 3 — Extended analytics (if useful)
+### Phase 3 — Extended analytics (if needed)
 
-**Scope:** Per-share breakdown of view events by date and approximate geography (from CF request metadata). Surfaced as a detail panel in the management UI.
+**Scope:** Aggregated view-event analytics over the `share_views` table — date-range queries, country breakdowns, referrer grouping. Surfaced as a summary panel in the management UI (distinct from the raw per-event drill-down live in Phase 1).
 
 ---
 
@@ -678,9 +756,9 @@ All rev 1 + rev 2 open questions resolved as of 2026-05-15. P-9 and P-10 are new
 
 | # | Decision | Resolution |
 |---|---|---|
-| P-1 | **Share model** | Collapsed to single model: shareable link + 7-day scoped cookie. No anonymous-vs-recipient distinction. |
+| P-1 | **Share model + URL slugs + per-link tracking** | Collapsed to single model: shareable link + 7-day scoped cookie. No anonymous-vs-recipient distinction. Cam-set custom slugs (4–64 chars, reserved-word blocked) or auto-generated 22-char random slugs. `label` annotation field added. Per-link view tracking via `share_views` table (`ip_hash`, `cf_country`, `user_agent`, `referrer`, `occurred_at`); all Phase 1. |
 | P-2 | **Snapshot vs. live default** | Live default; snapshot opt-in per share at creation time. |
-| P-3 | **Default expiry** | **30 days** (revised from 30-day recommendation per Cam 2026-05-15). Overridable per share. |
+| P-3 | **Default expiry** | **45 days** (revised twice: 90d → 30d → 45d; Cam ruling 2026-05-15). Overridable per share. |
 | P-4 | **View count + last_viewed** | Both displayed in Cam's management UI per share. |
 | P-5 | **Revoked link response** | `410 Gone` with styled "This link has been revoked" page (not a generic 404). |
 | P-6 | **Watermarking** | Phase 2 only; opt-in per share. No watermarking in Phase 1. |
@@ -704,27 +782,30 @@ All rev 1 + rev 2 open questions resolved as of 2026-05-15. P-9 and P-10 are new
 - Public index or gallery of Cam's shared documents (each share is a point-to-point link; no discovery surface)
 - Analytics visible to recipients (view count is Cam-side only)
 - Collaborative annotation or commenting
-- Bulk share creation or programmatic share API (no service tokens on the write side)
-- Short-URL / vanity URL customization (token is random; no `phero.skeptou.com/my-paper`)
+- Bulk share creation or programmatic slug assignment at scale (individual custom slugs are supported; no batch API)
 
 ---
 
 ## §XVI — Definition of done
 
 **Phase 1:**
-- [ ] D1 `skeptou-phero` created; migrations applied; 4 tables + 1 view verified
-- [ ] `POST /api/shares` creates anonymous share; returns share URL with valid token
-- [ ] `GET /api/shares` returns created shares with view_count and last_viewed_at
-- [ ] `DELETE /api/shares/:token` sets `revoked_at`; subsequent `GET /api/share/:token` returns 410/404
-- [ ] `GET /api/share/:token` with valid token: fetches from energeia and aristeia; streams PDF with `Content-Disposition: attachment`; 7-day scoped cookie set; increments view_count
+- [ ] D1 `skeptou-phero` created; migrations applied; 3 tables + 1 view verified (`shares`, `share_views`, `audit_log`, `active_shares`)
+- [ ] `POST /api/shares` creates share; random or custom slug; `label` and `recipient_email` accepted; 45-day default expiry applied
+- [ ] Custom slug validation: `admin` and other reserved words rejected (`409`); slug shorter than 4 chars rejected (`400`); duplicate slug rejected (`409`)
+- [ ] Auto-generated slug is 22-char base64url (128-bit CSPRNG); custom slug stored as-is (lowercased, validated)
+- [ ] `GET /api/shares` returns shares with slug, label, view_count, last_viewed_at
+- [ ] `DELETE /api/shares/:slug` sets `revoked_at`; subsequent `GET /api/share/:slug` returns 410
+- [ ] `GET /api/share/:slug` with valid slug: fetches upstream content; streams with `Content-Disposition: attachment`; 7-day scoped cookie (`phero-session-<slug>`) set; `share_views` row inserted with `ip_hash`, `cf_country`, `user_agent` (≤256), `referrer` (≤256)
 - [ ] Expired share (`expires_at` in the past) → "no longer available" page; not served
 - [ ] Rate limiting: 31st request from same IP in 60s → `429`
 - [ ] Unauthenticated `POST /api/shares` → `403`
-- [ ] Cam management UI lists shares; copy-link works; revoke button works
-- [ ] PDF.js viewer renders document in-browser; download button triggers file download
+- [ ] Unauthenticated `GET /api/shares` → `403`
+- [ ] Cam management UI lists shares with label, slug (copy-link button), views, last_viewed; revoke button works
+- [ ] View-history drill-down: click "View history" → paginated `share_views` panel shows occurred_at, event_type, cf_country, referrer
+- [ ] PDF.js viewer renders document in-browser; download button triggers file download with correct filename
 
 **Phase 2:**
 - [ ] Watermark checkbox in create-share form; stored in `shares.metadata`
 - [ ] PDF ≤ 20 MB: watermark overlay rendered via `pdf-lib` WASM; visible in served PDF
-- [ ] PDF > 20 MB: watermark skipped; management UI shows "watermark not applied" badge
-- [ ] Per-share analytics panel in management UI: view events timeline, view_count graph
+- [ ] PDF > 20 MB: watermark skipped; management UI shows "watermark not applied (document too large)" badge
+- [ ] Management UI shows watermark status badge per share
