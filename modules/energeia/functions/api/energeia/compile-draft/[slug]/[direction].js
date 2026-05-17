@@ -23,17 +23,27 @@ export async function onRequestPost(ctx) {
 
   const branch = `dunamis/${slug}-${direction}`;
 
+  /* Optional compile toggles — anonymise / plain LaTeX. Body may be absent. */
+  let body = {};
+  try { body = await request.json(); } catch (_) { /* no body — defaults */ }
+  const anonymous = body.anonymous === true;
+  const plain     = body.plain === true;
+
   try {
     await dispatchWorkflow(env.AGORA_DISPATCH_PAT, env.AGORA_REPO,
       'compile-draft.yml',
-      { branch, slug });
+      { branch, slug, anonymous: String(anonymous), plain: String(plain) });
 
     return jsonResponse({
       status: 'dispatched',
       slug,
       direction,
       branch,
-      message: `Draft compile dispatched for ${branch}. PDF will be committed to the branch when ready.`
+      anonymous,
+      plain,
+      message: `Draft compile dispatched for ${branch}${anonymous || plain
+        ? ` (${[anonymous && 'anonymous', plain && 'plain'].filter(Boolean).join(', ')})` : ''}. `
+        + 'PDF will be committed to the branch when ready.'
     }, 202);
 
   } catch (err) {

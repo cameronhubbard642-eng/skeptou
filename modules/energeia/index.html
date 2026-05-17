@@ -258,6 +258,8 @@
   .sk-class-minor { color: var(--color-steel, #4682b4);  font-variant-caps: small-caps; font-size: .72rem; }
   .sk-pdf-link    { color: var(--color-mauve, #915f6d);  font-size: .75rem; text-decoration: none; }
   .sk-pdf-link:hover { color: var(--color-wine, #722f37); }
+  .sk-compile-opt { font-size: .7rem; color: var(--color-quartz, #51414f); margin-right: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
+  .sk-compile-opt input { vertical-align: middle; margin-right: 2px; cursor: pointer; }
 
   /* Paper detail sections ── */
   .sk-paper-detail__abstract {
@@ -1247,7 +1249,6 @@
 
     var activeDirs = paper.directions.filter(function(d) { return d.status === 'active'; });
     var canPromote = activeDirs.length > 0 && paper.status !== 'published';
-    var hasCanonical = !!(paper.currentTag && paper.versions && paper.versions.length > 0);
 
     /* Breadcrumb */
     var breadcrumb = '<nav class="sk-breadcrumb">' +
@@ -1259,15 +1260,10 @@
     /* Page actions */
     var actions = '<div class="sk-page-actions">' +
       (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
-      (hasCanonical
-        ? '<button class="sk-btn sk-btn--sm" ' +
-            'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
-            'id="compile-canonical-' + slug + '" ' +
-            'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>'
-        : '<button class="sk-btn sk-btn--sm" ' +
-            'title="No canonical version yet — promote a draft direction to energeia first." ' +
-            'id="compile-canonical-' + slug + '" ' +
-            'disabled style="opacity:.45;cursor:not-allowed;">Compile Canonical</button>') +
+      '<button class="sk-btn sk-btn--sm" ' +
+        'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
+        'id="compile-canonical-' + slug + '" ' +
+        'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>' +
       (paper.status !== 'published' && paper.status !== 'archived'
         ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
@@ -1510,7 +1506,11 @@
           '</div>' +
           '<div class="sk-branch-item__actions">' +
             (isActive
-              ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+              ? '<label class="sk-compile-opt" title="Drop author, affiliation, and the institution watermark for blind review">' +
+                  '<input type="checkbox" id="anon-' + slug + '-' + d.name + '">anon</label>' +
+                '<label class="sk-compile-opt" title="Compile with default LaTeX fonts and colours — no Borges type or palette">' +
+                  '<input type="checkbox" id="plain-' + slug + '-' + d.name + '">plain</label>' +
+                '<button class="sk-btn sk-btn--sm sk-btn--accept" id="compile-' + slug + '-' + d.name + '" ' +
                   'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                   'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
@@ -1869,6 +1869,10 @@
   async function compileDraft(slug, direction) {
     var btnId = 'compile-' + slug + '-' + direction;
     var btn   = document.getElementById(btnId);
+    var anonEl  = document.getElementById('anon-'  + slug + '-' + direction);
+    var plainEl = document.getElementById('plain-' + slug + '-' + direction);
+    var anonymous = !!(anonEl  && anonEl.checked);
+    var plain     = !!(plainEl && plainEl.checked);
     if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
 
     try {
@@ -1879,7 +1883,7 @@
         credentials: 'same-origin',
         redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ anonymous: anonymous, plain: plain })
       });
 
       if (resp.type === 'opaqueredirect' || resp.status === 0) {
