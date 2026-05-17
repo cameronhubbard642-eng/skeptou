@@ -1463,6 +1463,9 @@
     /* §III Directions */
     var dirItems = paper.directions.map(function(d) {
       var isActive = d.status === 'active';
+      /* Word .docx download — proxied from papers/<slug>/main.docx on the branch */
+      var docUrl = '/api/energeia/doc/' + encodeURIComponent(slug) + '/' +
+                   encodeURIComponent(d.name);
       return '<li class="sk-direction-item">' +
         '<div>' +
           '<div class="sk-direction-item__name">' +
@@ -1484,6 +1487,13 @@
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'data-wf-kind="draft" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                 'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
+              '<button class="sk-btn sk-btn--sm" ' +
+                'title="Render this direction to an editable Word (.docx) document" ' +
+                'onclick="compileWord(\'' + slug + '\',\'' + d.name + '\')" ' +
+                'data-wf-kind="word" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
+                'id="word-' + slug + '-' + d.name + '">Word</button>' +
+              '<a class="sk-btn sk-btn--sm" href="' + docUrl + '" target="_blank"' +
+                ' title="Word .docx — click Word first if not yet available">.docx</a>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                 'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'id="archive-' + slug + '-' + d.name + '">Archive</button>'
