@@ -1705,39 +1705,59 @@
 
     openModal(content);
 
-    /* Mock diff analysis with 800ms delay */
-    setTimeout(function() { showPromoteClassification(paper); }, 800);
+    /* Real diff analysis — the Worker compares the dunamis branch against the
+       energeia canonical and returns the classification + next tag. */
+    showPromoteClassification(paper);
   }
 
-  function showPromoteClassification(paper) {
-    var pct            = paper.mockDiffPct;
-    var autoClass      = pct > DIFF_THRESHOLD ? 'major' : 'minor';
-    var effectiveClass = promoteState.override || autoClass;
-
-    /* Compute next tag from current tag */
-    var nextTag = computeNextTagFromCurrent(paper.currentTag, effectiveClass);
-    promoteState.classification = effectiveClass;
-    promoteState.nextTag = nextTag;
-
-    var classBox   = document.getElementById('promote-classify');
+  async function showPromoteClassification(paper) {
+    var classBox    = document.getElementById('promote-classify');
     var overrideRow = document.getElementById('promote-override-row');
     var confirmBtn  = document.getElementById('promote-confirm-btn');
-
     if (!classBox) return;
 
-    var isMajor = effectiveClass === 'major';
-    classBox.className = 'sk-classify-box sk-classify-box--' + (isMajor ? 'major' : 'minor');
+    classBox.className = 'sk-classify-box sk-classify-box--analyzing';
     classBox.innerHTML =
-      '<span class="sk-classify-box__verdict">' + (isMajor ? 'Major promotion' : 'Minor patch') + '</span>' +
-      '<span class="sk-classify-box__detail">' +
-        'Estimated diff: <strong>' + pct + '%</strong> changed lines ' +
-        '(threshold: ' + DIFF_THRESHOLD + '%) · ' +
-        (promoteState.override ? 'Override: ' + promoteState.override : 'Auto-classified') +
-      '</span>' +
-      '<span class="sk-classify-box__next-tag">→ ' + escHtml(nextTag) + '</span>';
+      '<span class="sk-classify-box__verdict">Analyzing differences…</span>' +
+      '<span class="sk-classify-box__detail">Computing diff against current canonical (' +
+        escHtml(paper.currentTag || 'none') + ')</span>';
 
-    if (overrideRow) overrideRow.hidden = false;
-    if (confirmBtn)  confirmBtn.disabled = false;
+    try {
+      var qs = '?branch=' + encodeURIComponent(promoteState.direction) +
+               (promoteState.override ? '&override=' + encodeURIComponent(promoteState.override) : '');
+      var resp = await fetch('/api/energeia/promote/' + encodeURIComponent(promoteState.slug) + qs, {
+        credentials: 'same-origin', redirect: 'manual'
+      });
+      if (resp.status !== 200) throw new Error('estimate failed (' + resp.status + ')');
+      var data = await resp.json();
+
+      promoteState.classification = data.classification;
+      promoteState.nextTag        = data.next_tag;
+
+      var isMajor = data.classification === 'major';
+      classBox.className = 'sk-classify-box sk-classify-box--' + (isMajor ? 'major' : 'minor');
+      classBox.innerHTML =
+        '<span class="sk-classify-box__verdict">' + (isMajor ? 'Major promotion' : 'Minor patch') + '</span>' +
+        '<span class="sk-classify-box__detail">' +
+          'Diff: <strong>' + data.diff_pct + '%</strong> of ' + data.total_lines + ' canonical lines ' +
+          '(threshold: ' + data.threshold + '%) · ' +
+          (promoteState.override ? 'Override: ' + promoteState.override : 'Auto-classified') +
+        '</span>' +
+        '<span class="sk-classify-box__next-tag">→ ' + escHtml(data.next_tag) + '</span>';
+
+      if (overrideRow) overrideRow.hidden = false;
+      if (confirmBtn)  confirmBtn.disabled = false;
+    } catch (e) {
+      /* Estimate failed — still allow promotion; the Worker re-classifies
+         server-side on confirm, and Force Major / Force Minor remain. */
+      classBox.className = 'sk-classify-box sk-classify-box--minor';
+      classBox.innerHTML =
+        '<span class="sk-classify-box__verdict">Could not estimate the diff</span>' +
+        '<span class="sk-classify-box__detail">You can still promote — pick Force Major / Force Minor, ' +
+          'or Confirm to let the workflow classify.</span>';
+      if (overrideRow) overrideRow.hidden = false;
+      if (confirmBtn)  confirmBtn.disabled = false;
+    }
   }
 
   function setPromoteOverride(override) {

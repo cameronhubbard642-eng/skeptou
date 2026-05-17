@@ -92,42 +92,133 @@ export async function onRequestPost(ctx) {
   }
 }
 
-/* ── Diff estimate via GitHub Compare API ───────────────────────────────── */
-async function computeDiffEstimate(pat, repo, branch, slug) {
-  try {
-    /* Compare energeia...branch restricted to papers/<slug>/ path */
-    const url = `https://api.github.com/repos/${repo}/compare/energeia...${encodeURIComponent(branch)}`;
-    const resp = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${pat}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'energeia-skeptou'
-      }
-    });
-    if (!resp.ok) return { pct: 50, additions: 0, deletions: 0, total: 0 };
+/**
+ * GET /api/energeia/promote/:slug?branch=...&override=...
+ *
+ * Diff-estimate preview for the promote modal. Computes the same diff %,
+ * classification, and next tag as the POST path but does NOT dispatch the
+ * workflow — so the modal shows the real numbers instead of a mock.
+ */
+export async function onRequestGet(ctx) {
+  const { env, params, request } = ctx;
 
-    const data = await resp.json();
-    const paperFiles = (data.files || []).filter(f => f.filename.startsWith(`papers/${slug}/`));
+  const auth = await validateSession(request, env);
+  if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized — no active session' }, 401);
 
-    let additions = 0, deletions = 0;
-    for (const f of paperFiles) {
-      additions += f.additions || 0;
-      deletions += f.deletions || 0;
-    }
-    const changed = additions + deletions;
-
-    /* Estimate total canonical lines: sum of base file additions in energeia */
-    const totalLines = (data.files || [])
-      .filter(f => f.filename.startsWith(`papers/${slug}/`) && f.status !== 'added')
-      .reduce((sum, f) => sum + (f.changes || 0), 1);
-
-    const pct = totalLines > 0 ? Math.round((changed / totalLines) * 100) : 100;
-    return { pct, additions, deletions, total: totalLines };
-
-  } catch (_) {
-    /* Non-fatal: fall back to 50% so user must confirm */
-    return { pct: 50, additions: 0, deletions: 0, total: 0 };
+  const slug = params.slug;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    return jsonResponse({ error: 'Invalid slug' }, 400);
   }
+
+  const url      = new URL(request.url);
+  const branch   = url.searchParams.get('branch') || '';
+  const override = url.searchParams.get('override') || null;
+
+  const branchRE = /^dunamis\/[a-z0-9-]+-[a-z]+$/;
+  if (!branchRE.test(branch)) {
+    return jsonResponse({ error: `branch must match dunamis/<slug>-<greek>, got: ${branch}` }, 400);
+  }
+  if (override !== null && override !== 'major' && override !== 'minor') {
+    return jsonResponse({ error: 'override must be "major", "minor", or null' }, 400);
+  }
+
+  try {
+    const diffInfo = await computeDiffEstimate(
+      env.AGORA_DISPATCH_PAT, env.AGORA_REPO, branch, slug
+    );
+    const autoClass      = diffInfo.pct > DIFF_THRESHOLD_PCT ? 'major' : 'minor';
+    const classification = override || autoClass;
+    const nextTag = await computeNextTag(
+      env.AGORA_DISPATCH_PAT, env.AGORA_REPO, slug, classification
+    );
+
+    return jsonResponse({
+      slug,
+      branch,
+      diff_pct:            diffInfo.pct,
+      threshold:           DIFF_THRESHOLD_PCT,
+      additions:           diffInfo.additions,
+      deletions:           diffInfo.deletions,
+      total_lines:         diffInfo.total,
+      auto_classification: autoClass,
+      classification,
+      class_source:        override ? `forced-${override}` : 'auto',
+      next_tag:            nextTag
+    });
+  } catch (err) {
+    console.error('Promote estimate error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err.message }, 500);
+  }
+}
+
+/* ── Diff estimate ──────────────────────────────────────────────────────────
+ * pct = (lines changed in papers/<slug>/ between energeia and the dunamis
+ *        branch) / (total lines of the canonical .tex files on energeia).
+ *
+ * The numerator comes from the GitHub Compare API; the denominator is the
+ * real canonical line count — fetched from the energeia tree — NOT the count
+ * of *changed* lines. (The previous version used changed-lines as the
+ * denominator, which forced pct≈100% and pinned every promotion to "major".)
+ * This mirrors promote.yml's "Compute actual diff percentage" step.
+ */
+async function computeDiffEstimate(pat, repo, branch, slug) {
+  const headers = {
+    'Authorization': `Bearer ${pat}`,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'energeia-skeptou'
+  };
+
+  /* Numerator — changed lines under papers/<slug>/ (branch name is validated
+     to ^dunamis/[a-z0-9-]+-[a-z]+$, so the literal '/' is path-safe here;
+     percent-encoding it breaks the Compare API). */
+  let additions = 0, deletions = 0;
+  try {
+    const cmp = await fetch(
+      `https://api.github.com/repos/${repo}/compare/energeia...${branch}`,
+      { headers }
+    );
+    if (cmp.ok) {
+      const data = await cmp.json();
+      for (const f of (data.files || [])) {
+        if (!f.filename.startsWith(`papers/${slug}/`)) continue;
+        additions += f.additions || 0;
+        deletions += f.deletions || 0;
+      }
+    }
+  } catch (_) { /* numerator stays 0 */ }
+  const changed = additions + deletions;
+
+  /* Denominator — total lines of canonical .tex files on the energeia branch. */
+  let totalLines = 0;
+  try {
+    const tree = await fetch(
+      `https://api.github.com/repos/${repo}/git/trees/energeia?recursive=1`,
+      { headers }
+    );
+    if (tree.ok) {
+      const td = await tree.json();
+      const texBlobs = (td.tree || []).filter(e =>
+        e.type === 'blob' &&
+        e.path.startsWith(`papers/${slug}/`) &&
+        e.path.endsWith('.tex'));
+      for (const blob of texBlobs) {
+        const br = await fetch(
+          `https://api.github.com/repos/${repo}/git/blobs/${blob.sha}`,
+          { headers }
+        );
+        if (!br.ok) continue;
+        const bd = await br.json();
+        if (bd.content) {
+          totalLines += atob(bd.content.replace(/\s/g, '')).split('\n').length;
+        }
+      }
+    }
+  } catch (_) { /* denominator stays 0 */ }
+
+  const pct = totalLines > 0
+    ? Math.round((changed / totalLines) * 100)
+    : (changed > 0 ? 100 : 0);
+  return { pct, additions, deletions, total: totalLines };
 }
 
 /* ── Next tag computation ───────────────────────────────────────────────── */
