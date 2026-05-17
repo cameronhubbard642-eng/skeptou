@@ -1463,6 +1463,9 @@
     /* §III Directions */
     var dirItems = paper.directions.map(function(d) {
       var isActive = d.status === 'active';
+      /* Draft PDF — proxied from papers/<slug>/main.pdf on the dunamis branch */
+      var draftUrl = '/api/energeia/pdf/' + encodeURIComponent(slug) + '/' +
+                     encodeURIComponent('draft-' + d.name + '.pdf');
       /* Word .docx download — proxied from papers/<slug>/main.docx on the branch */
       var docUrl = '/api/energeia/doc/' + encodeURIComponent(slug) + '/' +
                    encodeURIComponent(d.name);
@@ -1487,6 +1490,8 @@
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'data-wf-kind="draft" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                 'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
+              '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
+                ' title="Draft PDF — click Compile draft first if not yet available">Draft PDF</a>' +
               '<button class="sk-btn sk-btn--sm" ' +
                 'title="Render this direction to an editable Word (.docx) document" ' +
                 'onclick="compileWord(\'' + slug + '\',\'' + d.name + '\')" ' +
