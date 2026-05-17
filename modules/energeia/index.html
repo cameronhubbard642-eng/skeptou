@@ -1496,6 +1496,10 @@
            Returns 404 if the branch hasn't been compiled yet (Compile button generates it). */
         var draftUrl = '/api/energeia/pdf/' + encodeURIComponent(slug) + '/' +
                        encodeURIComponent('draft-' + d.name + '.pdf');
+        /* Word .docx download — proxied from papers/<slug>/main.docx on the
+           dunamis branch. 404 until the Word button has been run. */
+        var docUrl = '/api/energeia/doc/' + encodeURIComponent(slug) + '/' +
+                     encodeURIComponent(d.name);
         html += '<div class="sk-branch-item">' +
           '<div>' +
             '<div class="sk-branch-item__name">' + escHtml(d.branch) + '</div>' +
@@ -1515,6 +1519,11 @@
                   'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
                   ' title="Draft PDF — click Compile first if not yet available">Draft PDF</a>' +
+                '<button class="sk-btn sk-btn--sm" id="word-' + slug + '-' + d.name + '" ' +
+                  'title="Render this direction to an editable Word (.docx) document" ' +
+                  'onclick="compileWord(\'' + slug + '\',\'' + d.name + '\')">Word</button>' +
+                '<a class="sk-btn sk-btn--sm" href="' + docUrl + '" target="_blank"' +
+                  ' title="Word .docx — click Word first if not yet available">.docx</a>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                   'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')">Archive</button>'
               : '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
@@ -1884,6 +1893,34 @@
         redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anonymous: anonymous, plain: plain })
+      });
+
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
+      } else if (resp.status === 202) {
+        if (btn) btn.textContent = 'Dispatched ✓';
+      } else {
+        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      }
+    } catch (e) {
+      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+    }
+  }
+
+  /* ── Compile Word (.docx) ────────────────────────────────────────────── */
+  async function compileWord(slug, direction) {
+    var btn = document.getElementById('word-' + slug + '-' + direction);
+    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+
+    try {
+      var resp = await fetch('/api/energeia/compile-word/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
 
       if (resp.type === 'opaqueredirect' || resp.status === 0) {
