@@ -1,7 +1,7 @@
 # STATE_OF_PLAY — Sképtou
 
 **Authoritative project state. Updated by Lead Dev / Architect after each phase milestone.**  
-**Last updated:** 2026-05-17 (specs/phero.md rev 4 ratified; brief-phero-phase1.md rev 2; all engineer briefs drafted; feat/strategia-spec branch ready for push)
+**Last updated:** 2026-05-17 (specs/phero.md rev 4; brief-phero-phase1.md rev 2; specs/scholia.md rev 1 drafted)
 
 ---
 
@@ -30,6 +30,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 - `specs/aristeia.md` rev 2 — ratified Cam 2026-05-15; all open Qs resolved; R2+D1 in-perpetuity professional publications archive; energeia pull model; versioned imports (publications + import_history two-table); Cam-only writes; Worker-to-Worker ENERGEIA_SERVICE_TOKEN; soft delete (tombstone; R2 retained); citation metadata; 3-phase plan; 6 open Qs for Cam; awaiting Cam review
 - `specs/phero.md` **rev 4** — ratified Cam 2026-05-15; all P-1–P-8 resolved; P-9/P-10 open (low priority); OTP dropped entirely (P-7); single share model (link + 7-day scoped cookie); custom slugs (Cam-set or 22-char random); `label` annotation field; per-link view tracking via `share_views` table (cf_country, user_agent, referrer); 45-day default expiry; 3-phase plan; ready for engineer brief
 - `specs/brief-phero-phase1.md` **rev 2** — drafted 2026-05-17; reflects rev 4 schema (share_views, validateCustomSlug, generateRandomSlug); management UI with view-history drill-down; ready for engineer
+- `specs/scholia.md` **rev 1** — drafted 2026-05-17; module-agnostic commenting/annotation backend (Slot 16 — σχόλια); D1 single-table schema; 5-endpoint API; Cam management UI; embeddable overlay for all module viewers (Phase 2+); phero recipient identity model; Resend notifications (Phase 3); 4-phase plan; 6 open Qs (SQ-1–SQ-6); awaiting Cam ratification
 
 ## What is in progress
 
@@ -51,7 +52,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
   3. op-d1-migration.md Phase 1 complete before any phronesis content build begins (D1 is now the data layer for phronesis)
 - **Combined spec PR (strategia + aristeia + phero):** `feat/strategia-spec` branch has commits for strategia rev 2, aristeia rev 2, phero rev 4, briefs for all three modules, and brief-energeia-content-endpoint.md. To open the PR:
   - Cam runs: `git push origin feat/strategia-spec` from the skeptou repo, then opens PR on GitHub
-  - PR title: `docs(strategia,aristeia,phero): module specs rev 2 + engineer briefs`
+  - PR title: `docs(strategia,aristeia,phero,scholia): module specs rev 2 + engineer briefs + scholia rev 1`
   - Or route through DevOps session (`local_33cdf795-990d-4872-8cbd-291c09838b35`) which holds GitHub credentials
 
 ## What comes next (Phase 1)
