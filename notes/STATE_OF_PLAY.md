@@ -26,9 +26,9 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 - `specs/apex-site.md` revised to rev 4 (2026-05-14); watermark reinstated; content-slot policy; CV deferred; 3-page v1; awaiting Cam review
 - `specs/runtime-fetch-cache.md` rev 1 filed (2026-05-14); **SUPERSEDED** same day — Cam pivoted O&P data to D1; file retained as archive with superseded notice at top
 - `specs/op-d1-migration.md` revised to rev 4 (2026-05-15); commitments table added; opportunities recast as decision queue; tasks parent_kind/parent_id polymorphic; accept/reject flows with SAA dispatch; declined_opportunities view; §VIII migration script struck; initial population via O&P specialist API writes; all decisions resolved; engineer-ready
-- `specs/strategia.md` drafted rev 1 (2026-05-16); R2+D1 document viewer for Claude-generated reports; PDF.js in-app viewer; specialist-scoped service tokens; tombstone delete (Cam-session-only); 3-phase plan; 6 open questions for Cam; awaiting Cam review
-- `specs/aristeia.md` drafted rev 1 (2026-05-16); R2+D1 in-perpetuity professional publications archive; energeia pull model; versioned imports (publications + import_history two-table); Cam-only writes; Worker-to-Worker ENERGEIA_SERVICE_TOKEN; soft delete (tombstone; R2 retained); citation metadata; 3-phase plan; 6 open Qs for Cam; awaiting Cam review
-- `specs/phero.md` drafted rev 1 (2026-05-16); D1-only outward-facing share-link layer over energeia + aristeia; anonymous + recipient share models; snapshot vs. live per-share toggle; recipient OTP via Resend; scoped share cookie; CF rate limiting + email enumeration protection; 4-phase plan; 9 open Qs for Cam; awaiting Cam review
+- `specs/strategia.md` rev 2 — ratified Cam 2026-05-15; all open Qs resolved; R2+D1 document viewer for Claude-generated reports; PDF.js in-app viewer; specialist-scoped service tokens; tombstone delete (Cam-session-only); 3-phase plan; 6 open questions for Cam; awaiting Cam review
+- `specs/aristeia.md` rev 2 — ratified Cam 2026-05-15; all open Qs resolved; R2+D1 in-perpetuity professional publications archive; energeia pull model; versioned imports (publications + import_history two-table); Cam-only writes; Worker-to-Worker ENERGEIA_SERVICE_TOKEN; soft delete (tombstone; R2 retained); citation metadata; 3-phase plan; 6 open Qs for Cam; awaiting Cam review
+- `specs/phero.md` rev 2 — ratified Cam 2026-05-15; P-7 (OTP TTL) pending; D1-only outward-facing share-link layer over energeia + aristeia; anonymous + recipient share models; snapshot vs. live per-share toggle; recipient OTP via Resend; scoped share cookie; CF rate limiting + email enumeration protection; 4-phase plan; 9 open Qs for Cam; awaiting Cam review
 
 ## What is in progress
 
@@ -36,7 +36,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 - Cam review of `specs/auth-core.md` (rev 1)
 - Cam review of `specs/apex-site.md` (rev 4)
 - Cam review of `specs/strategia.md`, `specs/aristeia.md`, `specs/phero.md` (all rev 1)
-- `feat/strategia-spec` branch has 3 commits locally (strategia + aristeia+phero + rename); **push to GitHub pending** (Lead Dev session has no GitHub credentials; needs DevOps session or manual push by Cam — see below)
+- `feat/strategia-spec` branch has feat/strategia-spec: rev 1 merged as PR #52; rev 2 pending push + PR; **push to GitHub pending** (Lead Dev session has no GitHub credentials; needs DevOps session or manual push by Cam — see below)
 
 ## What is blocked
 
