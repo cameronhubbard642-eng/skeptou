@@ -1382,7 +1382,11 @@
         '</div>' +
         '<div class="sk-direction-item__actions">' +
           (isActive
-            ? '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
+            ? '<label class="sk-compile-opt" title="Drop author, affiliation, and the institution watermark for blind review">' +
+                '<input type="checkbox" id="anon-' + slug + '-' + d.name + '">anon</label>' +
+              '<label class="sk-compile-opt" title="Compile with default LaTeX fonts and colours — no Borges type or palette">' +
+                '<input type="checkbox" id="plain-' + slug + '-' + d.name + '">plain</label>' +
+              '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
                 'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
