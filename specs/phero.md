@@ -1,9 +1,9 @@
 # specs/phero.md — Phero Document Sharing Interface
 
-**Version:** rev 1
-**Status:** draft — awaiting Cam review
+**Version:** rev 2
+**Status:** ratified (partial) — Cam 2026-05-15; P-7 pending
 **Author:** Lead Dev / Architect — Sképtou
-**Date:** 2026-05-16
+**Date:** 2026-05-17
 **Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `specs/aristeia.md`, `ARCHITECTURE.md`
 **Consumers:** DevOps engineer, Phero engineer, Cam
 
@@ -793,18 +793,26 @@ If the upstream energeia or aristeia document is deleted or becomes unavailable 
 
 ## §XIV — Open questions for Cam
 
-| # | Question | Blocks | Recommendation |
-|---|---|---|---|
-| Q1 | **Anonymous vs. recipient vs. both as default:** Recommendation is both, with anonymous as default in the create UI. Confirm. | Phase 1 scope | Both; anonymous default |
-| Q2 | **Snapshot vs. live default:** Recommendation is live (share resolves to current canonical). Snapshot opt-in via checkbox at create time. Confirm. | Phase 1 schema | Live default; snapshot opt-in |
-| Q3 | **Default expiry duration:** Recommendation is 90 days default (close to auth-core service token TTL). Options: 30 days, 90 days, 1 year, no expiry. Cam can override per share. | Phase 1 create-share form | 90-day default |
-| Q4 | **View count + last_viewed visible to Cam:** management UI should show view_count and last_viewed_at per share. Confirm. | Phase 1 management UI | Yes — show both |
-| Q5 | **Revoked link response:** when a recipient visits a revoked share, return (a) `410 Gone` with a styled "This link has been revoked" page, or (b) same `404`-style "no longer available" page (no distinction). Recommendation: (a) — distinct revocation page is more informative and professionally appropriate. | Phase 1 revocation handler | (a) distinct 410 page |
-| Q6 | **Watermarking opt-in:** watermarking is Phase 3 and opt-in per share. Confirm this is acceptable; no expectation of watermarking in Phase 1 or 2. | Phase 3 scope | Phase 3; opt-in per share |
-| Q7 | **OTP TTL:** recommendation is 15 minutes for the OTP code and 24 hours for the scoped session cookie. Confirm. | Phase 2 OTP flow | 15 min OTP; 24h cookie |
-| Q8 | **Cam distributes share URL manually:** phero does not send the share URL to the recipient — Cam copies and pastes or emails it himself. Phero only sends the OTP email (for recipient model) and that only after the recipient visits the URL. Confirm this is the intended UX. | Phase 1 create-share response | Yes — Cam distributes URL manually |
+All rev 1 open questions resolved (Cam 2026-05-15) **except P-7**, which is pending Cam ruling.
 
----
+### Resolved
+
+| # | Decision | Resolution |
+|---|---|---|
+| P-1 | **Share model default** | Both anonymous and recipient models supported; anonymous is default in the create UI. |
+| P-2 | **Snapshot vs. live default** | Live default; snapshot opt-in per share at create time. |
+| P-3 | **Default expiry** | 90-day default, overridable per share at creation. |
+| P-4 | **View count + last_viewed** | Both displayed in Cam's management UI per share. |
+| P-5 | **Revoked link response** | `410 Gone` with styled "This link has been revoked" page (not a generic 404). |
+| P-6 | **Watermarking** | Phase 3 only; opt-in per share. No watermarking in Phase 1 or 2. |
+| P-8 | **URL distribution** | Cam distributes share URL manually (copy/paste or email). Phero sends OTP email only, never the share URL itself. |
+
+### Open (pending Cam ruling)
+
+| # | Question | Blocks |
+|---|---|---|
+| P-7 | **OTP TTL:** Spec recommendation is 15-minute OTP code + 24-hour scoped session cookie (`HttpOnly; Secure; SameSite=Lax; Max-Age=86400; Path=/<token>`). Cam is deliberating. Phase 2 (recipient model) implementation blocked until resolved. | Phase 2 OTP flow |
+
 
 ## §XV — Out of scope
 

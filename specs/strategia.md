@@ -1,9 +1,9 @@
 # specs/strategia.md — Strategia Document Viewer
 
-**Version:** rev 1
-**Status:** draft — awaiting Cam review
+**Version:** rev 2
+**Status:** ratified — Cam 2026-05-15
 **Author:** Lead Dev / Architect — Sképtou
-**Date:** 2026-05-16
+**Date:** 2026-05-17
 **Depends on:** `specs/auth-core.md`, `ARCHITECTURE.md`
 **Consumers:** DevOps engineer, Strategia engineer, Cowork team specialists
 
@@ -828,18 +828,19 @@ CoC briefs and annotated PDFs may contain sensitive academic, professional, or p
 
 ---
 
-## §XIII — Open questions for Cam
+## §XIII — Resolved decisions (Cam ratification 2026-05-15)
 
-| # | Question | Blocks | Recommendation |
-|---|---|---|---|
-| Q1 | **Soft vs hard delete of D1 row:** Current recommendation is tombstone (D1 row retained with `deleted_at`, R2 object purged immediately). Full hard delete (D1 row also purged) is simpler but loses audit trail. | Phase 2 delete handler | Tombstone (retain D1 row) |
-| Q2 | **Agora-auto-publish:** Should a webhook Worker auto-upload documents committed to `agora/reports/<team>/` into strategia, or is specialist-direct POST sufficient for v1? | Phase 3 scope | Defer to Phase 3; specialist-direct POST for v1 |
-| Q3 | **`.docx` support:** Should `.docx` files be uploaded and rendered? Phase 1 renders only PDF, Markdown, plain text, and images. `.docx` requires a conversion step (Mammoth.js or server-side conversion) to be viewable in-browser without downloading. | Phase 1 MIME allowlist | Out of scope for v1; revisit when aristeia spec is written |
-| Q4 | **Service token table location:** Should strategia service tokens share the phronesis `service_tokens` D1 table, or live in `skeptou-strategia`? Sharing is simpler (one table, one admin surface) but creates a cross-module DB dependency. Separate is cleaner but requires provisioning tokens in two places. | Phase 3 token provisioning | Share phronesis `service_tokens` table with a `module` column added to distinguish phronesis vs strategia scopes |
-| Q5 | **Max upload size:** R2 Workers have a 100MB request body limit. Is this sufficient for annotated PDFs? UCR thesis PDFs with annotation layers can approach 50–80MB. | Phase 2 upload handler | Assume 100MB limit is sufficient; flag if a specific document class is expected to exceed this |
-| Q6 | **Strategia as a shared module across teams:** Currently scoped to reports from Cam's Claude teams. If Cam later wants to share a document with a collaborator (e.g. a thesis reader), does strategia get a time-limited share-link feature, or is that permanently out of scope? | Future | Permanently out of scope for strategia; sharing lives in `phero.skeptou.com` (Slot 3) |
+All open questions from rev 1 resolved. Defaults accepted as canonical.
 
----
+| # | Decision | Resolution |
+|---|---|---|
+| S-1 | **Delete model** | Tombstone: `deleted_at` set on D1 row; R2 object purged immediately. D1 row retained indefinitely for audit trail. |
+| S-2 | **Agora-auto-publish hook** | Deferred to Phase 3. Specialist-direct POST is sufficient for v1. |
+| S-3 | **`.docx` support** | Out of scope for v1. MIME allowlist: PDF, Markdown, plain text, image only. |
+| S-4 | **Service token table location** | Strategia service tokens share phronesis `service_tokens` D1 table. `module` column added to distinguish scopes. |
+| S-5 | **Max upload size** | 100 MB Workers request-body limit accepted as sufficient. Flag if a specific document class is expected to exceed this. |
+| S-6 | **Cross-team sharing** | Permanently out of scope for strategia. Sharing lives in `phero.skeptou.com`. |
+
 
 ## §XIV — Out of scope
 
@@ -849,7 +850,7 @@ CoC briefs and annotated PDFs may contain sensitive academic, professional, or p
 - Generating or editing documents (strategia is receive-only except for delete)
 - Real-time push / notifications when a new document arrives
 - Multi-user access (single-user: Cam only, behind Access)
-- `.docx` rendering (deferred, Q3 above)
+- `.docx` rendering (out of scope for v1; revisit at Phase 4+)
 - Public sharing links (see Q6; belongs to `phero`)
 - Nightly R2 backup (R2 objects are durable; nightly backup deferred to Phase 3+)
 

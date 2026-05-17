@@ -1,9 +1,9 @@
 # specs/aristeia.md — Aristeia Professional Publications Archive
 
-**Version:** rev 1
-**Status:** draft — awaiting Cam review
+**Version:** rev 2
+**Status:** ratified — Cam 2026-05-15
 **Author:** Lead Dev / Architect — Sképtou
-**Date:** 2026-05-16
+**Date:** 2026-05-17
 **Depends on:** `specs/auth-core.md`, `specs/energeia.md`, `ARCHITECTURE.md`
 **Consumers:** DevOps engineer, Aristeia engineer, Cam
 
@@ -829,17 +829,18 @@ The citation sidebar may display external URLs (DOI links, publisher pages). The
 
 ---
 
-## §XII — Open questions for Cam
+## §XII — Resolved decisions (Cam ratification 2026-05-15)
 
-| # | Question | Blocks | Recommendation |
-|---|---|---|---|
-| Q1 | **Re-import: new row vs overwrite:** Spec recommends two-table model (canonical `publications` row updated in place; `import_history` row appended; prior R2 object moved to history prefix). Alternative: each import creates a new `publications` row with a version-suffixed slug. Recommended approach preserves clean list UX (one entry per paper) while keeping full history. Cam confirms? | §IV, §V.1 schema | Two-table model (update publications + append import_history) |
-| Q2 | **Soft delete retention:** On soft delete, R2 canonical and history snapshot bytes are retained indefinitely. Cam's "in perpetuity" framing suggests bytes should never be auto-purged. Confirm: soft delete = tombstone only, R2 retained forever? Or should there be a 30-day R2 purge window after soft delete for true removal? | §VIII.1 | Retain R2 bytes indefinitely; soft delete is UI-only tombstone |
-| Q3 | **LaTeX source snapshot:** Should the import handler also capture the LaTeX source bundle (`.zip`) from energeia alongside the PDF? This preserves the source at the imported version, enabling later recompilation. Adds complexity to import handler + R2 key schema. | Phase 4 scope | Optional; recommend deferring to Phase 4 after PDF import is stable |
-| Q4 | **Energeia API readiness pre-condition:** Phase 2 requires `GET /api/papers/:slug/content` to be live on energeia. Is this endpoint planned in the energeia spec? Confirm energeia engineer brief should include this read endpoint. | Phase 2 import | Yes — flag to energeia engineer |
-| Q5 | **Citation metadata completeness:** The `CitationMetadata` shape in §IV.5 covers standard fields. Any additional fields needed for Cam's specific publication types (e.g., `series`, `conference_location`, `presentation_date`, `co-authors`)? | PATCH handler validation | Treat as extension-friendly; Cam adds fields via `metadata` escape hatch until formally added |
+All open questions from rev 1 resolved. Defaults accepted as canonical.
 
----
+| # | Decision | Resolution |
+|---|---|---|
+| A-1 | **Re-import model** | Two-table: `publications` row updated in place; `import_history` row appended; prior R2 PDF moved to history prefix. One entry per paper in list view. |
+| A-2 | **Soft delete R2 retention** | R2 bytes (canonical + all history snapshots) retained indefinitely. Soft delete is a UI-only tombstone; no auto-purge ever. |
+| A-3 | **LaTeX source snapshot** | Deferred to Phase 4. PDF import only in Phases 1–3. |
+| A-4 | **Energeia API pre-condition** | Confirmed: `GET /api/papers/:slug/content` belongs in the energeia engineer brief. Aristeia Phase 2 import depends on this endpoint being live. |
+| A-5 | **Citation metadata extensibility** | `CitationMetadata` shape treated as extension-friendly. Cam adds non-standard fields via `metadata` JSON escape hatch until formally promoted to schema columns. |
+
 
 ## §XIII — Out of scope
 
