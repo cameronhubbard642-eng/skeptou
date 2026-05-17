@@ -446,7 +446,9 @@ tbody tr:last-child td {
   margin-bottom: 0.75rem;
 }
 
-.sk-viz-btn {
+/* Shared base for viz-toggle and range-bar buttons */
+.sk-viz-btn,
+.sk-range-btn {
   font-family: inherit;
   font-variant-caps: small-caps;
   letter-spacing: 0.08em;
@@ -457,11 +459,27 @@ tbody tr:last-child td {
   background: transparent;
   color: var(--color-quartz, #51414f);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.sk-viz-btn.active {
-  background: var(--color-quartz, #51414f);
+.sk-viz-btn.active,
+.sk-range-btn.active {
+  background: var(--color-mauve, #915f6d);
+  border-color: var(--color-mauve, #915f6d);
   color: var(--color-parchment, #fcf5e5);
+}
+
+.sk-viz-btn:hover:not(.active),
+.sk-range-btn:hover:not(.active) {
+  border-color: var(--color-mauve, #915f6d);
+  color: var(--color-mauve, #915f6d);
+}
+
+/* Range bar container — mirrors sk-viz-toggle layout */
+.sk-range-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .sk-viz {
@@ -1226,8 +1244,9 @@ details.sk-collapsed[open] > summary::before {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* ── Viz toggle buttons: larger tap target ── */
-  .sk-viz-btn {
+  /* ── Viz toggle + range buttons: larger tap target ── */
+  .sk-viz-btn,
+  .sk-range-btn {
     min-height: 36px;
     padding: 0.3em 1em;
     font-size: 0.78rem;
