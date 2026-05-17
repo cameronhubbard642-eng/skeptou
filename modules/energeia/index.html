@@ -260,6 +260,8 @@
   .sk-pdf-link:hover { color: var(--color-wine, #722f37); }
   .sk-compile-opt { font-size: .7rem; color: var(--color-quartz, #51414f); margin-right: 6px; cursor: pointer; user-select: none; white-space: nowrap; }
   .sk-compile-opt input { vertical-align: middle; margin-right: 2px; cursor: pointer; }
+  .sk-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .sk-btn--running { opacity: .6; cursor: progress; }
 
   /* Paper detail sections ── */
   .sk-paper-detail__abstract {
@@ -956,11 +958,97 @@
       if (currentView === 'home')                        renderHome();
       if (currentView === 'overview')                    renderOverview();
       if (currentView === 'paper' && currentSlug)        renderPaperDetail(currentSlug);
+      if (typeof wfApplyLocks === 'function')            wfApplyLocks();
     } catch (_) {
       _papersLoading = false;
       if (currentView === 'home')     renderHome();
       if (currentView === 'overview') renderOverview();
     }
+  }
+
+  /* ── Workflow run locks ──────────────────────────────────────────────── */
+  /* Greys out a button while the agora workflow it triggered is queued or
+     running. /api/energeia/active-runs is polled; each workflow button carries
+     data-wf-kind / data-wf-slug / data-wf-ref (ref omitted = match any ref for
+     that kind+slug). A just-dispatched job is marked "pending" so its button
+     locks instantly, before the run shows up in the API. */
+  var WF = { active: [], pending: {}, prevKeys: [], timer: null };
+
+  function wfKey(kind, slug, ref) { return kind + '|' + slug + '|' + (ref || ''); }
+
+  function wfRunFor(kind, slug, ref) {
+    return WF.active.find(function(r) {
+      if (r.kind !== kind || r.slug !== slug) return false;
+      return !ref || r.ref === ref;
+    });
+  }
+
+  function wfApplyLocks() {
+    var now = Date.now();
+    document.querySelectorAll('[data-wf-kind]').forEach(function(btn) {
+      var kind = btn.getAttribute('data-wf-kind');
+      var slug = btn.getAttribute('data-wf-slug');
+      var ref  = btn.getAttribute('data-wf-ref') || '';
+      var run  = wfRunFor(kind, slug, ref);
+      var pend = WF.pending[wfKey(kind, slug, ref)];
+      var pending = pend && (now - pend) < 30000;
+      if (run || pending) {
+        if (!btn.hasAttribute('data-wf-label')) btn.setAttribute('data-wf-label', btn.textContent);
+        btn.disabled = true;
+        btn.classList.add('sk-btn--running');
+        btn.textContent = (run && run.status === 'in_progress') ? 'Running…' : 'Queued…';
+      } else if (btn.hasAttribute('data-wf-label')) {
+        btn.disabled = false;
+        btn.classList.remove('sk-btn--running');
+        btn.textContent = btn.getAttribute('data-wf-label');
+        btn.removeAttribute('data-wf-label');
+      }
+    });
+  }
+
+  async function wfRefresh() {
+    try {
+      var resp = await fetch('/api/energeia/active-runs', {
+        credentials: 'same-origin', redirect: 'manual'
+      });
+      if (resp.status === 200) {
+        var data = await resp.json();
+        var fresh = data.runs || [];
+        var freshKeys = fresh.map(function(r) { return wfKey(r.kind, r.slug, r.ref); });
+        /* A run that was active and now isn't = a workflow just finished →
+           pull fresh paper data so new PDFs / versions show. */
+        var finished = WF.prevKeys.some(function(k) { return freshKeys.indexOf(k) === -1; });
+        WF.active   = fresh;
+        WF.prevKeys = freshKeys;
+        if (finished && typeof loadPapersFromAPI === 'function') loadPapersFromAPI();
+      }
+    } catch (_) { /* keep last snapshot */ }
+    wfApplyLocks();
+    wfSchedule();
+  }
+
+  function wfSchedule() {
+    if (WF.timer) clearTimeout(WF.timer);
+    var now = Date.now();
+    var pendingActive = Object.keys(WF.pending).some(function(k) {
+      return (now - WF.pending[k]) < 30000;
+    });
+    var busy = WF.active.length > 0 || pendingActive;
+    WF.timer = setTimeout(wfRefresh, busy ? 6000 : 25000);
+  }
+
+  /* Mark a dispatched job pending — locks its button immediately and polls
+     hard until the run registers in the GitHub Actions API. */
+  function wfMarkPending(kind, slug, ref) {
+    WF.pending[wfKey(kind, slug, ref)] = Date.now();
+    wfApplyLocks();
+    [1500, 4000, 8000, 13000].forEach(function(ms) { setTimeout(wfRefresh, ms); });
+  }
+
+  /* Roll back a pending mark when the dispatch itself failed. */
+  function wfClearPending(kind, slug, ref) {
+    delete WF.pending[wfKey(kind, slug, ref)];
+    wfApplyLocks();
   }
 
   /* ── State ───────────────────────────────────────────────────────────── */
@@ -1002,6 +1090,9 @@
     if (view === 'paper'   && slug)        renderPaperDetail(slug);
     if (view === 'working' && slug)        renderWorkingDocs(slug);
     if (view === 'branches')               renderBranches();
+
+    /* Re-apply workflow button locks to the freshly-rendered view */
+    wfApplyLocks();
 
     var hash = slug ? '#' + view + '/' + slug : '#' + view;
     if (location.hash !== hash) history.pushState(null, '', hash);
@@ -1177,9 +1268,9 @@
       (allDirs.length ? '<div class="sk-paper-card__directions">' + dirPills + '</div>' : '') +
       '<div class="sk-paper-card__actions">' +
         '<button class="sk-btn sk-btn--sm sk-btn--accept" onclick="navigate(\'paper/' + paper.slug + '\')">View →</button>' +
-        (canPromote ? '<button class="sk-btn sk-btn--sm sk-btn--primary" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + paper.slug + '\')">Promote</button>' : '') +
+        (canPromote ? '<button class="sk-btn sk-btn--sm sk-btn--primary" data-wf-kind="promote" data-wf-slug="' + paper.slug + '" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + paper.slug + '\')">Promote</button>' : '') +
         (paper.status !== 'published' && paper.status !== 'archived'
-          ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + paper.slug + '\')">New Direction</button>'
+          ? '<button class="sk-btn sk-btn--sm" data-wf-kind="create-direction" data-wf-slug="' + paper.slug + '" onclick="openDirectionModal(\'' + paper.slug + '\')">New Direction</button>'
           : '') +
       '</div>' +
     '</div>';
@@ -1259,13 +1350,14 @@
 
     /* Page actions */
     var actions = '<div class="sk-page-actions">' +
-      (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
+      (canPromote ? '<button class="sk-btn sk-btn--primary sk-btn--sm" data-wf-kind="promote" data-wf-slug="' + slug + '" title="Replace canonical with this direction. Computes diff, assigns next version tag, compiles canonical PDF and diff PDF" onclick="openPromoteModal(\'' + slug + '\')">Promote →</button>' : '') +
       '<button class="sk-btn sk-btn--sm" ' +
         'title="Re-compile the current canonical PDF without promotion. Use when fixing compile-side issues without a content change." ' +
         'id="compile-canonical-' + slug + '" ' +
+        'data-wf-kind="canonical" data-wf-slug="' + slug + '" ' +
         'onclick="compileCanonical(\'' + slug + '\')">Compile Canonical</button>' +
       (paper.status !== 'published' && paper.status !== 'archived'
-        ? '<button class="sk-btn sk-btn--sm" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
+        ? '<button class="sk-btn sk-btn--sm" data-wf-kind="create-direction" data-wf-slug="' + slug + '" onclick="openDirectionModal(\'' + slug + '\')">+ New Direction</button>'
         : '') +
       '<a class="sk-btn sk-btn--sm sk-btn--accept" href="#working/' + slug + '" onclick="navigate(\'working/' + slug + '\')">Working docs</a>' +
       (paper.status !== 'archived'
@@ -1273,6 +1365,7 @@
         : '') +
       '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
         'style="background:var(--color-wine);color:#fff;" ' +
+        'data-wf-kind="delete-paper" data-wf-slug="' + slug + '" ' +
         'onclick="openDeletePaperModal(\'' + slug + '\')">Delete paper…</button>' +
     '</div>';
 
@@ -1389,6 +1482,7 @@
               '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
                 'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
+                'data-wf-kind="draft" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                 'id="compile-' + slug + '-' + d.name + '">Compile draft</button>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                 'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')" ' +
@@ -1519,11 +1613,13 @@
                 '<label class="sk-compile-opt" title="Compile with default LaTeX fonts and colours — no Borges type or palette">' +
                   '<input type="checkbox" id="plain-' + slug + '-' + d.name + '">plain</label>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--accept" id="compile-' + slug + '-' + d.name + '" ' +
+                  'data-wf-kind="draft" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                   'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                   'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')">Compile</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + draftUrl + '" target="_blank"' +
                   ' title="Draft PDF — click Compile first if not yet available">Draft PDF</a>' +
                 '<button class="sk-btn sk-btn--sm" id="word-' + slug + '-' + d.name + '" ' +
+                  'data-wf-kind="word" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                   'title="Render this direction to an editable Word (.docx) document" ' +
                   'onclick="compileWord(\'' + slug + '\',\'' + d.name + '\')">Word</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + docUrl + '" target="_blank"' +
@@ -1666,6 +1762,7 @@
       if (resp.ok || resp.status === 202) {
         var data = await resp.json().catch(function() { return {}; });
         if (fb) fb.textContent = data.message || 'Dispatched — workflow running on agora.';
+        wfMarkPending('promote', promoteState.slug, '');
         setTimeout(closeModal, 2500);
       } else {
         var err = await resp.json().catch(function() { return { error: resp.statusText }; });
@@ -1879,14 +1976,16 @@
   }
 
   /* ── Compile draft ───────────────────────────────────────────────────── */
+  /* These handlers no longer toggle the button text themselves — the
+     workflow-lock poller (wfMarkPending / wfApplyLocks) owns the button's
+     disabled + "Running…" state from dispatch through run completion. */
   async function compileDraft(slug, direction) {
-    var btnId = 'compile-' + slug + '-' + direction;
-    var btn   = document.getElementById(btnId);
-    var anonEl  = document.getElementById('anon-'  + slug + '-' + direction);
-    var plainEl = document.getElementById('plain-' + slug + '-' + direction);
+    var branch    = 'dunamis/' + slug + '-' + direction;
+    var anonEl    = document.getElementById('anon-'  + slug + '-' + direction);
+    var plainEl   = document.getElementById('plain-' + slug + '-' + direction);
     var anonymous = !!(anonEl  && anonEl.checked);
     var plain     = !!(plainEl && plainEl.checked);
-    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+    wfMarkPending('draft', slug, branch);
 
     try {
       var resp = await fetch('/api/energeia/compile-draft/' +
@@ -1898,23 +1997,22 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anonymous: anonymous, plain: plain })
       });
-
-      if (resp.type === 'opaqueredirect' || resp.status === 0) {
-        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
-      } else if (resp.status === 202) {
-        if (btn) btn.textContent = 'Dispatched ✓';
-      } else {
-        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      if (resp.status !== 202) {
+        wfClearPending('draft', slug, branch);
+        alert(resp.type === 'opaqueredirect' || resp.status === 0
+          ? 'Your session expired — reload the page to sign in again.'
+          : 'Draft compile could not be dispatched.');
       }
     } catch (e) {
-      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+      wfClearPending('draft', slug, branch);
+      alert('Network error dispatching the draft compile.');
     }
   }
 
   /* ── Compile Word (.docx) ────────────────────────────────────────────── */
   async function compileWord(slug, direction) {
-    var btn = document.getElementById('word-' + slug + '-' + direction);
-    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+    var branch = 'dunamis/' + slug + '-' + direction;
+    wfMarkPending('word', slug, branch);
 
     try {
       var resp = await fetch('/api/energeia/compile-word/' +
@@ -1926,23 +2024,20 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
-
-      if (resp.type === 'opaqueredirect' || resp.status === 0) {
-        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
-      } else if (resp.status === 202) {
-        if (btn) btn.textContent = 'Dispatched ✓';
-      } else {
-        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      if (resp.status !== 202) {
+        wfClearPending('word', slug, branch);
+        alert(resp.type === 'opaqueredirect' || resp.status === 0
+          ? 'Your session expired — reload the page to sign in again.'
+          : 'Word compile could not be dispatched.');
       }
     } catch (e) {
-      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+      wfClearPending('word', slug, branch);
+      alert('Network error dispatching the Word compile.');
     }
   }
 
   async function compileCanonical(slug) {
-    var btnId = 'compile-canonical-' + slug;
-    var btn   = document.getElementById(btnId);
-    if (btn) { btn.disabled = true; btn.textContent = 'Dispatching…'; }
+    wfMarkPending('canonical', slug, '');
 
     try {
       var resp = await fetch('/api/energeia/compile-canonical/' + encodeURIComponent(slug), {
@@ -1952,16 +2047,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
-
-      if (resp.type === 'opaqueredirect' || resp.status === 0) {
-        if (btn) { btn.textContent = 'Session expired'; btn.disabled = false; }
-      } else if (resp.status === 202) {
-        if (btn) btn.textContent = 'Dispatched ✓';
-      } else {
-        if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+      if (resp.status !== 202) {
+        wfClearPending('canonical', slug, '');
+        alert(resp.type === 'opaqueredirect' || resp.status === 0
+          ? 'Your session expired — reload the page to sign in again.'
+          : 'Canonical compile could not be dispatched.');
       }
     } catch (e) {
-      if (btn) { btn.textContent = 'Network error'; btn.disabled = false; }
+      wfClearPending('canonical', slug, '');
+      alert('Network error dispatching the canonical compile.');
     }
   }
 
@@ -2324,6 +2418,7 @@
   document.addEventListener('DOMContentLoaded', function() {
     initRouter();
     loadPapersFromAPI();
+    wfRefresh();   /* start the workflow-run poller + lock any already-running buttons */
 
     var installBtn = document.getElementById('sk-install-btn');
     var dismissBtn = document.getElementById('sk-install-dismiss');
