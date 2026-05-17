@@ -45,7 +45,7 @@ export async function onRequestPost(ctx) {
     return jsonResponse({ error: 'Invalid or empty slug derived from title' }, 400);
   }
 
-  const VALID_FORMATS = ['article', 'handout', 'abstract', 'cv', 'chapter'];
+  const VALID_FORMATS = ['article', 'handout', 'abstract', 'cv', 'chapter', 'letter', 'dual'];
   if (!VALID_FORMATS.includes(format)) {
     return jsonResponse({ error: `format must be one of: ${VALID_FORMATS.join(', ')}` }, 400);
   }
