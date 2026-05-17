@@ -264,6 +264,13 @@ tbody tr:last-child td {
   color: var(--color-purple, #301934);
   font-size: 1rem;
   margin-bottom: 0.5rem;
+  text-decoration: none;
+  display: block;
+}
+a.sk-opp-card__title:hover {
+  color: var(--color-wine, #722f37);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .sk-opp-card__meta {

@@ -200,6 +200,15 @@
       </div>
     </section>
 
+    <!-- ─────────────────────────────────────────────────────
+         §IX  Opportunity Detail  (hash: #opportunity/<slug>)
+    ───────────────────────────────────────────────────── -->
+    <section id="view-opportunity-detail" class="sk-view" role="main" aria-label="Opportunity detail">
+      <div id="opportunity-detail-content">
+        <!-- Populated by renderOppDetail() on #opportunity/<slug> route -->
+      </div>
+    </section>
+
   </main><!-- /.sk-main -->
 
   <!-- Ephemeral error toast (auto-dismisses after 4s) -->
@@ -390,6 +399,7 @@
   /* ── Current project detail slug ──────────────────────────────────────── */
   var currentProjectSlug = null;
   var currentCommitmentSlug = null;
+  var currentOppSlug = null;
 
   /* ── Task ID scheme ──────────────────────────────────────────────────── */
   /* id = base64url( filePath + '\x00' + title )                            */
@@ -468,10 +478,10 @@
   }
 
   /* ── Client-side router ──────────────────────────────────────────────── */
-  const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'commitments', 'inventory', 'project-detail', 'commitment-detail'];
+  const VIEWS = ['dashboard', 'projects', 'tasks', 'opportunities', 'commitments', 'inventory', 'project-detail', 'commitment-detail', 'opportunity-detail'];
 
   /* Parse '#view?t=teaching,research' → { viewId, typeFilter: Set | null, rangeKey, slug }
-   * Also handles 'project/<slug>' sub-route for project detail. */
+   * Also handles 'project/<slug>', 'commitment/<slug>', 'opportunity/<slug>' sub-routes. */
   function parseHash(raw) {
     /* Project detail sub-route: #project/<slug> */
     if (raw.startsWith('project/')) {
@@ -482,6 +492,11 @@
     if (raw.startsWith('commitment/')) {
       var cslug = raw.slice(11).split('?')[0];
       return { viewId: 'commitment-detail', slug: cslug, typeFilter: null, rangeKey: null };
+    }
+    /* Opportunity detail sub-route: #opportunity/<slug> */
+    if (raw.startsWith('opportunity/')) {
+      var oslug = raw.slice(12).split('?')[0];
+      return { viewId: 'opportunity-detail', slug: oslug, typeFilter: null, rangeKey: null };
     }
     var parts   = raw.split('?');
     var viewId  = parts[0] || 'dashboard';
@@ -535,6 +550,8 @@
       newHash = '#project/' + currentProjectSlug;
     } else if (viewId === 'commitment-detail' && currentCommitmentSlug) {
       newHash = '#commitment/' + currentCommitmentSlug;
+    } else if (viewId === 'opportunity-detail' && currentOppSlug) {
+      newHash = '#opportunity/' + currentOppSlug;
     } else {
       newHash = buildHash(viewId, activeTypes, activeRange);
     }
@@ -557,6 +574,13 @@
     renderCommitmentDetail(slug);
   }
 
+  /* Navigate to the opportunity detail view and render the given slug */
+  function navigateToOpp(slug) {
+    currentOppSlug = slug;
+    navigate('opportunity-detail');
+    renderOppDetail(slug);
+  }
+
   function initRouter() {
     var parsed = parseHash((location.hash || '#dashboard').slice(1));
     if (parsed.typeFilter) {
@@ -575,6 +599,10 @@
       currentCommitmentSlug = parsed.slug;
       navigate('commitment-detail');
       renderCommitmentDetail(parsed.slug);
+    } else if (parsed.viewId === 'opportunity-detail' && parsed.slug) {
+      currentOppSlug = parsed.slug;
+      navigate('opportunity-detail');
+      renderOppDetail(parsed.slug);
     } else {
       navigate(VIEWS.includes(parsed.viewId) ? parsed.viewId : 'dashboard');
     }
@@ -593,6 +621,12 @@
         currentCommitmentSlug = p.slug;
         navigate('commitment-detail');
         renderCommitmentDetail(p.slug);
+        return;
+      }
+      if (p.viewId === 'opportunity-detail' && p.slug) {
+        currentOppSlug = p.slug;
+        navigate('opportunity-detail');
+        renderOppDetail(p.slug);
         return;
       }
 
@@ -1121,7 +1155,10 @@
 
       return '<div class="sk-opp-card" id="card-' + opp.slug + '" role="article">' +
         '<div class="sk-opp-card__header">' +
-          '<div class="sk-opp-card__title">' + escHtml(opp.title) + '</div>' +
+          '<a class="sk-opp-card__title" href="#opportunity/' + opp.slug + '" ' +
+            'onclick="navigateToOpp(\'' + opp.slug + '\');return false;">' +
+            escHtml(opp.title) +
+          '</a>' +
           '<span class="sk-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
         '</div>' +
         '<div class="sk-opp-card__meta">' +
@@ -1187,6 +1224,11 @@
         loadLiveData().then(function() {
           renderStats(); renderSnapshots(); renderProjects();
           renderTasks(); renderOpportunities();
+          /* If the action was triggered from the detail view, return to the list */
+          if (currentOppSlug === slug) {
+            currentOppSlug = null;
+            navigate('opportunities');
+          }
         });
       } else {
         var err = await resp.json().catch(function() { return {}; });
@@ -1394,11 +1436,13 @@
       if (p.prestige)    html += '<div class="sk-detail__field"><dt>Prestige</dt><dd>' + escHtml(p.prestige) + '</dd></div>';
       if (p.stakeholders)html += '<div class="sk-detail__field"><dt>Stakeholders</dt><dd>' + escHtml(p.stakeholders) + '</dd></div>';
       if (p.linked_opportunity) {
-        /* Strip path prefix/suffix to get bare opp slug for the future #opportunity/<slug> route */
+        /* Strip path prefix/suffix to get bare opp slug */
         var oppSlug = p.linked_opportunity
           .replace(/^.*\/opp-/, '').replace(/^opp-/, '').replace(/\.md$/, '');
         html += '<div class="sk-detail__field"><dt>Opportunity</dt><dd>' +
-          '<a href="#opportunity/' + oppSlug + '" style="color:var(--color-wine)">' +
+          '<a href="#opportunity/' + oppSlug + '" ' +
+            'onclick="navigateToOpp(\'' + oppSlug + '\');return false;" ' +
+            'style="color:var(--color-wine)">' +
             escHtml(p.linked_opportunity) +
           '</a></dd></div>';
       }
@@ -1436,6 +1480,102 @@
     var subtreePath = 'Organization%20%26%20Planning';
     var editUrl = 'https://github.com/cameronhubbard642-eng/agora/edit/main/' +
       subtreePath + '/projects/proj-' + encodeURIComponent(slug) + '.md';
+    html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+    html += '<div class="sk-detail__footer">';
+    html +=   '<a href="' + editUrl + '" target="_blank" rel="noopener noreferrer" class="sk-detail__edit-link">Edit source ↗</a>';
+    html += '</div>';
+
+    return html;
+  }
+
+  /* ── Opportunity detail view ─────────────────────────────────────────── */
+
+  /* Fetch GET /api/opportunities/:slug (D1) and render the detail section. */
+  async function renderOppDetail(slug) {
+    var el = document.getElementById('opportunity-detail-content');
+    if (!el) return;
+    el.innerHTML = '<p class="sk-secondary" style="padding:2rem 0;text-align:center;font-size:.85rem;">Loading…</p>';
+
+    try {
+      var resp = await fetch('/api/opportunities/' + encodeURIComponent(slug), { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('not found');
+      var body = await resp.json();
+      /* adaptOpps expects an array; detail view calls it on a single row */
+      var opp = adaptOpps([body.data])[0];
+      el.innerHTML = buildOppDetailHTML(opp);
+    } catch (_) {
+      el.innerHTML =
+        '<div style="padding-top:1rem;">' +
+          '<a href="#opportunities" class="sk-back-link" onclick="navigate(\'opportunities\');return false;">← Opportunities</a>' +
+          '<p class="sk-secondary" style="margin-top:2rem;font-size:.875rem;">Opportunity not found — it may not exist yet, or the slug is incorrect.</p>' +
+        '</div>';
+    }
+  }
+
+  /* Build the full HTML string for an opportunity detail page.
+   * Shows every decision-relevant field in the D1 row, full description body,
+   * and Accept/Reject actions if still pending. */
+  function buildOppDetailHTML(o) {
+    /* Back link */
+    var html = '<a href="#opportunities" class="sk-back-link" onclick="navigate(\'opportunities\');return false;">← Opportunities</a>';
+
+    /* Title */
+    html += '<h1 class="sk-detail__title">' + escHtml(o.title || '') + '</h1>';
+    html += '<hr class="sk-rule sk-detail__rule" />';
+
+    /* Meta bar: status badge + type chip + priority chip */
+    var isPending  = o.status === 'pending-cam-decision';
+    var badgeClass = isPending ? 'sk-badge--pending'
+                   : (o.status === 'declined' ? 'sk-badge--declined' : 'sk-badge--confirmed');
+    var badgeLabel = isPending ? 'pending decision'
+                   : (o.status === 'declined' ? 'declined' : 'confirmed');
+    html += '<div class="sk-detail__meta-bar">';
+    html +=   '<span class="sk-badge ' + badgeClass + '">' + badgeLabel + '</span>';
+    if (o.type)     html += '<span class="sk-detail__meta-chip"><span class="sk-smallcaps">Type</span> '     + escHtml(o.type)     + '</span>';
+    if (o.priority) html += '<span class="sk-detail__meta-chip"><span class="sk-smallcaps">Priority</span> ' + escHtml(o.priority) + '</span>';
+    if (o.prestige) html += '<span class="sk-detail__meta-chip"><span class="sk-smallcaps">Prestige</span> ' + escHtml(o.prestige) + '</span>';
+    html += '</div>';
+
+    /* Key–value field list — everything needed to make a decision */
+    var hasFields = o.deadline || o.venue || o.requirement || o.linked_project_slug ||
+                    o.decided_at || o.accepted_at;
+    if (hasFields) {
+      html += '<dl class="sk-detail__fields">';
+      if (o.deadline)            html += '<div class="sk-detail__field"><dt>Deadline</dt><dd>' + escHtml(o.deadline) + '</dd></div>';
+      if (o.venue)               html += '<div class="sk-detail__field"><dt>Venue</dt><dd>' + escHtml(o.venue) + '</dd></div>';
+      if (o.requirement)         html += '<div class="sk-detail__field"><dt>Requirement</dt><dd>' + escHtml(o.requirement) + '</dd></div>';
+      if (o.linked_project_slug) {
+        html += '<div class="sk-detail__field"><dt>Project</dt><dd>' +
+          '<a href="#project/' + escHtml(o.linked_project_slug) + '" ' +
+            'onclick="navigateToProject(\'' + o.linked_project_slug + '\');return false;" ' +
+            'style="color:var(--color-wine)">' +
+            escHtml(o.linked_project_slug) +
+          '</a></dd></div>';
+      }
+      if (o.decided_at)  html += '<div class="sk-detail__field"><dt>Decided</dt><dd>' + escHtml(o.decided_at.slice(0, 10)) + '</dd></div>';
+      if (o.accepted_at) html += '<div class="sk-detail__field"><dt>Accepted</dt><dd>' + escHtml(o.accepted_at.slice(0, 10)) + '</dd></div>';
+      html += '</dl>';
+    }
+
+    /* Full description / notes body */
+    if (o.description && o.description.trim()) {
+      html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+      html += '<div class="sk-detail__body">' + renderMarkdown(o.description) + '</div>';
+    }
+
+    /* Accept / Reject actions — only shown while pending */
+    if (isPending) {
+      html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
+      html += '<div class="sk-opp-card__actions" id="actions-' + o.slug + '" style="margin-top:0;">' +
+        '<button class="sk-btn sk-btn--accept" onclick="handleOppAction(\'' + o.slug + '\', \'accept\')">Accept</button>' +
+        '<button class="sk-btn sk-btn--reject" onclick="handleOppAction(\'' + o.slug + '\', \'reject\')">Reject</button>' +
+      '</div>';
+    }
+
+    /* Edit source link */
+    var subtreePath = 'Organization%20%26%20Planning';
+    var editUrl = 'https://github.com/cameronhubbard642-eng/agora/edit/main/' +
+      subtreePath + '/opportunities/opp-' + encodeURIComponent(o.slug) + '.md';
     html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
     html += '<div class="sk-detail__footer">';
     html +=   '<a href="' + editUrl + '" target="_blank" rel="noopener noreferrer" class="sk-detail__edit-link">Edit source ↗</a>';
@@ -1624,20 +1764,29 @@
     return d;
   }
 
-  /* D1 opportunity row → legacy OPPORTUNITIES entry.
+  /* D1 opportunity row → OPPORTUNITIES entry.
    * Legacy status: pending-cam-decision | confirmed-pursuing | declined.
    * rev 3: archived=0 → still in the decision queue; archived=1 → consumed
-   * (accepted opps become projects; rejected opps render as 'declined'). */
+   * (accepted opps become projects; rejected opps render as 'declined').
+   * Full row is preserved so the detail view has all decision-relevant fields. */
   function adaptOpps(rows) {
     return rows.map(function(r) {
       var status = !r.archived ? 'pending-cam-decision'
                  : (r.status === 'rejected' ? 'declined' : 'accepted');
-      return {
+      var meta = {};
+      try { meta = JSON.parse(r.metadata || '{}'); } catch (_) { meta = {}; }
+      var base = {
         slug: r.slug, title: r.title || '', type: r.opp_type || '',
         status: status, deadline: r.deadline || '',
-        prestige: prestigeLabel(r.prestige),
-        requirement: r.requirement || '', description: r.description || ''
+        prestige: prestigeLabel(r.prestige), prestigeRaw: r.prestige,
+        priority: priInt2Str(r.priority),
+        requirement: r.requirement || '', description: r.description || '',
+        venue: r.venue || '',
+        linked_project_slug: r.linked_project_slug || '',
+        decided_at: r.decided_at || '', accepted_at: r.accepted_at || '',
+        created_at: r.created_at || '', updated_at: r.updated_at || ''
       };
+      return Object.assign(base, meta);
     });
   }
 
