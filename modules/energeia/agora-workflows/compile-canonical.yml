@@ -68,19 +68,26 @@ jobs:
         run: |
           FAILED=""
           for SLUG in ${{ steps.changed.outputs.SLUGS }}; do
-            # Resolve paper directory: canonical path OR Scrivener .tex-folder variant
             PAPER_DIR="papers/$SLUG"
-            if [ ! -d "$PAPER_DIR" ] && [ -d "papers/${SLUG}.tex" ]; then
-              PAPER_DIR="papers/${SLUG}.tex"
-              echo "Using Scrivener .tex folder: $PAPER_DIR"
+            # Find the main .tex wherever Scrivener placed it — flat
+            # papers/<slug>/main.tex or nested papers/<slug>/<title>.tex/<file>.tex.
+            if [ -f "$PAPER_DIR/main.tex" ]; then
+              MAIN_TEX="$PAPER_DIR/main.tex"
+            else
+              MAIN_TEX=$(find "$PAPER_DIR" -name "*.tex" -not -name "mmd6-*" 2>/dev/null | sort | head -1)
             fi
-            # Detect main .tex: the non-mmd6- entry file in the paper dir
-            MAIN_TEX=$(find "$PAPER_DIR" -maxdepth 1 -name "*.tex" -not -name "mmd6-*" | head -1)
             if [ -z "$MAIN_TEX" ]; then
-              echo "Skipping $SLUG — no main .tex found in $PAPER_DIR"
+              echo "Skipping $SLUG — no main .tex found under $PAPER_DIR (not yet promoted to energeia)"
+              mkdir -p "papers/${SLUG}"
+              NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              python3 -c 'import json,sys; print(json.dumps({"ok":False,"error":sys.argv[1],"compiledAt":sys.argv[2],"runUrl":sys.argv[3]}))' \
+                "Paper not promoted to energeia yet — use Compile Draft on the dunamis branch." \
+                "$NOW" "$RUN_URL" > "papers/${SLUG}/compile-status.json"
               continue
             fi
             TEX_BASE=$(basename "$MAIN_TEX")
+            COMPILE_DIR=$(dirname "$MAIN_TEX")
 
             # Detect format from slugs.yaml (first format in the formats: list)
             FORMAT=$(awk -v target="$SLUG" '
@@ -103,13 +110,16 @@ jobs:
             FORMAT=${FORMAT:-article}
 
             ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
-                    "${PAPER_DIR}/personal_style"
-            [ ! -f "${PAPER_DIR}/main.bib" ] && touch "${PAPER_DIR}/main.bib" || true
-            echo "=== Compiling ${PAPER_DIR}/$TEX_BASE (format=$FORMAT) ==="
+                    "${COMPILE_DIR}/personal_style"
+            if [ -f "${PAPER_DIR}/main.bib" ] && [ "${COMPILE_DIR}" != "${PAPER_DIR}" ]; then
+              cp "${PAPER_DIR}/main.bib" "${COMPILE_DIR}/main.bib"
+            fi
+            [ ! -f "${COMPILE_DIR}/main.bib" ] && touch "${COMPILE_DIR}/main.bib" || true
+            echo "=== Compiling ${COMPILE_DIR}/$TEX_BASE (format=$FORMAT) ==="
 
             if [ "$FORMAT" = "slides" ]; then
               mkdir -p "compiled/$SLUG"
-              cd "$PAPER_DIR"
+              cd "$COMPILE_DIR"
               xelatex -interaction=nonstopmode -halt-on-error \
                 -jobname="${SLUG}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || \
                 FAILED="$FAILED $SLUG"
@@ -118,7 +128,7 @@ jobs:
               cd "${GITHUB_WORKSPACE}"
             elif [ "$FORMAT" = "dual" ]; then
               mkdir -p "compiled/$SLUG"
-              cd "$PAPER_DIR"
+              cd "$COMPILE_DIR"
               xelatex -interaction=nonstopmode -halt-on-error \
                 -jobname="${SLUG}-slides" "\def\DeckMode{}\input{$TEX_BASE}" || \
                 FAILED="$FAILED $SLUG"
@@ -131,15 +141,13 @@ jobs:
                 cp "${SLUG}-handout.pdf" "${GITHUB_WORKSPACE}/compiled/$SLUG/${SLUG}-handout.pdf"
               cd "${GITHUB_WORKSPACE}"
             else
-              cd "$PAPER_DIR"
+              cd "$COMPILE_DIR"
               latexmk -xelatex -interaction=nonstopmode -halt-on-error "$TEX_BASE" || \
                 FAILED="$FAILED $SLUG"
               cd "${GITHUB_WORKSPACE}"
-              # Normalize output to papers/<slug>/main.pdf — the canonical path the
-              # PDF Worker fetches. PAPER_DIR may be papers/<slug>.tex/ for the
-              # Scrivener .tex-folder variant, so the produced PDF is not always
-              # already at papers/<slug>/main.pdf.
-              CANON_PDF="${PAPER_DIR}/${TEX_BASE%.tex}.pdf"
+              # Publish at the canonical papers/<slug>/main.pdf — the path the
+              # PDF Worker fetches — wherever the .tex compiled from.
+              CANON_PDF="${COMPILE_DIR}/${TEX_BASE%.tex}.pdf"
               if [ -f "$CANON_PDF" ] && [ "$CANON_PDF" != "papers/${SLUG}/main.pdf" ]; then
                 mkdir -p "papers/${SLUG}"
                 cp "$CANON_PDF" "papers/${SLUG}/main.pdf"
@@ -151,7 +159,7 @@ jobs:
             RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             if echo " $FAILED " | grep -q " $SLUG "; then
-              ERR=$(grep -h -A5 '^!' "${PAPER_DIR}"/*.log 2>/dev/null | head -40)
+              ERR=$(grep -h -A5 '^!' "${COMPILE_DIR}"/*.log 2>/dev/null | head -40)
               [ -z "$ERR" ] && ERR="Compilation failed — see the full run log."
               python3 -c 'import json,sys; print(json.dumps({"ok":False,"error":sys.argv[1],"compiledAt":sys.argv[2],"runUrl":sys.argv[3]}))' \
                 "$ERR" "$NOW" "$RUN_URL" > "papers/${SLUG}/compile-status.json"
@@ -167,8 +175,12 @@ jobs:
         run: |
           git config user.name  "energeia-bot"
           git config user.email "energeia@skeptou.com"
-          git add 'papers/**/*.pdf' 'compiled/**/*.pdf' 'papers/**/compile-status.json'
-          git diff --cached --quiet || \
+          git add 'papers/**/*.pdf' 'compiled/**/*.pdf' || true
+          git add 'papers/**/compile-status.json'
+          if git diff --cached --quiet; then
+            echo "No papers compiled — nothing to commit."
+          else
             git commit -m "energeia: compile canonical PDFs [automated]"
-          git push origin energeia
+            git push origin energeia
+          fi
           [ -z "${FAILED// }" ] || { echo "Papers failed to compile:${FAILED}"; exit 1; }

@@ -34,23 +34,28 @@ jobs:
           if ! echo "$BRANCH" | grep -qE '^dunamis/[a-z0-9-]+-[a-z]+$'; then
             echo "Invalid branch: $BRANCH" && exit 1
           fi
-          # Resolve paper directory: canonical path OR Scrivener .tex-folder variant
           PAPER_DIR="papers/$SLUG"
-          if [ ! -d "$PAPER_DIR" ] && [ -d "papers/${SLUG}.tex" ]; then
-            PAPER_DIR="papers/${SLUG}.tex"
-            echo "Using Scrivener .tex folder: $PAPER_DIR"
+          # The Scrivener compile output is a folder "<project-title>.tex/" that
+          # holds the real .tex plus mmd6-* helpers, sitting inside papers/<slug>/.
+          # Find the main .tex wherever it lands — flat papers/<slug>/main.tex or
+          # nested papers/<slug>/<title>.tex/<file>.tex — skipping mmd6 helpers.
+          if [ -f "$PAPER_DIR/main.tex" ]; then
+            MAIN_TEX="$PAPER_DIR/main.tex"
+          else
+            MAIN_TEX=$(find "$PAPER_DIR" -name "*.tex" -not -name "mmd6-*" 2>/dev/null | sort | head -1)
           fi
-          # Detect main .tex: the non-mmd6- entry file in the paper dir
-          MAIN_TEX=$(find "$PAPER_DIR" -maxdepth 1 -name "*.tex" -not -name "mmd6-*" | head -1)
           if [ -z "$MAIN_TEX" ]; then
-            echo "No main .tex found in $PAPER_DIR — skipping"
+            echo "No main .tex found under $PAPER_DIR — skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             TEX_BASE=$(basename "$MAIN_TEX")
+            COMPILE_DIR=$(dirname "$MAIN_TEX")
             DIRECTION=$(echo "$BRANCH" | sed "s|dunamis/${SLUG}-||")
-            echo "TEX_BASE=$TEX_BASE"       >> $GITHUB_ENV
-            echo "OUT_DIR=$PAPER_DIR"       >> $GITHUB_ENV
-            echo "DIRECTION=$DIRECTION"     >> $GITHUB_ENV
+            echo "Main .tex: $MAIN_TEX  (compile dir: $COMPILE_DIR)"
+            echo "TEX_BASE=$TEX_BASE"        >> $GITHUB_ENV
+            echo "COMPILE_DIR=$COMPILE_DIR"  >> $GITHUB_ENV
+            echo "PAPER_DIR=$PAPER_DIR"      >> $GITHUB_ENV
+            echo "DIRECTION=$DIRECTION"      >> $GITHUB_ENV
             echo "skip=false"               >> $GITHUB_OUTPUT
           fi
 
@@ -95,25 +100,33 @@ jobs:
                         /usr/share/texlive/texmf-dist/fonts/truetype/ 2>/dev/null || true
           fc-cache -f
 
-      - name: Link Cameron_Personal_Style into paper directory
+      - name: Link Cameron_Personal_Style beside the .tex
         if: success() && steps.setup.outputs.skip != 'true'
         run: |
+          # The .sty loads fonts via ./personal_style/fonts/... relative to the
+          # compile dir, so the symlink must sit beside the .tex being compiled.
           ln -sfn "${GITHUB_WORKSPACE}/templates/personal_style" \
-                  "${OUT_DIR}/personal_style"
+                  "${COMPILE_DIR}/personal_style"
 
       - name: Configure TEXINPUTS for Cameron Personal Style
         if: success() && steps.setup.outputs.skip != 'true'
         run: echo "TEXINPUTS=.:$(pwd)/templates//:" >> $GITHUB_ENV
 
-      - name: Ensure bibliography stub exists
+      - name: Ensure bibliography is beside the .tex
         if: success() && steps.setup.outputs.skip != 'true'
         run: |
-          [ ! -f "${OUT_DIR}/main.bib" ] && touch "${OUT_DIR}/main.bib" || true
+          # main.bib lives at papers/<slug>/main.bib; when the .tex is nested in
+          # a Scrivener <title>.tex/ folder, copy the .bib beside it so
+          # \addbibresource{main.bib} resolves at compile time.
+          if [ -f "${PAPER_DIR}/main.bib" ] && [ "${COMPILE_DIR}" != "${PAPER_DIR}" ]; then
+            cp "${PAPER_DIR}/main.bib" "${COMPILE_DIR}/main.bib"
+          fi
+          [ ! -f "${COMPILE_DIR}/main.bib" ] && touch "${COMPILE_DIR}/main.bib" || true
 
       - name: Compile with XeLaTeX
         if: success() && steps.setup.outputs.skip != 'true'
         run: |
-          cd "$OUT_DIR"
+          cd "$COMPILE_DIR"
           COMPILE_RC=0
           if [ "$FORMAT" = "slides" ]; then
             xelatex -interaction=nonstopmode -halt-on-error \
@@ -144,12 +157,12 @@ jobs:
 
           if [ "${COMPILE_RC:-1}" = "0" ]; then
             if [ "$FORMAT" = "slides" ] || [ "$FORMAT" = "dual" ]; then
-              git add "${OUT_DIR}"/*.pdf
+              git add "${COMPILE_DIR}"/*.pdf
             else
-              PDF="${OUT_DIR}/${TEX_BASE%.tex}.pdf"
+              PDF="${COMPILE_DIR}/${TEX_BASE%.tex}.pdf"
               if [ -f "$PDF" ]; then
-                # PDF may already be papers/<slug>/main.pdf for the canonical
-                # layout; only copy when OUT_DIR is the .tex-folder variant.
+                # Always publish at the canonical papers/<slug>/main.pdf — the
+                # path the PDF Worker fetches — wherever the .tex compiled from.
                 if [ "$PDF" != "papers/${SLUG}/main.pdf" ]; then
                   cp "$PDF" "papers/${SLUG}/main.pdf"
                 fi
@@ -159,7 +172,7 @@ jobs:
             python3 -c 'import json,sys; print(json.dumps({"ok":True,"compiledAt":sys.argv[1],"runUrl":sys.argv[2]}))' \
               "$NOW" "$RUN_URL" > "$STATUS"
           else
-            ERR=$(grep -h -A5 '^!' "${OUT_DIR}"/*.log 2>/dev/null | head -40)
+            ERR=$(grep -h -A5 '^!' "${COMPILE_DIR}"/*.log 2>/dev/null | head -40)
             [ -z "$ERR" ] && ERR="Compilation failed — see the full run log."
             python3 -c 'import json,sys; print(json.dumps({"ok":False,"error":sys.argv[1],"compiledAt":sys.argv[2],"runUrl":sys.argv[3]}))' \
               "$ERR" "$NOW" "$RUN_URL" > "$STATUS"
