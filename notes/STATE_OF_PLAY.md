@@ -1,7 +1,7 @@
 # STATE_OF_PLAY — Sképtou
 
 **Authoritative project state. Updated by Lead Dev / Architect after each phase milestone.**  
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-16 (specs/strategia.md, specs/aristeia.md, specs/phero.md rev 1 drafted; combined PR on feat/strategia-spec pending push)
 
 ---
 
@@ -20,12 +20,23 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
   - CSS design-token sharing strategy
   - LaTeX → web aesthetic translation
 - Directory scaffolding created: `modules/`, `assets/branding/`, `specs/`, `notes/`, `.auto-memory/`
+- `specs/phronesis.md` finalized (2026-05-12); all Cam decisions resolved; ready for engineer brief
+- `specs/energeia.md` finalized at rev 4 (2026-05-12); mirror-back eliminated; major/minor promotion classifier; working/ auto-commit; all Cam decisions resolved; ready for engineer brief
+- `specs/auth-core.md` drafted rev 1 (2026-05-13); email-only (Resend); 30-day sliding / 90-day absolute session; two-deployment model (skeptou + glossolalia); awaiting Cam review
+- `specs/apex-site.md` revised to rev 4 (2026-05-14); watermark reinstated; content-slot policy; CV deferred; 3-page v1; awaiting Cam review
+- `specs/runtime-fetch-cache.md` rev 1 filed (2026-05-14); **SUPERSEDED** same day — Cam pivoted O&P data to D1; file retained as archive with superseded notice at top
+- `specs/op-d1-migration.md` revised to rev 4 (2026-05-15); commitments table added; opportunities recast as decision queue; tasks parent_kind/parent_id polymorphic; accept/reject flows with SAA dispatch; declined_opportunities view; §VIII migration script struck; initial population via O&P specialist API writes; all decisions resolved; engineer-ready
+- `specs/strategia.md` drafted rev 1 (2026-05-16); R2+D1 document viewer for Claude-generated reports; PDF.js in-app viewer; specialist-scoped service tokens; tombstone delete (Cam-session-only); 3-phase plan; 6 open questions for Cam; awaiting Cam review
+- `specs/aristeia.md` drafted rev 1 (2026-05-16); R2+D1 in-perpetuity professional publications archive; energeia pull model; versioned imports (publications + import_history two-table); Cam-only writes; Worker-to-Worker ENERGEIA_SERVICE_TOKEN; soft delete (tombstone; R2 retained); citation metadata; 3-phase plan; 6 open Qs for Cam; awaiting Cam review
+- `specs/phero.md` drafted rev 1 (2026-05-16); D1-only outward-facing share-link layer over energeia + aristeia; anonymous + recipient share models; snapshot vs. live per-share toggle; recipient OTP via Resend; scoped share cookie; CF rate limiting + email enumeration protection; 4-phase plan; 9 open Qs for Cam; awaiting Cam review
 
 ## What is in progress
 
 - Cam review of `ARCHITECTURE.md`
-- `specs/phronesis.md` finalized (2026-05-12); all Cam decisions resolved; ready for engineer brief
-- `specs/energeia.md` finalized at rev 4 (2026-05-12); mirror-back eliminated; major/minor promotion classifier; working/ auto-commit; all Cam decisions resolved; ready for engineer brief
+- Cam review of `specs/auth-core.md` (rev 1)
+- Cam review of `specs/apex-site.md` (rev 4)
+- Cam review of `specs/strategia.md`, `specs/aristeia.md`, `specs/phero.md` (all rev 1)
+- `feat/strategia-spec` branch has 3 commits locally (strategia + aristeia+phero + rename); **push to GitHub pending** (Lead Dev session has no GitHub credentials; needs DevOps session or manual push by Cam — see below)
 
 ## What is blocked
 
@@ -33,9 +44,14 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
   1. Monorepo approval (or override)
   2. GitHub account / repo name for the monorepo
   3. Cloudflare Access identity provider choice (GitHub OAuth vs. Google vs. one-time PIN)
-- Phase 2 engineer brief ready to fire; two pre-conditions must clear first:
+- Phase 2 engineer brief ready to fire; pre-conditions:
   1. Phase 1 complete (Access gate verified on phronesis subdomain)
   2. PM-O&P schema extension (prestige + requirement fields on opp-*.md; backfill 8 existing files; confirm plan-file path + .ics export path) — sub-routing action in specs/phronesis.md §IX
+  3. op-d1-migration.md Phase 1 complete before any phronesis content build begins (D1 is now the data layer for phronesis)
+- **Combined spec PR (strategia + aristeia + phero):** `feat/strategia-spec` branch has 2 commits (strategia rev 1; aristeia + phero rev 1). To open the PR:
+  - Cam runs: `git push origin feat/strategia-spec` from the skeptou repo, then opens PR on GitHub
+  - PR title: `docs(strategia,aristeia,phero): add module specs rev 1`
+  - Or route through DevOps session (`local_33cdf795-990d-4872-8cbd-291c09838b35`) which holds GitHub credentials
 
 ## What comes next (Phase 1)
 
@@ -45,6 +61,7 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 4. QA: Verify Access gating blocks unauthenticated requests from all device/browser combos
 5. QA: Verify iCloud email flows post-migration (send + receive from `@skeptou.com`)
 6. Dispatch: Fire PM-O&P sub-routing action (opp-*.md schema extension) per `specs/phronesis.md §IX`
+7. DevOps: Create `skeptou-op` D1 database; apply migration SQL (op-d1-migration.md §III)
 
 ## Standing constraints active
 
@@ -57,16 +74,37 @@ Phase 0 is active. Architecture document filed. Awaiting Cam's review and approv
 
 ## Open questions requiring Cam decision
 
-| # | Question | Blocks |
-|---|---|---|
-| 1 | Monorepo approved? | Phase 1 |
-| 2 | GitHub account / repo name | Phase 1 |
-| 3 | Cloudflare Access identity provider | Phase 1 |
-| 4 | iCloud .ics export: filename + vault path | Phase 2 build script |
-| 5 | Canonical plan-file directory in O&P vault (assumed: projects/) | Phase 2 Worker |
-| 6 | energeia: bibliography option A (main:vault/ sparse checkout) vs B (energeia branch master.bib) | Phase 4 compile pipeline |
-| 7 | energeia: Cam's active papers need migrating to agora/papers/ before Phase 4 ships | Phase 4 pre-condition |
-| 8 | Slot 15 name and function | Phase 5+ |
-| 9 | Borges public-web licensing | Phase 3 (apex) |
-| 10 | Parchment contrast adjustment needed? | Phase 3 QA |
-| 11 | Line-height by medium adjustments | Module specs |
+| # | Question | Blocks | Recommendation |
+|---|---|---|---|
+| 1 | Monorepo approved? | Phase 1 | — |
+| 2 | GitHub account / repo name | Phase 1 | — |
+| 3 | Cloudflare Access identity provider | Phase 1 | — |
+| 4 | iCloud .ics export: filename + vault path | Phase 2 build script | — |
+| 5 | Canonical plan-file directory in O&P vault (assumed: projects/) | Phase 2 Worker | — |
+| 6 | energeia: bibliography option A (main:vault/ sparse checkout) vs B (energeia branch master.bib) | Phase 4 compile pipeline | — |
+| 7 | energeia: Cam's active papers need migrating to agora/papers/ before Phase 4 ships | Phase 4 pre-condition | — |
+| 8 | Slot 15 name and function | Phase 5+ | — |
+| 9 | Borges public-web licensing | Phase 3 (apex) | — |
+| 10 | Parchment contrast adjustment needed? | Phase 3 QA | — |
+| 11 | Line-height by medium adjustments | Module specs | — |
+| 12 | auth-core: ADMIN_EMAIL for skeptou + glossolalia deployments | auth-core bootstrap | — |
+| 13 | auth-core: public email for allowlist seeding | auth-core bootstrap | — |
+| 14 | auth-core: PII minimisation preference (audit log plaintext vs SHA-256 prefix) | auth-core audit log | — |
+| 15 | auth-core: 90-day absolute session cap acceptable, or longer? | auth-core session design | — |
+| 16 | auth-core: Glossolalia current auth mechanism (what is being replaced?) | auth-core §XIII migration | — |
+| 17 | apex: AOS/AOC exact phrasing for site-meta.yaml | Phase 3 Home, JSON-LD | — |
+| 18 | apex: public contact email address | Phase 3 Home | — |
+| 19 | apex: domain framing (thematic skeptou.com vs name-based) — confirm intentional | Phase 3 DNS | — |
+| 20 | strategia: **soft vs tombstone delete** — tombstone recommended (D1 row retained, R2 purged immediately); full hard delete (D1 row also purged) also viable | Phase 2 delete handler | Tombstone |
+| 21 | strategia: **agora-auto-publish** — webhook Worker auto-uploads `agora/reports/<team>/` commits to strategia; deferred to Phase 3 by default | Phase 3 scope | Defer to Phase 3 |
+| 22 | strategia: **`.docx` support** — requires Mammoth.js conversion step to render in-browser; out of scope for v1 | Phase 1 MIME allowlist | Out of scope v1 |
+| 23 | strategia: **service token table location** — share phronesis `service_tokens` D1 (add `module` column) vs separate `skeptou-strategia` table | Phase 3 token provisioning | Share phronesis table |
+| 24 | strategia: **max upload size** — R2 Workers cap at 100MB; annotated PDFs may approach 50–80MB; is 100MB sufficient? | Phase 2 upload handler | Assume sufficient |
+| 25 | strategia: **share links** — time-limited links for external collaborators? Permanently out of scope for strategia; belongs to `phero` | Future | Out of scope |
+| — | ~~op-d1: DASHBOARD.md mitigation~~ | **Resolved 2026-05-14 — Option D: drop DASHBOARD.md entirely (accept loss)** | — |
+| — | ~~op-d1: Audit dual-write~~ | **Resolved 2026-05-14 — No. D1 `audit_log` + 30-day Time Travel only.** | — |
+| — | ~~op-d1: Migration timing~~ | **Resolved 2026-05-14 — Hybrid: verify D1 data, then await explicit Cam confirmation before `git rm`.** | — |
+| — | ~~op-d1: Markdown retention~~ | **Resolved 2026-05-14 — Delete (`git rm`). Clean vault.** | — |
+| — | ~~op-d1: Write PAT~~ | **Resolved 2026-05-14 — Cam's existing classic PAT. No separate fine-grained PAT.** | — |
+| — | ~~op-d1: Service token TTL~~ | **Resolved 2026-05-14 — 90 days.** | — |
+| — | ~~op-d1: inventory.md format~~ | **Resolved 2026-05-14 — Empty at present. No migration parser. Table starts empty, populated via API.** | — |
