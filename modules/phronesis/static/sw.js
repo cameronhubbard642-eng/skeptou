@@ -11,7 +11,7 @@
 
 'use strict';
 
-const CACHE_NAME = 'phronesis-v10';
+const CACHE_NAME = 'phronesis-v11';
 
 /* Pre-cache the minimal app shell on install */
 const APP_SHELL = [
@@ -69,7 +69,18 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  /* App shell, CSS, fonts, icons — cache-first */
+  /* HTML navigations + CSS — network-first so UI and stylesheet deploys
+     show immediately (cache-first here meant deploys were invisible until
+     CACHE_NAME was bumped). Fonts and icons stay cache-first. */
+  if (event.request.mode === 'navigate' ||
+      url.pathname === '/' ||
+      url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('.css')) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  /* Fonts, icons, other static assets — cache-first */
   event.respondWith(cacheFirst(event.request));
 });
 

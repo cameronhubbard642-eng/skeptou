@@ -95,6 +95,10 @@ html, body {
   font-weight: 300;
   line-height: var(--line-height, 1.5);
   -webkit-font-smoothing: antialiased;
+  /* Zoom is disabled (viewport meta), so any horizontal overflow would be
+     unreachable — clamp the page to the viewport width. */
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* ── body.private → Borges (Access-gated subdomains) ── */
@@ -1205,6 +1209,36 @@ details.sk-collapsed[open] > summary::before {
   }
 
   #projects-content td::before {
+    content: attr(data-label);
+    font-size: 0.65rem;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.08em;
+    color: var(--color-mauve, #915f6d);
+    flex-shrink: 0;
+    width: 5rem;
+  }
+
+  /* ── Commitments table → card layout (mirrors projects) ── */
+  #commitments-content table,
+  #commitments-content tbody { display: block; }
+  #commitments-content thead { display: none; }
+  #commitments-content tr {
+    display: block;
+    border: var(--rule-weight, 1px) solid rgba(145, 95, 109, 0.25);
+    border-top: 3px solid var(--color-mauve, #915f6d);
+    background: rgba(252, 245, 229, 0.5);
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+  #commitments-content td {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    border-bottom: none;
+    font-size: 0.875rem;
+  }
+  #commitments-content td::before {
     content: attr(data-label);
     font-size: 0.65rem;
     font-variant-caps: small-caps;
