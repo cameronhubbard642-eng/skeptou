@@ -1,0 +1,35 @@
+# wrangler.toml — strategia (Cloudflare Pages)
+#
+# Used for D1 migration management and local Pages dev.
+# CI deploy runs `wrangler pages deploy .` from modules/strategia/dist/
+# and does NOT read this file — Pages bindings are configured in the CF dashboard.
+#
+# Wrangler commands:
+#   wrangler d1 create skeptou-strategia          (first-time setup)
+#   wrangler d1 migrations apply skeptou-strategia --remote
+#   wrangler r2 bucket create skeptou-strategia   (first-time setup)
+#   wrangler pages dev public                     (local dev)
+
+name = "strategia"
+compatibility_date = "2026-05-01"
+pages_build_output_dir = "public"
+
+# Strategia document metadata D1.
+# Paste database_id from `wrangler d1 create skeptou-strategia`.
+[[d1_databases]]
+binding       = "DB"
+database_name = "skeptou-strategia"
+database_id   = "FILL_AFTER_CREATE"
+migrations_dir = "migrations"
+
+# Phronesis D1 — shared service_tokens table (S-4 default, specs/strategia.md §X.3).
+# Auth module uses env.OP_DB to validate Bearer service tokens.
+[[d1_databases]]
+binding       = "OP_DB"
+database_name = "skeptou-op"
+database_id   = "6321abe6-ed91-4577-8d82-c9dbf688795c"
+
+# Strategia R2 bucket — document bytes.
+[[r2_buckets]]
+binding     = "STRATEGIA_R2"
+bucket_name = "skeptou-strategia"
