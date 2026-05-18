@@ -119,3 +119,54 @@ export async function validateSession(request, env) {
 
   return { authenticated: true, ...session };
 }
+
+/* ── Service token authentication (per spec/auth-core.md) ────────────────── */
+
+async function sha256Hex(input) {
+  const buf = await crypto.subtle.digest(
+    'SHA-256', new TextEncoder().encode(input),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Validates a raw Bearer token against the service_tokens table in D1.
+ * Returns { authenticated: true, scope, actor } or { authenticated: false }.
+ */
+export async function validateServiceToken(rawToken, env) {
+  if (!env.AUTH_DB || !rawToken) return { authenticated: false };
+
+  const hash = await sha256Hex(rawToken);
+  const row = await env.AUTH_DB.prepare(
+    'SELECT scope, created_by FROM service_tokens WHERE token_hash = ? AND active = 1',
+  ).bind(hash).first();
+
+  if (!row) return { authenticated: false };
+  if (new Date(row.expires_at) < new Date()) return { authenticated: false };
+
+  return { authenticated: true, scope: row.scope, actor: row.created_by };
+}
+
+/**
+ * Authenticates a request via session cookie or Bearer service token.
+ * Returns { authenticated: false } or { authenticated: true, mode, scope?, actor? }.
+ * mode is 'session' or 'service_token'.
+ */
+export async function authenticateRequest(request, env) {
+  const session = await validateSession(request, env);
+  if (session.authenticated) {
+    return { authenticated: true, mode: 'session', actor: session.email };
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const serviceToken = await validateServiceToken(token, env);
+    if (serviceToken.authenticated) {
+      return { authenticated: true, mode: 'service_token', scope: serviceToken.scope, actor: serviceToken.actor };
+    }
+  }
+
+  return { authenticated: false };
+}
