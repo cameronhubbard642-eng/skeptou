@@ -1,0 +1,28 @@
+# wrangler.toml — aristeia (Cloudflare Pages)
+#
+# Used for D1 migration management and local Pages dev only.
+# CI deploy (.github/workflows/deploy-aristeia.yml) runs
+# `wrangler pages deploy .` from modules/aristeia/dist/ and does NOT read
+# this file — Pages bindings are configured in the Cloudflare dashboard
+# (aristeia → Settings → Functions → D1 bindings, R2 bindings).
+#
+# Used by:
+#   wrangler d1 create skeptou-aristeia
+#   wrangler d1 migrations apply skeptou-aristeia --remote
+#   wrangler r2 bucket create skeptou-aristeia
+#   wrangler pages dev dist
+#
+# See migrations/ for the DevOps setup runbook.
+
+name = "aristeia"
+compatibility_date = "2026-05-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "skeptou-aristeia"
+database_id = "FILL_AFTER_CREATE"
+
+[[r2_buckets]]
+binding = "ARISTEIA_R2"
+bucket_name = "skeptou-aristeia"

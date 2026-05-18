@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Aristeia — Sképtou</title>
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/skeptou.css" />
+
+  <!-- Cinzel for ornamental elements -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+  /* ── Aristeia list-view specific styles ──────────────────────────────── */
+
+  .sk-pub-card {
+    border: 1px solid rgba(145,95,109,.25);
+    border-left: 3px solid var(--color-mauve, #915f6d);
+    padding: 1.25rem 1.375rem;
+    margin-bottom: 1rem;
+    background: rgba(252,245,229,.4);
+  }
+
+  .sk-pub-card[data-status="published"]     { border-left-color: var(--color-quartz, #51414f); }
+  .sk-pub-card[data-status="accepted"]      { border-left-color: var(--color-steel, #4682b4); }
+  .sk-pub-card[data-status="submitted"],
+  .sk-pub-card[data-status="under_review"]  { border-left-color: #6a9ec0; }
+  .sk-pub-card[data-status="draft"],
+  .sk-pub-card[data-status="in_pipeline"]   { border-left-color: var(--color-wine, #722f37); }
+  .sk-pub-card[data-status="archived"]      { border-left-color: var(--color-light-steel, #b0c4de); opacity: .75; }
+
+  .sk-pub-card__row1 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .35rem;
+    flex-wrap: wrap;
+  }
+
+  .sk-pub-card__title {
+    font-variant-caps: small-caps;
+    letter-spacing: .04em;
+    color: var(--color-purple, #301934);
+    font-size: 1rem;
+    flex: 1;
+    text-decoration: none;
+  }
+  .sk-pub-card__title:hover { color: var(--color-wine, #722f37); }
+
+  .sk-pub-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .9rem;
+    font-size: .78rem;
+    color: var(--color-quartz, #51414f);
+    margin-bottom: .55rem;
+  }
+
+  .sk-pub-card__meta-label {
+    font-variant-caps: small-caps;
+    letter-spacing: .05em;
+    color: var(--color-mauve, #915f6d);
+    font-size: .68rem;
+  }
+
+  /* Status badges */
+  .sk-badge--published     { color: var(--color-quartz, #51414f);      border-color: var(--color-quartz);      background: rgba(81,65,79,.06); }
+  .sk-badge--accepted      { color: var(--color-steel, #4682b4);       border-color: var(--color-steel);       background: rgba(70,130,180,.06); }
+  .sk-badge--submitted,
+  .sk-badge--under_review  { color: #6a9ec0;                           border-color: #6a9ec0;                  background: rgba(106,158,192,.06); }
+  .sk-badge--in_pipeline,
+  .sk-badge--draft         { color: var(--color-wine, #722f37);        border-color: var(--color-wine);        background: rgba(114,47,55,.06); }
+  .sk-badge--archived      { color: var(--color-light-steel, #b0c4de); border-color: var(--color-light-steel); background: rgba(176,196,222,.06); }
+
+  .sk-filter-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: var(--section-margin, 1.75rem);
+  }
+
+  .sk-filter-btn {
+    font-family: inherit;
+    font-variant-caps: small-caps;
+    letter-spacing: .08em;
+    font-size: .72rem;
+    font-weight: 300;
+    padding: .2em .85em;
+    border: 1px solid rgba(145,95,109,.35);
+    background: transparent;
+    color: var(--color-quartz, #51414f);
+    cursor: pointer;
+    transition: background .14s, color .14s, border-color .14s;
+  }
+
+  .sk-filter-btn.active,
+  .sk-filter-btn:hover {
+    background: var(--color-mauve, #915f6d);
+    color: var(--color-parchment, #fcf5e5);
+    border-color: var(--color-mauve, #915f6d);
+  }
+
+  .sk-group-head {
+    font-variant-caps: small-caps;
+    letter-spacing: .08em;
+    color: var(--color-mauve, #915f6d);
+    font-size: .78rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(145,95,109,.25);
+    margin-bottom: .875rem;
+    margin-top: var(--section-margin, 1.75rem);
+  }
+  .sk-group-head:first-child { margin-top: 0; }
+
+  .sk-pub-empty {
+    color: var(--color-quartz, #51414f);
+    font-style: italic;
+    font-size: .9rem;
+    padding: 2rem 0;
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .sk-pub-card { padding: 1rem; }
+    .sk-pub-card__row1 { flex-direction: column; gap: .4rem; }
+  }
+  </style>
+</head>
+<body class="private">
+
+  <nav class="sk-nav" aria-label="Main">
+    <a href="/" class="sk-nav__title">Aristeia</a>
+    <ul class="sk-nav__links">
+      <li><a href="/" class="sk-nav__link active" data-view="list">Publications</a></li>
+    </ul>
+  </nav>
+
+  <main class="sk-main">
+    <h1 style="margin-bottom:.5rem">Publications</h1>
+    <p class="sk-secondary" style="font-size:.85rem;margin-bottom:var(--section-margin)">
+      Professional archive — peer-reviewed articles, book chapters, proceedings, and professional documents.
+    </p>
+
+    <!-- Filter bar -->
+    <div class="sk-filter-bar" id="filter-bar">
+      <button class="sk-filter-btn active" data-status="">All</button>
+      <button class="sk-filter-btn" data-status="published">Published</button>
+      <button class="sk-filter-btn" data-status="accepted">Accepted</button>
+      <button class="sk-filter-btn" data-status="submitted">Submitted</button>
+      <button class="sk-filter-btn" data-status="under_review">Under Review</button>
+      <button class="sk-filter-btn" data-status="in_pipeline">In Pipeline</button>
+    </div>
+
+    <!-- Publication list -->
+    <div id="pub-list">
+      <p class="sk-loading">Loading…</p>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+
+    let allPubs    = [];
+    let activeStatus = '';
+
+    /* ── Fetch ── */
+    async function loadPublications() {
+      const container = document.getElementById('pub-list');
+      try {
+        const res = await fetch('/api/publications?limit=200');
+        if (res.status === 401) {
+          container.innerHTML = '<p class="sk-error">Session expired — please reload.</p>';
+          return;
+        }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        allPubs = json.data || [];
+        renderList();
+      } catch (err) {
+        container.innerHTML = '<p class="sk-error">Failed to load publications. ' + err.message + '</p>';
+      }
+    }
+
+    /* ── Render ── */
+    function renderList() {
+      const container = document.getElementById('pub-list');
+      const filtered  = activeStatus
+        ? allPubs.filter(function(p) { return p.status === activeStatus; })
+        : allPubs;
+
+      if (!filtered.length) {
+        container.innerHTML = '<p class="sk-pub-empty">No publications' +
+          (activeStatus ? ' matching this filter' : '') + '.</p>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(function(pub) {
+        return renderCard(pub);
+      }).join('');
+    }
+
+    function renderCard(pub) {
+      const authors  = Array.isArray(pub.authors) ? pub.authors.join(', ') : '';
+      const citation = pub.citation || {};
+      const year     = citation.year  ? String(citation.year) : '';
+      const journal  = citation.journal || '';
+      const doi      = citation.doi    || '';
+      const status   = pub.status || '';
+      const version  = pub.current_version ? ' · ' + pub.current_version : '';
+
+      const metaParts = [];
+      if (authors)  metaParts.push('<span><span class="sk-pub-card__meta-label">author</span> ' + esc(authors) + '</span>');
+      if (journal)  metaParts.push('<span><span class="sk-pub-card__meta-label">journal</span> ' + esc(journal) + '</span>');
+      if (year)     metaParts.push('<span><span class="sk-pub-card__meta-label">year</span> ' + esc(year) + '</span>');
+      if (doi)      metaParts.push('<span><span class="sk-pub-card__meta-label">doi</span> ' +
+                      '<a href="https://doi.org/' + esc(doi) + '" target="_blank" rel="noopener noreferrer" ' +
+                      'style="color:var(--color-steel);font-size:.72rem">' + esc(doi) + '</a></span>');
+
+      return [
+        '<div class="sk-pub-card" data-status="' + esc(status) + '">',
+        '  <div class="sk-pub-card__row1">',
+        '    <a class="sk-pub-card__title" href="/view.html?slug=' + esc(pub.slug) + '">' + esc(pub.title) + '</a>',
+        '    <span class="sk-badge sk-badge--' + esc(status) + '">' + esc(status.replace(/_/g,' ')) + version + '</span>',
+        '  </div>',
+        metaParts.length ? '  <div class="sk-pub-card__meta">' + metaParts.join('') + '</div>' : '',
+        '</div>',
+      ].join('\n');
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    /* ── Filter bar ── */
+    document.getElementById('filter-bar').addEventListener('click', function(e) {
+      const btn = e.target.closest('.sk-filter-btn');
+      if (!btn) return;
+      document.querySelectorAll('.sk-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      activeStatus = btn.dataset.status || '';
+      renderList();
+    });
+
+    loadPublications();
+  })();
+  </script>
+
+</body>
+</html>

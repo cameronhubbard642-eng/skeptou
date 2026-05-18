@@ -1,0 +1,12 @@
+{
+  "name": "aristeia-skeptou",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aristeia — professional publications archive for skeptou.com",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0"
+  }
+}
