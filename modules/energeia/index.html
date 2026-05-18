@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Energeia — Sképtou</title>
 
@@ -28,6 +28,18 @@
   <style>
   /* ── Energeia-specific component styles ─────────────────────────────── */
   /* Extends skeptou.css. body.private already sets Borges + Purple/Parchment. */
+
+  /* ── Overflow guard ──────────────────────────────────────────────────
+     Zoom is disabled (viewport meta), so any horizontal overflow would be
+     unreachable. Clamp the page to the viewport width and let long tokens
+     (branch names, code) wrap instead of widening the page. */
+  html, body { overflow-x: hidden; max-width: 100%; }
+  .sk-main { overflow-x: hidden; }
+  .sk-code-block { overflow-x: auto; overflow-wrap: anywhere; }
+  .sk-branch-item__name,
+  .sk-direction-item__branch,
+  .sk-slug-preview,
+  .sk-breadcrumb { overflow-wrap: anywhere; word-break: break-word; }
 
   /* Breadcrumb ── */
   .sk-breadcrumb {
@@ -606,6 +618,15 @@
   /* ── Phone portrait ≤ 640px ───────────────────────────────────────── */
   @media (max-width: 640px) {
 
+    /* ── Bottom tab bar: 56px touch row ABOVE the home-indicator inset ──
+       skeptou.css sets height:56px with the safe-area as padding *inside*
+       it, which squeezes the icons against the screen edge. Make the bar
+       tall enough that the 56px row sits clear of the inset. */
+    .sk-nav {
+      height: calc(56px + env(safe-area-inset-bottom, 0px));
+      box-sizing: border-box;
+    }
+
     /* ── Icons + Cinzel small-caps labels ── */
     .sk-tab-icon {
       display: block;
@@ -629,6 +650,26 @@
     .sk-nav__link:not(.active) {
       color: var(--color-quartz, #51414f);
       opacity: .6;
+    }
+
+    /* ── anon/plain compile toggles: real touch targets ── */
+    .sk-compile-opt {
+      font-size: .82rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: 0 .35rem;
+      margin-right: .25rem;
+    }
+    .sk-compile-opt input { width: 20px; height: 20px; }
+
+    /* ── PDF / docx / diff links: larger tap area ── */
+    .sk-pdf-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 .35rem;
     }
 
     /* ── Paper cards: stacked + full-width actions ── */
@@ -841,55 +882,43 @@
       <h1 style="margin-bottom:var(--section-margin);">Settings</h1>
 
       <div class="sk-settings-section">
-        <h2 class="sk-section-head" data-section="§I">Agora Repository</h2>
-        <p class="sk-secondary" style="font-size:.85rem;">
-          The agora repo holds all paper content, templates, and branch history.
-          Create it (private) then configure the GitHub Actions secrets below.
-        </p>
-        <div class="sk-code-block">gh repo create cameronhubbard642-eng/agora --private --clone</div>
-        <p class="sk-secondary" style="font-size:.82rem;margin-top:.75rem;">
-          After creation, copy the four <code>agora-workflows/*.yml</code> files from
-          <code>modules/energeia/agora-workflows/</code> into the agora repo's
-          <code>.github/workflows/</code> and push.
-        </p>
+        <h2 class="sk-section-head" data-section="§I">Library</h2>
+        <div id="settings-library">
+          <p class="sk-empty-state">Loading…</p>
+        </div>
       </div>
 
       <hr class="sk-rule" />
 
       <div class="sk-settings-section">
-        <h2 class="sk-section-head" data-section="§II">Connect Local Daemon</h2>
-        <p class="sk-secondary" style="font-size:.85rem;margin-bottom:.75rem;">
-          The local daemon watches your agora worktrees for file changes and handles
-          Scrivener project operations. Run the installer on your Mac, then paste
-          your daemon token here to register it.
+        <h2 class="sk-section-head" data-section="§II">Workflow Activity</h2>
+        <p class="sk-secondary" style="font-size:.82rem;margin-bottom:.6rem;">
+          Compile, promote, and branch workflows currently queued or running on agora.
         </p>
-        <div id="daemon-status" class="sk-inline-feedback">Daemon: not connected (token not registered)</div>
-        <div class="sk-form-group" style="margin-top:.875rem;max-width:38ch;">
+        <div id="settings-activity">
+          <p class="sk-empty-state">Loading…</p>
+        </div>
+      </div>
+
+      <hr class="sk-rule" />
+
+      <div class="sk-settings-section">
+        <h2 class="sk-section-head" data-section="§III">Local Daemon</h2>
+        <p class="sk-secondary" style="font-size:.85rem;margin-bottom:.75rem;">
+          The local daemon watches your agora worktrees for file changes and runs
+          Scrivener project operations. Paste the token printed by
+          <code>install.command</code> to register this Mac.
+        </p>
+        <div class="sk-form-group" style="max-width:38ch;">
           <label class="sk-form-label" for="daemon-token-input">Daemon token</label>
           <input id="daemon-token-input" class="sk-form-input"
                  type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                  autocomplete="off" spellcheck="false" />
-          <div class="sk-slug-preview">From: ~/Library/Application Support/energeia/… or printed by install.command</div>
         </div>
         <button class="sk-btn sk-btn--primary sk-btn--sm" onclick="registerDaemonToken()" style="margin-top:.4rem;">
           Register token
         </button>
         <div id="daemon-register-feedback" style="margin-top:.5rem;"></div>
-      </div>
-
-      <hr class="sk-rule" />
-
-      <div class="sk-settings-section">
-        <h2 class="sk-section-head" data-section="§III">Secrets Reference</h2>
-        <p class="sk-secondary" style="font-size:.85rem;">Required secrets for Cloudflare Pages + GitHub Actions:</p>
-        <ul class="sk-secondary" style="font-size:.8rem;margin-top:.5rem;padding-left:1.25rem;">
-          <li><code>AGORA_DISPATCH_PAT</code> — GitHub classic PAT, repo scope, on agora repo</li>
-          <li><code>AGORA_REPO</code> — <code>owner/repo</code> for agora (e.g. <code>cameronhubbard642-eng/agora</code>)</li>
-          <li><code>CLOUDFLARE_API_TOKEN</code> — Pages deploy permission</li>
-          <li><code>CLOUDFLARE_ACCOUNT_ID</code> — Cloudflare account ID</li>
-          <li><code>CF_ACCESS_AUD</code> — Cloudflare Access audience tag (CF Pages secret)</li>
-          <li><code>ENERGEIA_ACTIONS</code> — KV namespace binding name (CF Pages binding)</li>
-        </ul>
       </div>
     </section>
 
@@ -958,6 +987,7 @@
       if (currentView === 'home')                        renderHome();
       if (currentView === 'overview')                    renderOverview();
       if (currentView === 'paper' && currentSlug)        renderPaperDetail(currentSlug);
+      if (currentView === 'settings')                    renderSettings();
       if (typeof wfApplyLocks === 'function')            wfApplyLocks();
     } catch (_) {
       _papersLoading = false;
@@ -1024,6 +1054,7 @@
       }
     } catch (_) { /* keep last snapshot */ }
     wfApplyLocks();
+    if (currentView === 'settings' && typeof renderSettings === 'function') renderSettings();
     wfSchedule();
   }
 
@@ -1090,6 +1121,7 @@
     if (view === 'paper'   && slug)        renderPaperDetail(slug);
     if (view === 'working' && slug)        renderWorkingDocs(slug);
     if (view === 'branches')               renderBranches();
+    if (view === 'settings')               renderSettings();
 
     /* Re-apply workflow button locks to the freshly-rendered view */
     wfApplyLocks();
@@ -1650,6 +1682,66 @@
     });
 
     el.innerHTML = html;
+  }
+
+  /* ── Settings: status dashboard ──────────────────────────────────────── */
+  function renderSettings() {
+    /* §I Library — counts derived from the loaded paper list */
+    var lib = document.getElementById('settings-library');
+    if (lib) {
+      if (_papersLoading) {
+        lib.innerHTML = '<p class="sk-empty-state">Loading papers…</p>';
+      } else {
+        var active   = PAPERS.filter(function(p) { return p.status !== 'archived'; });
+        var archived = PAPERS.length - active.length;
+        var promoted = active.filter(function(p) {
+          return p.currentTag && p.currentTag !== 'null';
+        }).length;
+        var activeDirs = 0, archivedDirs = 0;
+        PAPERS.forEach(function(p) {
+          (p.directions || []).forEach(function(d) {
+            if (d.status === 'active') activeDirs++; else archivedDirs++;
+          });
+        });
+        var byStatus = {};
+        active.forEach(function(p) {
+          byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+        });
+        var stat = function(n, label) {
+          return '<div class="sk-stat"><span class="sk-stat__number">' + n +
+                 '</span><span class="sk-stat__label">' + escHtml(label) + '</span></div>';
+        };
+        var statusLine = Object.keys(byStatus).sort().map(function(s) {
+          return escHtml(capitalize(s)) + ' ' + byStatus[s];
+        }).join(' · ') || 'none';
+        lib.innerHTML =
+          '<div class="sk-status-grid">' +
+            stat(active.length, 'Papers') +
+            stat(promoted, 'Promoted') +
+            stat(activeDirs, 'Active branches') +
+          '</div>' +
+          '<p class="sk-secondary" style="font-size:.8rem;margin-top:.6rem;">' +
+            'By status — ' + statusLine +
+            (archived     ? ' · ' + archived + ' archived paper' + (archived === 1 ? '' : 's') : '') +
+            (archivedDirs ? ' · ' + archivedDirs + ' archived branch' + (archivedDirs === 1 ? '' : 'es') : '') +
+          '</p>';
+      }
+    }
+    /* §II Workflow activity — live from the active-runs poller */
+    var act = document.getElementById('settings-activity');
+    if (act) {
+      var runs = (typeof WF !== 'undefined' && WF.active) ? WF.active : [];
+      if (runs.length === 0) {
+        act.innerHTML = '<p class="sk-empty-state">Nothing running.</p>';
+      } else {
+        act.innerHTML = '<ul class="sk-secondary" style="font-size:.82rem;padding-left:1.1rem;margin:0;">' +
+          runs.map(function(r) {
+            var who = r.kind + (r.slug ? ' · ' + r.slug : '') + (r.ref ? ' · ' + r.ref : '');
+            return '<li>' + escHtml(who) + ' — ' +
+              (r.status === 'in_progress' ? 'running' : 'queued') + '</li>';
+          }).join('') + '</ul>';
+      }
+    }
   }
 
   /* ── Promote modal ───────────────────────────────────────────────────── */
