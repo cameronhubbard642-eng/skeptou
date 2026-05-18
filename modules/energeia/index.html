@@ -686,13 +686,24 @@
       min-height: 44px;
     }
 
-    /* ── Direction items: wrap + 44px buttons ── */
+    /* ── Direction / branch rows: action buttons must WRAP, not overflow ──
+       skeptou.css sets the *__actions containers to flex + flex-shrink:0 with
+       no wrap, so 5–7 buttons run off-screen and get clipped. Make the action
+       containers wrap and take the full row width. */
     .sk-direction-item { flex-wrap: wrap; gap: .5rem; }
-    .sk-direction-item__actions .sk-btn { min-height: 44px; }
-
-    /* ── Branch items: wrap + 44px buttons ── */
-    .sk-branch-item { flex-wrap: wrap; gap: .5rem; }
-    .sk-branch-item__actions .sk-btn { min-height: 44px; }
+    .sk-branch-item    { flex-wrap: wrap; gap: .5rem; }
+    .sk-direction-item__actions,
+    .sk-branch-item__actions {
+      flex-wrap: wrap;
+      flex-shrink: 1;
+      width: 100%;
+      gap: .4rem;
+    }
+    .sk-direction-item__actions .sk-btn,
+    .sk-branch-item__actions .sk-btn {
+      min-height: 44px;
+      flex: 1 1 auto;
+    }
 
     /* ── Version table → card layout ── */
     .sk-version-table       { display: block; }
