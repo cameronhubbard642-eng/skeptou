@@ -1,0 +1,28 @@
+name = "phero-worker"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Bundle HTML templates as text modules
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+
+[[d1_databases]]
+binding = "PHERO_DB"
+database_name = "skeptou-phero"
+database_id = "FILL_AFTER_CREATE"
+
+[vars]
+ENERGEIA_BASE_URL     = "https://energeia.skeptou.com"
+ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
+SHARE_COOKIE_TTL_DAYS = "7"
+
+[[routes]]
+pattern = "phero.skeptou.com/*"
+custom_domain = true
+
+# Secrets (set via `wrangler secret put`):
+# ENERGEIA_SERVICE_TOKEN   — service token for energeia upstream calls
+# ARISTEIA_SERVICE_TOKEN   — service token for aristeia upstream calls
+# COOKIE_SIGNING_KEY       — HMAC key for scoped share cookie signing
+# HMAC_SECRET              — same 32-byte base64url key as auth.skeptou.com (session validation)

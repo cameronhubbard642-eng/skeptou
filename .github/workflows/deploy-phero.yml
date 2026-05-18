@@ -1,0 +1,58 @@
+name: Deploy phero
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/phero/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy → phero.skeptou.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: modules/phero/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: modules/phero
+
+      - name: Type-check
+        run: npm run type-check
+        working-directory: modules/phero
+
+      - name: Deploy to phero.skeptou.com
+        run: npm run deploy
+        working-directory: modules/phero
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  # ── Secrets registry ────────────────────────────────────────────────────────
+  # GitHub Actions repo secrets (Settings → Secrets → Actions):
+  #   CLOUDFLARE_API_TOKEN   — Workers deploy permission          [REQUIRED]
+  #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID              [REQUIRED]
+  #
+  # Cloudflare Worker secrets (wrangler secret put --name phero-worker):
+  #   ENERGEIA_SERVICE_TOKEN   — service token for energeia upstream calls
+  #   ARISTEIA_SERVICE_TOKEN   — service token for aristeia upstream calls
+  #   COOKIE_SIGNING_KEY       — openssl rand -hex 32
+  #   HMAC_SECRET              — same 32-byte base64url key as auth.skeptou.com
+  #
+  # D1 setup (one-time, after first deploy):
+  #   wrangler d1 create skeptou-phero
+  #   # Paste database_id into wrangler.toml, redeploy
+  #   wrangler d1 migrations apply skeptou-phero --remote
+  #   # Verify: wrangler d1 execute skeptou-phero --remote --command ".tables"
+  #   # Expect: audit_log, share_views, shares, active_shares (view)
