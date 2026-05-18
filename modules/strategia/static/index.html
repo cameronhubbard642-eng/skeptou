@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategia — Documents</title>
+  <link rel="stylesheet" href="/design-tokens.css">
+  <link rel="stylesheet" href="/skeptou.css">
+  <style>
+    .sk-header {
+      border-bottom: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+      padding-block: 1.5rem;
+      margin-bottom: var(--section-margin, 1.75rem);
+    }
+    .sk-header h1 {
+      font-size: clamp(1.4rem, 3vw, 1.8rem);
+      margin-bottom: 0.25rem;
+    }
+    .sk-header p {
+      color: var(--color-quartz, #51414f);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+    .sk-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: var(--section-margin, 1.75rem);
+    }
+    .sk-filters select,
+    .sk-filters input[type="date"] {
+      font-family: var(--font-body, serif);
+      font-size: 0.85rem;
+      color: var(--color-purple, #301934);
+      background: transparent;
+      border: 1px solid var(--color-mauve, #915f6d);
+      padding: 0.3rem 0.6rem;
+      border-radius: 2px;
+    }
+    .sk-filters label {
+      font-size: 0.78rem;
+      font-variant-caps: small-caps;
+      letter-spacing: 0.08em;
+      color: var(--color-mauve, #915f6d);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .sk-doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .sk-doc-table th {
+      font-variant-caps: small-caps;
+      letter-spacing: 0.06em;
+      color: var(--color-mauve, #915f6d);
+      font-size: 0.78rem;
+      text-align: left;
+      padding: 0.4rem 0.75rem 0.4rem 0;
+      border-bottom: var(--rule-weight, 1px) solid var(--rule-color, #915f6d);
+    }
+    .sk-doc-table td {
+      padding: 0.55rem 0.75rem 0.55rem 0;
+      border-bottom: 1px solid rgba(145,95,109,0.18);
+      vertical-align: top;
+    }
+    .sk-doc-table tr:hover td { background: rgba(252,245,229,0.6); }
+    .sk-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-variant-caps: small-caps;
+      letter-spacing: 0.08em;
+      color: var(--color-quartz, #51414f);
+      border: 1px solid rgba(145,95,109,0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 2px;
+    }
+    .sk-view-link {
+      color: var(--color-mauve, #915f6d);
+      text-decoration: none;
+      font-variant-caps: small-caps;
+      letter-spacing: 0.04em;
+      font-size: 0.82rem;
+    }
+    .sk-view-link:hover { color: var(--color-wine, #722f37); text-decoration: underline; }
+    .sk-empty {
+      text-align: center;
+      color: var(--color-quartz, #51414f);
+      padding: 3rem 0;
+      font-size: 0.9rem;
+    }
+    .sk-meta {
+      font-size: 0.78rem;
+      color: var(--color-quartz, #51414f);
+      margin-top: var(--section-margin, 1.75rem);
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+  </style>
+</head>
+<body class="private">
+<main>
+  <header class="sk-header">
+    <h1>Strategia</h1>
+    <p>Document archive</p>
+  </header>
+
+  <div class="sk-filters" id="filters">
+    <label>
+      Team
+      <select id="filter-team">
+        <option value="">All teams</option>
+        <option value="coc">coc</option>
+        <option value="saa">saa</option>
+        <option value="cam">cam</option>
+      </select>
+    </label>
+    <label>
+      Type
+      <select id="filter-type">
+        <option value="">All types</option>
+        <option value="brief">brief</option>
+        <option value="annotated_pdf">annotated pdf</option>
+        <option value="worksheet">worksheet</option>
+        <option value="report">report</option>
+        <option value="image">image</option>
+        <option value="other">other</option>
+      </select>
+    </label>
+    <label>
+      From
+      <input type="date" id="filter-since">
+    </label>
+    <label>
+      Until
+      <input type="date" id="filter-until">
+    </label>
+  </div>
+
+  <table class="sk-doc-table" id="doc-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Team</th>
+        <th>Type</th>
+        <th>Size</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="doc-tbody"></tbody>
+  </table>
+  <p class="sk-meta" id="meta-line"></p>
+</main>
+
+<script>
+const CONTENT_TYPE_ICONS = {
+  brief:         '§',
+  annotated_pdf: '✦',
+  worksheet:     '⊞',
+  report:        '¶',
+  image:         '◈',
+  other:         '·',
+};
+
+function fmtSize(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7)  return `${diffDays} days ago`;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function loadDocs() {
+  const params = new URLSearchParams();
+  const team  = document.getElementById('filter-team').value;
+  const ctype = document.getElementById('filter-type').value;
+  const since = document.getElementById('filter-since').value;
+  const until = document.getElementById('filter-until').value;
+  if (team)  params.set('team', team);
+  if (ctype) params.set('content_type', ctype);
+  if (since) params.set('since', since + 'T00:00:00Z');
+  if (until) params.set('until', until + 'T23:59:59Z');
+  params.set('limit', '200');
+
+  const res = await fetch(`/api/documents?${params}`, { credentials: 'include' });
+  if (!res.ok) {
+    document.getElementById('doc-tbody').innerHTML =
+      `<tr><td colspan="6" class="sk-empty">Error loading documents (${res.status})</td></tr>`;
+    return;
+  }
+
+  const { data, meta } = await res.json();
+  const tbody = document.getElementById('doc-tbody');
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="sk-empty">No documents found.</td></tr>';
+    document.getElementById('meta-line').textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = data.map((doc) => {
+    const icon  = CONTENT_TYPE_ICONS[doc.content_type] ?? '·';
+    const label = doc.content_type.replace(/_/g, ' ');
+    return `<tr>
+      <td>${escHtml(doc.title)}</td>
+      <td><span class="sk-badge">${escHtml(doc.source_team)}</span></td>
+      <td><span class="sk-badge">${icon} ${label}</span></td>
+      <td>${fmtSize(doc.byte_size)}</td>
+      <td>${fmtDate(doc.created_at)}</td>
+      <td><a class="sk-view-link" href="/view.html?slug=${encodeURIComponent(doc.slug)}">View</a></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('meta-line').textContent =
+    `${meta.total} document${meta.total !== 1 ? 's' : ''}`;
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+document.getElementById('filter-team').addEventListener('change', loadDocs);
+document.getElementById('filter-type').addEventListener('change', loadDocs);
+document.getElementById('filter-since').addEventListener('change', loadDocs);
+document.getElementById('filter-until').addEventListener('change', loadDocs);
+
+loadDocs();
+</script>
+</body>
+</html>

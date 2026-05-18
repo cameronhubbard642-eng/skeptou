@@ -8,11 +8,11 @@
 #   wrangler d1 create skeptou-strategia          (first-time setup)
 #   wrangler d1 migrations apply skeptou-strategia --remote
 #   wrangler r2 bucket create skeptou-strategia   (first-time setup)
-#   wrangler pages dev public                     (local dev)
+#   wrangler pages dev static                     (local dev)
 
 name = "strategia"
 compatibility_date = "2026-05-01"
-pages_build_output_dir = "public"
+pages_build_output_dir = "static"
 
 # Strategia document metadata D1.
 # Paste database_id from `wrangler d1 create skeptou-strategia`.

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategia — Viewer</title>
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' blob:;
+                 object-src 'none';
+                 frame-ancestors 'none'">
+  <link rel="stylesheet" href="/design-tokens.css">
+  <link rel="stylesheet" href="/skeptou.css">
+  <link rel="stylesheet" href="/viewer.css">
+</head>
+<body class="private">
+<main style="max-width:960px;margin:0 auto;padding:2rem 1.5rem;">
+
+  <header class="sk-viewer-header">
+    <a class="sk-back-link" href="/">← Documents</a>
+    <h1 class="sk-doc-title" id="doc-title">Loading…</h1>
+  </header>
+
+  <div class="sk-doc-meta" id="doc-meta"></div>
+
+  <!-- PDF renderer -->
+  <div id="pdf-loading" style="display:none">Rendering…</div>
+  <div id="pdf-container"></div>
+
+  <!-- Markdown / plain text renderer -->
+  <div id="content"></div>
+
+  <!-- Image renderer -->
+  <div id="img-container"></div>
+
+  <!-- Fallback -->
+  <div id="unsupported" style="display:none" class="sk-loading">
+    Preview unavailable for this file type.
+  </div>
+
+  <div id="err-state" style="display:none" class="sk-error"></div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/viewer.js"></script>
+</body>
+</html>

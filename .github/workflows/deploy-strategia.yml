@@ -30,10 +30,10 @@ jobs:
       # assets/fonts/Borges-*.ttf                 → modules/strategia/public/fonts/borges/
       - name: Copy design assets
         run: |
-          cp assets/branding/tokens/design-tokens.css modules/strategia/public/design-tokens.css
-          cp assets/css/skeptou.css modules/strategia/public/skeptou.css
-          mkdir -p modules/strategia/public/fonts/borges
-          cp assets/fonts/Borges-*.ttf modules/strategia/public/fonts/borges/
+          cp assets/branding/tokens/design-tokens.css modules/strategia/static/design-tokens.css
+          cp assets/css/skeptou.css modules/strategia/static/skeptou.css
+          mkdir -p modules/strategia/static/fonts/borges
+          cp assets/fonts/Borges-*.ttf modules/strategia/static/fonts/borges/
 
       # ── Step 2: Build dist/ ─────────────────────────────────────────────
       # Flatten public/ → dist/, include functions/ for Pages Functions.
@@ -41,7 +41,7 @@ jobs:
         run: |
           rm -rf modules/strategia/dist
           mkdir -p modules/strategia/dist
-          cp -r modules/strategia/public/. modules/strategia/dist/
+          cp -r modules/strategia/static/. modules/strategia/dist/
           cp -r modules/strategia/functions modules/strategia/dist/functions
           echo "dist/ contents:"
           find modules/strategia/dist -not -type d | sort
