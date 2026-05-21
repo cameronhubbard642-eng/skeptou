@@ -1805,7 +1805,7 @@
         dirOptions +
         '<div id="promote-classify" class="sk-classify-box sk-classify-box--analyzing">' +
           '<span class="sk-classify-box__verdict">Analyzing differences…</span>' +
-          '<span class="sk-classify-box__detail">Computing diff against current canonical (' + escHtml(paper.currentTag || 'none') + ')</span>' +
+          '<span class="sk-classify-box__detail">Computing diff against current canonical (' + escHtml(versionLabel(paper.currentTag) || 'none') + ')</span>' +
         '</div>' +
         '<div id="promote-override-row" class="sk-override-row" hidden>' +
           '<span>Override:</span>' +
@@ -1841,7 +1841,7 @@
     classBox.innerHTML =
       '<span class="sk-classify-box__verdict">Analyzing differences…</span>' +
       '<span class="sk-classify-box__detail">Computing diff against current canonical (' +
-        escHtml(paper.currentTag || 'none') + ')</span>';
+        escHtml(versionLabel(paper.currentTag) || 'none') + ')</span>';
 
     try {
       var qs = '?branch=' + encodeURIComponent(promoteState.direction) +
