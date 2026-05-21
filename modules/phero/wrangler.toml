@@ -1,12 +1,18 @@
 name = "phero-worker"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
-pages_build_output_dir = "public"
 
-# HTML templates bundled as text modules at build time
+# Static assets (management UI, root redirect).
+# Served by Cloudflare CDN before the Worker is invoked.
+# Worker handles all routes that do not match a static file.
+[assets]
+directory = "public"
+
+# HTML templates in templates/ are bundled into the Worker bundle as text
+# strings at build time (not served as static assets).
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["templates/**/*.html"]
 
 [[d1_databases]]
 binding = "PHERO_DB"
@@ -23,8 +29,8 @@ ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
 SHARE_COOKIE_TTL_DAYS = "7"
 ADMIN_EMAIL           = "camh502@alumni.stanford.edu"
 
-# Secrets (wrangler secret put):
-# ENERGEIA_SERVICE_TOKEN  -- service token for energeia content proxy
-# ARISTEIA_SERVICE_TOKEN  -- service token for aristeia content proxy
-# COOKIE_SIGNING_KEY      -- HMAC key for scoped share cookie signing (openssl rand -hex 32)
-# AUTH_HMAC_SECRET        -- shared with auth-core; base64url-encoded 32-byte key
+# Secrets (provisioned by CI from GH secrets; set once via repo Settings -> Secrets):
+# ENERGEIA_SERVICE_TOKEN        GH secret: PHERO_ENERGEIA_SERVICE_TOKEN
+# ARISTEIA_SERVICE_TOKEN        GH secret: PHERO_ARISTEIA_SERVICE_TOKEN
+# COOKIE_SIGNING_KEY            GH secret: PHERO_COOKIE_SIGNING_KEY
+# AUTH_HMAC_SECRET              GH secret: PHERO_AUTH_HMAC_SECRET (= auth-core HMAC_SECRET)

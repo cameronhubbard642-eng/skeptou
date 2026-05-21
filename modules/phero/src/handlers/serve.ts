@@ -6,21 +6,40 @@ import expiredHtml from '../../templates/expired.html';
 import revokedHtml from '../../templates/revoked.html';
 import viewerHtml from '../../templates/viewer.html';
 
+// CSP for the public viewer: allows CDN scripts (PDF.js, marked, DOMPurify)
+// and blob: workers required by PDF.js rendering.
+const VIEWER_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self'",
+  "img-src 'self' blob: data:",
+  "worker-src blob:",
+  "font-src 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+const MINIMAL_HTML_HEADERS: Record<string, string> = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
 export async function handleServeViewer(slug: string, env: Env): Promise<Response> {
   const share = await env.PHERO_DB.prepare('SELECT * FROM shares WHERE slug = ?')
     .bind(slug).first<ShareRow>();
 
   if (!share) {
-    return new Response(expiredHtml, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
   }
 
   if (share.revoked_at) {
-    return new Response(revokedHtml, { status: 410, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(revokedHtml, { status: 410, headers: MINIMAL_HTML_HEADERS });
   }
 
   const now = new Date().toISOString();
   if (share.expires_at && share.expires_at <= now) {
-    return new Response(expiredHtml, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
   }
 
   const label = share.label ?? share.source_slug;
@@ -33,7 +52,12 @@ export async function handleServeViewer(slug: string, env: Env): Promise<Respons
     .replace(/{{LABEL}}/g, escapeHtml(label))
     .replace(/{{EXPIRY_LINE}}/g, escapeHtml(expiryLine));
 
-  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  return new Response(html, {
+    headers: {
+      ...MINIMAL_HTML_HEADERS,
+      'Content-Security-Policy': VIEWER_CSP,
+    },
+  });
 }
 
 export async function handleServeShare(
@@ -46,16 +70,16 @@ export async function handleServeShare(
     .bind(slug).first<ShareRow>();
 
   if (!share) {
-    return new Response(expiredHtml, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
   }
 
   if (share.revoked_at) {
-    return new Response(revokedHtml, { status: 410, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(revokedHtml, { status: 410, headers: MINIMAL_HTML_HEADERS });
   }
 
   const now = new Date().toISOString();
   if (share.expires_at && share.expires_at <= now) {
-    return new Response(expiredHtml, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
   }
 
   // Cookie management
