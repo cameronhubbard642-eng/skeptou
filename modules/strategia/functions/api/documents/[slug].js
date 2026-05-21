@@ -21,14 +21,14 @@ export async function onRequestGet(ctx) {
     throw err;
   }
 
-  if (!env.DB) return errorResponse(503, 'DB binding not configured');
+  if (!env.STRATEGIA_DB) return errorResponse(503, 'DB binding not configured');
 
   const slug = params.slug;
   if (!slug || !/^[a-z0-9][a-z0-9-]{2,127}$/.test(slug)) {
     return errorResponse(400, 'invalid slug');
   }
 
-  const row = await env.DB.prepare(
+  const row = await env.STRATEGIA_DB.prepare(
     'SELECT * FROM live_documents WHERE slug = ?'
   ).bind(slug).first();
 

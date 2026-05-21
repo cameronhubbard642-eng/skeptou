@@ -1,5 +1,5 @@
 /**
- * _shared/auth.js — session validation for phronesis Pages Functions
+ * _shared/auth.js — session validation for strategia Pages Functions
  *
  * Validates the __skeptou_session HMAC-SHA256 cookie issued by auth.skeptou.com.
  * This is the plain-JS equivalent of @skeptou/auth-client for use in CF Pages

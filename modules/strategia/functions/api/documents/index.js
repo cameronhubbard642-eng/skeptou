@@ -2,7 +2,7 @@
  * GET /api/documents — list live documents with optional filters.
  *
  * Query params: team, content_type, since, until, tag, limit (default 50, max 200), offset (default 0).
- * Returns r2_key and metadata are excluded from list responses (spec §V.1).
+ * r2_key and metadata are excluded from list responses (spec §V.1).
  */
 
 import { authenticateRequest, AuthError } from '../../_shared/auth.js';
@@ -23,7 +23,7 @@ export async function onRequestGet(ctx) {
     throw err;
   }
 
-  if (!env.DB) return errorResponse(503, 'DB binding not configured');
+  if (!env.STRATEGIA_DB) return errorResponse(503, 'DB binding not configured');
 
   const url = new URL(request.url);
   const p   = url.searchParams;
@@ -57,9 +57,9 @@ export async function onRequestGet(ctx) {
                     ORDER BY created_at DESC LIMIT ? OFFSET ?`;
   const countSql = `SELECT COUNT(*) AS total FROM live_documents ${where}`;
 
-  const [dataResult, countResult] = await env.DB.batch([
-    env.DB.prepare(dataSql).bind(...bindings, limit, offset),
-    env.DB.prepare(countSql).bind(...bindings),
+  const [dataResult, countResult] = await env.STRATEGIA_DB.batch([
+    env.STRATEGIA_DB.prepare(dataSql).bind(...bindings, limit, offset),
+    env.STRATEGIA_DB.prepare(countSql).bind(...bindings),
   ]);
 
   const rows = dataResult.results.map((row) => ({

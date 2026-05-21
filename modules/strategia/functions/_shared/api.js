@@ -1,3 +1,7 @@
+/**
+ * _shared/api.js — HTTP response helpers for the strategia API.
+ */
+
 export function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
