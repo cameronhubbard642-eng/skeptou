@@ -13,20 +13,20 @@ export async function onRequestGet(ctx) {
   const auth = await validateSession(request, env);
   if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-  if (!env.DB) return jsonResponse({ error: 'Database not configured' }, 503);
+  if (!env.ARISTEIA_DB) return jsonResponse({ error: 'Database not configured' }, 503);
 
   const slug = params.slug;
   if (!slug) return jsonResponse({ error: 'Missing slug' }, 400);
 
   try {
-    const row = await env.DB.prepare(
+    const row = await env.ARISTEIA_DB.prepare(
       'SELECT slug, title, authors, status, current_version, r2_key, byte_size, citation, notes, imported_at FROM live_publications WHERE slug = ?'
     ).bind(slug).first();
 
     if (!row) return jsonResponse({ error: 'Not found' }, 404);
 
-    /* Import history — ordered newest-first; r2_history_key not returned to client */
-    const histResult = await env.DB.prepare(
+    /* Import history ordered newest-first; r2_history_key not returned to client */
+    const histResult = await env.ARISTEIA_DB.prepare(
       'SELECT id, version_tag, imported_at, byte_size FROM import_history WHERE slug = ? ORDER BY imported_at DESC'
     ).bind(slug).all();
 

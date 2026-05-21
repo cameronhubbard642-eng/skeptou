@@ -17,7 +17,7 @@ export async function onRequestGet(ctx) {
   const auth = await validateSession(request, env);
   if (!auth.authenticated) return new Response(null, { status: 401 });
 
-  if (!env.DB)          return new Response(null, { status: 503 });
+  if (!env.ARISTEIA_DB) return new Response(null, { status: 503 });
   if (!env.ARISTEIA_R2) return new Response(null, { status: 503 });
 
   const slug      = params.slug;
@@ -28,13 +28,13 @@ export async function onRequestGet(ctx) {
     let r2Key;
 
     if (versionId) {
-      const hist = await env.DB.prepare(
+      const hist = await env.ARISTEIA_DB.prepare(
         'SELECT r2_history_key FROM import_history WHERE id = ? AND slug = ?'
       ).bind(parseInt(versionId, 10), slug).first();
       if (!hist) return new Response(null, { status: 404 });
       r2Key = hist.r2_history_key;
     } else {
-      const pub = await env.DB.prepare(
+      const pub = await env.ARISTEIA_DB.prepare(
         'SELECT r2_key FROM live_publications WHERE slug = ?'
       ).bind(slug).first();
       if (!pub) return new Response(null, { status: 404 });
