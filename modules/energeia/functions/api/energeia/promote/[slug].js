@@ -223,47 +223,69 @@ async function computeDiffEstimate(pat, repo, branch, slug) {
 
 /* ── Next tag computation ───────────────────────────────────────────────── */
 async function computeNextTag(pat, repo, slug, classification) {
+  const headers = {
+    'Authorization': `Bearer ${pat}`,
+    'Accept':        'application/vnd.github.v3+json',
+    'User-Agent':    'energeia-skeptou',
+  };
   try {
-    /* List tags for this paper: style-* scoped to slug via annotation lookup */
-    const url = `https://api.github.com/repos/${repo}/git/refs/tags/style-`;
-    const resp = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${pat}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'energeia-skeptou'
+    /* style-* tags are GLOBAL on agora — different papers share the namespace.
+       Filter to this paper's tags by reading each annotated tag's `slug:`
+       line (matches what promote.yml writes and what versions/[slug] reads),
+       then derive the next version from THIS paper's history only. */
+    const refsResp = await fetch(
+      `https://api.github.com/repos/${repo}/git/refs/tags/style-`, { headers });
+    if (!refsResp.ok) return classification === 'major' ? 'style-I' : 'style-I';
+
+    const refs = await refsResp.json();
+    const refList = Array.isArray(refs) ? refs : [refs];
+
+    /* Resolve each annotated tag to its slug and tag name. Lightweight tags
+       (no annotation) are ignored — promote.yml always writes annotated. */
+    const paperMajors = [];   // [{ name, n }]
+    const paperMinors = {};   // { 'IV': [1,2], ... }
+    for (const ref of refList) {
+      const tag = (ref.ref || '').replace('refs/tags/', '');
+      const mMajor = /^style-([IVXLCDM]+)$/.exec(tag);
+      const mMinor = /^style-([IVXLCDM]+)\.(\d+)$/.exec(tag);
+      if (!mMajor && !mMinor) continue;
+      if (!ref.object || ref.object.type !== 'tag') continue;
+
+      const tagResp = await fetch(
+        `https://api.github.com/repos/${repo}/git/tags/${ref.object.sha}`, { headers });
+      if (!tagResp.ok) continue;
+      const t = await tagResp.json();
+      const slugLine = (t.message || '')
+        .split('\n')
+        .find((l) => l.startsWith('slug:'));
+      if (!slugLine) continue;
+      if (slugLine.slice('slug:'.length).trim() !== slug) continue;
+
+      if (mMajor) {
+        paperMajors.push({ name: tag, n: romanToInt(mMajor[1]) });
+      } else {
+        (paperMinors[mMinor[1]] = paperMinors[mMinor[1]] || []).push(parseInt(mMinor[2], 10));
       }
-    });
-    if (!resp.ok) return classification === 'major' ? 'style-I' : 'style-I.1';
-
-    /* Tags are global on agora; look for paper-specific annotation in tag message */
-    /* For now, count all style-* tags and derive — this is a v1 approximation */
-    const refs = await resp.json();
-    const majorTags = refs
-      .map(r => r.ref.replace('refs/tags/', ''))
-      .filter(t => /^style-[IVXLCDM]+$/.test(t));
-
-    if (majorTags.length === 0) {
-      return classification === 'major' ? 'style-I' : 'style-I.1';
     }
 
-    /* Find the latest major tag */
-    const latestMajor = majorTags.sort(compareRomanTags).at(-1);
+    /* No prior tag for this paper → start at style-I, even if classification
+       is "minor" (a minor of nothing is meaningless; treat as the major start). */
+    if (paperMajors.length === 0) return 'style-I';
+
+    paperMajors.sort((a, b) => a.n - b.n);
+    const latest = paperMajors[paperMajors.length - 1];
 
     if (classification === 'major') {
-      const n = romanToInt(latestMajor.replace('style-', ''));
-      return `style-${intToRoman(n + 1)}`;
-    } else {
-      /* Find the highest minor tag under latestMajor */
-      const minorTags = refs
-        .map(r => r.ref.replace('refs/tags/', ''))
-        .filter(t => t.startsWith(`${latestMajor}.`));
-      if (minorTags.length === 0) return `${latestMajor}.1`;
-      const maxMinor = Math.max(...minorTags.map(t => parseInt(t.split('.').at(-1), 10)));
-      return `${latestMajor}.${maxMinor + 1}`;
+      return `style-${intToRoman(latest.n + 1)}`;
     }
+    /* Minor: bump the highest minor under THIS paper's latest major. */
+    const roman = latest.name.replace('style-', '');
+    const existing = paperMinors[roman] || [];
+    const next = existing.length ? Math.max(...existing) + 1 : 1;
+    return `style-${roman}.${next}`;
 
   } catch (_) {
-    return classification === 'major' ? 'style-I' : 'style-I.1';
+    return classification === 'major' ? 'style-I' : 'style-I';
   }
 }
 
