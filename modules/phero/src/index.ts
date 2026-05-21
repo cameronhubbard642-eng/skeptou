@@ -1,20 +1,12 @@
-import type { Env } from './types';
+import type { Env } from './types.ts';
+import { requireCamSession } from './handlers/auth.ts';
 import {
-  handlePostShares,
-  handleGetShares,
-  handleDeleteShare,
+  handleCreateShare,
+  handleListShares,
+  handleRevokeShare,
   handleGetShareViews,
-} from './handlers/shares';
-import { handleViewerPage, handleServeShare } from './handlers/serve';
-
-import manageHtml from '../templates/manage.html';
-
-function html(content: string, status = 200): Response {
-  return new Response(content, {
-    status,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  });
-}
+} from './handlers/shares.ts';
+import { handleServeViewer, handleServeShare } from './handlers/serve.ts';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -22,57 +14,69 @@ export default {
     const method = request.method.toUpperCase();
     const path = url.pathname === '/' ? '/' : url.pathname.replace(/\/$/, '');
 
-    // ── Redirect root to management UI ─────────────────────────────
-    if (path === '/') {
-      return Response.redirect(`${url.origin}/manage`, 302);
-    }
+    // ── Cam management API (auth required) ───────────────────────────────────
 
-    // ── Cam management UI ───────────────────────────────────────────
-    if (path === '/manage' || path.startsWith('/manage/')) {
-      if (method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
-      return html(manageHtml);
-    }
-
-    // ── Management API — Cam session required ───────────────────────
-
-    // POST /api/shares — create share
     if (path === '/api/shares' && method === 'POST') {
-      return handlePostShares(request, env);
+      const authErr = await requireCamSession(request, env);
+      if (authErr) return authErr;
+      return handleCreateShare(request, env);
     }
 
-    // GET /api/shares — list shares
     if (path === '/api/shares' && method === 'GET') {
-      return handleGetShares(request, env);
+      const authErr = await requireCamSession(request, env);
+      if (authErr) return authErr;
+      return handleListShares(request, env);
     }
 
-    // DELETE /api/shares/:slug — revoke share
-    const deleteShareMatch = path.match(/^\/api\/shares\/([^/]+)$/);
-    if (deleteShareMatch && method === 'DELETE') {
-      return handleDeleteShare(deleteShareMatch[1], request, env);
+    // DELETE /api/shares/:slug
+    if (path.startsWith('/api/shares/') && method === 'DELETE') {
+      const authErr = await requireCamSession(request, env);
+      if (authErr) return authErr;
+      const slug = path.slice('/api/shares/'.length);
+      if (!slug) return jsonError(400, 'slug required');
+      return handleRevokeShare(slug, env);
     }
 
-    // GET /api/shares/:slug/views — view history drill-down
-    const viewsMatch = path.match(/^\/api\/shares\/([^/]+)\/views$/);
-    if (viewsMatch && method === 'GET') {
-      return handleGetShareViews(viewsMatch[1], request, env);
+    // GET /api/shares/:slug/views
+    if (path.startsWith('/api/shares/') && path.endsWith('/views') && method === 'GET') {
+      const authErr = await requireCamSession(request, env);
+      if (authErr) return authErr;
+      const slug = path.slice('/api/shares/'.length, -'/views'.length);
+      if (!slug) return jsonError(400, 'slug required');
+      return handleGetShareViews(slug, request, env);
     }
 
-    // ── Public share API ────────────────────────────────────────────
+    // ── Public share endpoints ────────────────────────────────────────────────
 
-    // GET /api/share/:slug — serve document (public; sets 7-day cookie; logs view)
-    const serveMatch = path.match(/^\/api\/share\/([^/]+)$/);
-    if (serveMatch && method === 'GET') {
-      return handleServeShare(serveMatch[1], request, env, ctx);
+    // GET /api/share/:slug -- serves raw document bytes; PDF.js in viewer calls this
+    if (path.startsWith('/api/share/') && method === 'GET') {
+      const slug = path.slice('/api/share/'.length);
+      if (!slug) return jsonError(404, 'not found');
+      return handleServeShare(slug, request, env, ctx);
     }
 
-    // ── Public viewer page ──────────────────────────────────────────
-
-    // GET /<slug> — viewer HTML (any single-segment path not matched above)
+    // ── Viewer page: GET /:slug ───────────────────────────────────────────────
+    // Matches any single-segment path that doesn't start with /api/, /manage, /static
     const slugMatch = path.match(/^\/([^/]+)$/);
     if (slugMatch && method === 'GET') {
-      return handleViewerPage(slugMatch[1], env);
+      const segment = slugMatch[1];
+      if (!['api', 'manage', 'admin', 'static', 'assets', 'favicon.ico', 'robots.txt'].includes(segment)) {
+        return handleServeViewer(segment, env);
+      }
     }
 
-    return new Response('Not Found', { status: 404 });
+    // Root: redirect to manage
+    if (path === '/' && method === 'GET') {
+      return Response.redirect('https://phero.skeptou.com/manage/', 302);
+    }
+
+    return jsonError(404, 'not found');
   },
 };
+
+function jsonError(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}

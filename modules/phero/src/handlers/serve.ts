@@ -1,141 +1,156 @@
-import type { Env, ShareRow } from '../types';
-import { getCookieValue } from '../lib/auth';
-import { signShareCookie, validateShareCookie } from '../lib/cookie';
+import type { Env, ShareRow } from '../types.ts';
+import { getCookieValue, signShareCookie, validateShareCookie, buildShareCookieHeader } from '../lib/cookie.ts';
+import { sha256 } from '../lib/sha256.ts';
 
-import viewerHtml from '../../templates/viewer.html';
 import expiredHtml from '../../templates/expired.html';
 import revokedHtml from '../../templates/revoked.html';
+import viewerHtml from '../../templates/viewer.html';
 
-async function sha256(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+// CSP for the public viewer: allows CDN scripts (PDF.js, marked, DOMPurify)
+// and blob: workers required by PDF.js rendering.
+const VIEWER_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self'",
+  "img-src 'self' blob: data:",
+  "worker-src blob:",
+  "font-src 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 
-function html(content: string, status = 200): Response {
-  return new Response(content, {
-    status,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+const MINIMAL_HTML_HEADERS: Record<string, string> = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
+export async function handleServeViewer(slug: string, env: Env): Promise<Response> {
+  const share = await env.PHERO_DB.prepare('SELECT * FROM shares WHERE slug = ?')
+    .bind(slug).first<ShareRow>();
+
+  if (!share) {
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
+  }
+
+  if (share.revoked_at) {
+    return new Response(revokedHtml, { status: 410, headers: MINIMAL_HTML_HEADERS });
+  }
+
+  const now = new Date().toISOString();
+  if (share.expires_at && share.expires_at <= now) {
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
+  }
+
+  const label = share.label ?? share.source_slug;
+  const expiryLine = share.expires_at
+    ? `This link expires on ${new Date(share.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.`
+    : '';
+
+  const html = viewerHtml
+    .replace(/{{SLUG}}/g, slug)
+    .replace(/{{LABEL}}/g, escapeHtml(label))
+    .replace(/{{EXPIRY_LINE}}/g, escapeHtml(expiryLine));
+
+  return new Response(html, {
+    headers: {
+      ...MINIMAL_HTML_HEADERS,
+      'Content-Security-Policy': VIEWER_CSP,
+    },
   });
 }
 
-/** GET /<slug> — serve viewer HTML (or expired/revoked page) */
-export async function handleViewerPage(slug: string, env: Env): Promise<Response> {
-  const share = await env.PHERO_DB.prepare('SELECT * FROM shares WHERE slug = ?')
-    .bind(slug)
-    .first<ShareRow>();
-
-  if (!share) return html(expiredHtml, 404);
-  if (share.revoked_at) return html(revokedHtml, 410);
-  if (share.expires_at && share.expires_at < new Date().toISOString()) {
-    return html(expiredHtml, 404);
-  }
-
-  const title = share.label ?? share.source_slug;
-  const expiresLine = share.expires_at
-    ? `<p class="expires">This link expires on ${new Date(share.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</p>`
-    : '';
-
-  const page = viewerHtml
-    .replace(/{{SLUG}}/g, slug)
-    .replace(/{{TITLE}}/g, escapeHtml(title))
-    .replace(/{{EXPIRES_LINE}}/g, expiresLine);
-
-  return html(page);
-}
-
-/** GET /api/share/:slug — public document serve with cookie + view tracking */
 export async function handleServeShare(
   slug: string,
   request: Request,
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {
-  // Look up share (need revoked state separate from active_shares view)
   const share = await env.PHERO_DB.prepare('SELECT * FROM shares WHERE slug = ?')
-    .bind(slug)
-    .first<ShareRow>();
+    .bind(slug).first<ShareRow>();
 
-  if (!share) return html(expiredHtml, 404);
-  if (share.revoked_at) return html(revokedHtml, 410);
-  if (share.expires_at && share.expires_at < new Date().toISOString()) {
-    return html(expiredHtml, 404);
+  if (!share) {
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
   }
 
-  // Check scoped session cookie
+  if (share.revoked_at) {
+    return new Response(revokedHtml, { status: 410, headers: MINIMAL_HTML_HEADERS });
+  }
+
+  const now = new Date().toISOString();
+  if (share.expires_at && share.expires_at <= now) {
+    return new Response(expiredHtml, { status: 404, headers: MINIMAL_HTML_HEADERS });
+  }
+
+  // Cookie management
   const cookieName = `phero-session-${slug}`;
   const existingCookie = getCookieValue(request, cookieName);
-  const cookieValid =
-    existingCookie !== null &&
-    (await validateShareCookie(existingCookie, slug, env.COOKIE_SIGNING_KEY));
+  let newCookieHeader: string | null = null;
 
-  // Fetch document from upstream
-  const base =
-    share.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARISTEIA_BASE_URL;
-  const svcTok =
-    share.source_module === 'energeia'
-      ? env.ENERGEIA_SERVICE_TOKEN
-      : env.ARISTEIA_SERVICE_TOKEN;
-  const path = share.source_module === 'energeia' ? 'papers' : 'publications';
-  const vParam = share.source_version
-    ? `?version=${encodeURIComponent(share.source_version)}`
-    : '';
-
-  const upstream = await fetch(
-    `${base}/api/${path}/${encodeURIComponent(share.source_slug)}/content${vParam}`,
-    { headers: { Authorization: `Bearer ${svcTok}` } },
-  );
-
-  if (!upstream.ok) {
-    return Response.json({ error: 'upstream document unavailable' }, { status: 502 });
+  if (!existingCookie || !(await validateShareCookie(existingCookie, slug, env.COOKIE_SIGNING_KEY))) {
+    const cookieValue = await signShareCookie(slug, env.COOKIE_SIGNING_KEY);
+    const ttlDays = parseInt(env.SHARE_COOKIE_TTL_DAYS, 10) || 7;
+    newCookieHeader = buildShareCookieHeader(slug, cookieValue, ttlDays * 86400);
   }
 
-  // Non-blocking analytics: increment view_count + insert share_views row
+  // Fetch from upstream
+  const base = share.source_module === 'energeia' ? env.ENERGEIA_BASE_URL : env.ARISTEIA_BASE_URL;
+  const svcToken = share.source_module === 'energeia' ? env.ENERGEIA_SERVICE_TOKEN : env.ARISTEIA_SERVICE_TOKEN;
+  const path = share.source_module === 'energeia' ? 'papers' : 'publications';
+  const vParam = share.source_version ? `?version=${encodeURIComponent(share.source_version)}` : '';
+
+  const upstream = await fetch(`${base}/api/${path}/${share.source_slug}/content${vParam}`, {
+    headers: { Authorization: `Bearer ${svcToken}` },
+  });
+
+  if (!upstream.ok) {
+    return new Response(JSON.stringify({ error: 'upstream document unavailable' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const contentType = upstream.headers.get('Content-Type') ?? 'application/octet-stream';
+  const ext = contentType.includes('pdf') ? 'pdf'
+    : contentType.includes('markdown') ? 'md'
+    : 'bin';
+  const filename = `${share.source_slug}.${ext}`;
+
+  // Non-blocking analytics
   const ip = request.headers.get('CF-Connecting-IP') ?? '';
-  const now = new Date().toISOString();
+  const country = request.headers.get('CF-IPCountry') ?? 'XX';
+  const ua = (request.headers.get('User-Agent') ?? '').slice(0, 256);
+  const referrer = (request.headers.get('Referer') ?? '').slice(0, 256);
+  const occurredAt = new Date().toISOString();
+
   ctx.waitUntil(
     env.PHERO_DB.batch([
       env.PHERO_DB.prepare(
         'UPDATE shares SET view_count = view_count + 1, last_viewed_at = ? WHERE slug = ?',
-      ).bind(now, slug),
+      ).bind(occurredAt, slug),
       env.PHERO_DB.prepare(
         `INSERT INTO share_views (share_slug, event_type, ip_hash, cf_country, user_agent, referrer)
          VALUES (?, 'view', ?, ?, ?, ?)`,
-      ).bind(
-        slug,
-        await sha256(ip),
-        request.headers.get('CF-IPCountry') ?? 'XX',
-        (request.headers.get('User-Agent') ?? '').slice(0, 256),
-        (request.headers.get('Referer') ?? '').slice(0, 256),
-      ),
+      ).bind(slug, await sha256(ip), country, ua, referrer),
     ]),
   );
 
-  // Build response headers
-  const contentType = upstream.headers.get('Content-Type') ?? 'application/octet-stream';
-  const ext = contentType.includes('pdf') ? 'pdf' : contentType.includes('markdown') ? 'md' : 'bin';
-  const filename = `${share.source_slug}.${ext}`;
-
-  const respHeaders: Record<string, string> = {
+  const responseHeaders: Record<string, string> = {
     'Content-Type': contentType,
     'Content-Disposition': `attachment; filename="${filename}"`,
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
   };
+  if (newCookieHeader) responseHeaders['Set-Cookie'] = newCookieHeader;
 
-  // Issue or refresh 7-day scoped cookie if absent/invalid
-  if (!cookieValid) {
-    const ttlDays = parseInt(env.SHARE_COOKIE_TTL_DAYS ?? '7', 10);
-    const cookieValue = await signShareCookie(slug, env.COOKIE_SIGNING_KEY);
-    respHeaders[
-      'Set-Cookie'
-    ] = `${cookieName}=${cookieValue}; HttpOnly; Secure; SameSite=Lax; Max-Age=${ttlDays * 86400}; Path=/${slug}`;
-  }
-
-  return new Response(upstream.body, { headers: respHeaders });
+  return new Response(upstream.body, { headers: responseHeaders });
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

@@ -1,28 +1,36 @@
 name = "phero-worker"
 main = "src/index.ts"
-compatibility_date = "2026-01-01"
+compatibility_date = "2025-01-01"
 
-# Bundle HTML templates as text modules
+# Static assets (management UI, root redirect).
+# Served by Cloudflare CDN before the Worker is invoked.
+# Worker handles all routes that do not match a static file.
+[assets]
+directory = "public"
+
+# HTML templates in templates/ are bundled into the Worker bundle as text
+# strings at build time (not served as static assets).
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["templates/**/*.html"]
 
 [[d1_databases]]
 binding = "PHERO_DB"
 database_name = "skeptou-phero"
 database_id = "FILL_AFTER_CREATE"
 
-[vars]
-ENERGEIA_BASE_URL     = "https://energeia.skeptou.com"
-ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
-SHARE_COOKIE_TTL_DAYS = "7"
-
 [[routes]]
 pattern = "phero.skeptou.com/*"
 custom_domain = true
 
-# Secrets (set via `wrangler secret put`):
-# ENERGEIA_SERVICE_TOKEN   — service token for energeia upstream calls
-# ARISTEIA_SERVICE_TOKEN   — service token for aristeia upstream calls
-# COOKIE_SIGNING_KEY       — HMAC key for scoped share cookie signing
-# HMAC_SECRET              — same 32-byte base64url key as auth.skeptou.com (session validation)
+[vars]
+ENERGEIA_BASE_URL     = "https://energeia.skeptou.com"
+ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
+SHARE_COOKIE_TTL_DAYS = "7"
+ADMIN_EMAIL           = "camh502@alumni.stanford.edu"
+
+# Secrets (provisioned by CI from GH secrets; set once via repo Settings -> Secrets):
+# ENERGEIA_SERVICE_TOKEN        GH secret: PHERO_ENERGEIA_SERVICE_TOKEN
+# ARISTEIA_SERVICE_TOKEN        GH secret: PHERO_ARISTEIA_SERVICE_TOKEN
+# COOKIE_SIGNING_KEY            GH secret: PHERO_COOKIE_SIGNING_KEY
+# AUTH_HMAC_SECRET              GH secret: PHERO_AUTH_HMAC_SECRET (= auth-core HMAC_SECRET)
