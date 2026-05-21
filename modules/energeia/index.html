@@ -1214,7 +1214,7 @@
         '<div class="sk-reader-card__info">' +
           '<span class="sk-reader-card__title">' + escHtml(p.title) + '</span>' +
           (hasVersion
-            ? '<span class="sk-reader-card__version">' + escHtml(p.currentTag) + '</span>'
+            ? '<span class="sk-reader-card__version">' + escHtml(versionLabel(p.currentTag)) + '</span>'
             : '<span class="sk-reader-card__version" style="color:var(--color-quartz);">drafting</span>') +
         '</div>' +
       '</div>';
@@ -1303,7 +1303,7 @@
         '<span class="sk-badge sk-badge--' + paper.status + '">' + escHtml(paper.status) + '</span>' +
       '</div>' +
       '<div class="sk-paper-card__meta">' +
-        (paper.currentTag ? '<div class="sk-paper-card__meta-item"><strong>Tag</strong> ' + escHtml(paper.currentTag) + '</div>' : '') +
+        (paper.currentTag ? '<div class="sk-paper-card__meta-item"><strong>Tag</strong> ' + escHtml(versionLabel(paper.currentTag)) + '</div>' : '') +
         '<div class="sk-paper-card__meta-item"><strong>Format</strong> ' + escHtml(paper.format) + '</div>' +
         '<div class="sk-paper-card__meta-item"><strong>Created</strong> ' + escHtml(paper.created) + '</div>' +
       '</div>' +
@@ -1503,7 +1503,7 @@
         '<div>' +
           '<h1 style="margin-bottom:.35rem;">' + escHtml(paper.title) + '</h1>' +
           statusSelectHtml(paper) +
-          (paper.currentTag ? '<span class="sk-secondary" style="font-size:.78rem;margin-left:.75rem;">' + escHtml(paper.currentTag) + '</span>' : '') +
+          (paper.currentTag ? '<span class="sk-secondary" style="font-size:.78rem;margin-left:.75rem;">' + escHtml(versionLabel(paper.currentTag)) + '</span>' : '') +
         '</div>' +
       '</div>' +
       actions +
@@ -1550,7 +1550,7 @@
         var diffUrl  = '/api/energeia/pdf/' + encSlug + '/' +
                        encodeURIComponent('diff-' + v.tag + '-' + newerTag + '.pdf');
         diffHtml = ' <a class="sk-pdf-link" href="' + diffUrl + '" target="_blank"' +
-                   ' title="Latexdiff → ' + escHtml(newerTag) + '"' +
+                   ' title="Latexdiff → ' + escHtml(versionLabel(newerTag)) + '"' +
                    ' style="margin-left:.3rem;">Diff ↗</a>';
       }
 
@@ -1573,7 +1573,7 @@
       }
 
       timelineRows += '<tr class="sk-version-row--major">' +
-        '<td data-label="Version">' + escHtml(v.tag) + '</td>' +
+        '<td data-label="Version">' + escHtml(versionLabel(v.tag)) + '</td>' +
         '<td data-label="Date">' + escHtml(v.date) + '</td>' +
         '<td data-label="Note">' + escHtml(v.note) + '</td>' +
         '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(v.lineage) + '</td>' +
@@ -1585,7 +1585,7 @@
         var minorRows = v.minors.map(function(m) {
           var mUrl = '/api/energeia/pdf/' + encSlug + '/' + encodeURIComponent(slug + '-' + m.tag + '.pdf');
           return '<tr class="sk-version-row--minor">' +
-            '<td data-label="Version">' + escHtml(m.tag) + '</td>' +
+            '<td data-label="Version">' + escHtml(versionLabel(m.tag)) + '</td>' +
             '<td data-label="Date">' + escHtml(m.date) + '</td>' +
             '<td data-label="Note">' + escHtml(m.note) + '</td>' +
             '<td data-label="Branch" style="font-size:.72rem;font-family:\'Courier New\',monospace;">' + escHtml(m.lineage) + '</td>' +
@@ -1595,7 +1595,7 @@
         }).join('');
         timelineRows += '<tr class="sk-version-row--minors-wrapper"><td colspan="6" style="padding:0;">' +
           '<details class="sk-version-minors"><summary>' + v.minors.length + ' minor patch' +
-          (v.minors.length > 1 ? 'es' : '') + ' under ' + escHtml(v.tag) + '</summary>' +
+          (v.minors.length > 1 ? 'es' : '') + ' under ' + escHtml(versionLabel(v.tag)) + '</summary>' +
           '<table class="sk-version-table" style="margin-top:.25rem;">' +
           minorRows + '</table></details></td></tr>';
       }
@@ -1864,7 +1864,7 @@
           '(threshold: ' + data.threshold + '%) · ' +
           (promoteState.override ? 'Override: ' + promoteState.override : 'Auto-classified') +
         '</span>' +
-        '<span class="sk-classify-box__next-tag">→ ' + escHtml(data.next_tag) + '</span>';
+        '<span class="sk-classify-box__next-tag">→ ' + escHtml(versionLabel(data.next_tag)) + '</span>';
 
       if (overrideRow) overrideRow.hidden = false;
       if (confirmBtn)  confirmBtn.disabled = false;
@@ -2537,6 +2537,14 @@
 
   function capitalize(s) {
     return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+  }
+
+  /* Display label for a version tag — strips the "<slug>/" git namespace
+     prefix and the "style-" prefix so the UI shows just the Roman numeral
+     (e.g. "h/style-VII" → "VII", "style-IV.2" → "IV.2"). */
+  function versionLabel(tag) {
+    if (typeof tag !== 'string' || tag === 'null') return '';
+    return tag.replace(/^[^/]+\//, '').replace(/^style-/, '');
   }
 
   /* ── Keyboard accessibility ──────────────────────────────────────────── */
