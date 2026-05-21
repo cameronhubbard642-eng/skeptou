@@ -1,0 +1,7 @@
+# public/ is hand-authored source for phero (not a build artifact); negate the root rule
+!public/
+!public/**
+
+node_modules/
+.wrangler/
+dist/

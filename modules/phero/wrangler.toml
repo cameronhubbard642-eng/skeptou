@@ -1,8 +1,9 @@
 name = "phero-worker"
 main = "src/index.ts"
-compatibility_date = "2026-01-01"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "public"
 
-# Bundle HTML templates as text modules
+# HTML templates bundled as text modules at build time
 [[rules]]
 type = "Text"
 globs = ["**/*.html"]
@@ -12,17 +13,18 @@ binding = "PHERO_DB"
 database_name = "skeptou-phero"
 database_id = "FILL_AFTER_CREATE"
 
-[vars]
-ENERGEIA_BASE_URL     = "https://energeia.skeptou.com"
-ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
-SHARE_COOKIE_TTL_DAYS = "7"
-
 [[routes]]
 pattern = "phero.skeptou.com/*"
 custom_domain = true
 
-# Secrets (set via `wrangler secret put`):
-# ENERGEIA_SERVICE_TOKEN   — service token for energeia upstream calls
-# ARISTEIA_SERVICE_TOKEN   — service token for aristeia upstream calls
-# COOKIE_SIGNING_KEY       — HMAC key for scoped share cookie signing
-# HMAC_SECRET              — same 32-byte base64url key as auth.skeptou.com (session validation)
+[vars]
+ENERGEIA_BASE_URL     = "https://energeia.skeptou.com"
+ARISTEIA_BASE_URL     = "https://aristeia.skeptou.com"
+SHARE_COOKIE_TTL_DAYS = "7"
+ADMIN_EMAIL           = "camh502@alumni.stanford.edu"
+
+# Secrets (wrangler secret put):
+# ENERGEIA_SERVICE_TOKEN  -- service token for energeia content proxy
+# ARISTEIA_SERVICE_TOKEN  -- service token for aristeia content proxy
+# COOKIE_SIGNING_KEY      -- HMAC key for scoped share cookie signing (openssl rand -hex 32)
+# AUTH_HMAC_SECRET        -- shared with auth-core; base64url-encoded 32-byte key
