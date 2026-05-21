@@ -1,5 +1,23 @@
 name: Deploy strategia
 
+# Turnkey stand-up: merge to main → CI creates D1 + R2, applies migrations,
+# configures Pages project bindings + secrets, deploys, and attaches the
+# custom domain. No manual wrangler commands required.
+#
+# ── Required GitHub secrets (Settings → Secrets → Actions) ────────────────
+#   CLOUDFLARE_API_TOKEN   — CF API token with Pages:Edit + D1:Edit +
+#                            R2:Edit + Workers Routes:Edit permissions
+#   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
+#   HMAC_SECRET            — 32-byte base64url key shared with auth.skeptou.com
+#                            (same value set on phronesis — add once, reuse here)
+#
+# ── One-time Cam manual step (after first successful CI run) ───────────────
+#   Cloudflare Zero Trust → Access → Applications → Add application → Self-hosted
+#     Application name:  Strategia
+#     Application domain: strategia.skeptou.com
+#     Identity providers + policy: copy from the phronesis Access application
+#   This gates the subdomain BEFORE any real documents land (spec requirement).
+
 on:
   push:
     branches: [main]
@@ -11,9 +29,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Stand up + deploy strategia
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       deployments: write
@@ -24,25 +43,181 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ── Step 1: Copy design tokens, CSS, and fonts ──────────────────────
-      - name: Copy design assets
-        run: |
-          cp assets/branding/tokens/design-tokens.css modules/strategia/static/design-tokens.css
-          cp assets/css/skeptou.css modules/strategia/static/skeptou.css
-          mkdir -p modules/strategia/static/fonts/borges
-          cp assets/fonts/Borges-*.ttf modules/strategia/static/fonts/borges/
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      # ── Step 2: Build dist/ ─────────────────────────────────────────────
+      # ── Step 1: Create D1 database (idempotent) ───────────────────────────
+      # Uses the CF API directly so we can capture the database UUID without
+      # relying on wrangler's stdout format. Creates the database if it does
+      # not exist; reads the existing UUID if it does.
+      - name: Provision D1 database
+        id: d1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          DB_ID=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database?name=skeptou-strategia&per_page=10" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            | jq -r '.result[0].uuid // empty')
+
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "Creating D1 database skeptou-strategia..."
+            RESP=$(curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"name": "skeptou-strategia"}')
+            DB_ID=$(echo "$RESP" | jq -r '.result.uuid')
+          fi
+
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "ERROR: Could not get or create D1 database UUID" >&2
+            exit 1
+          fi
+          echo "DB_ID=$DB_ID" >> "$GITHUB_ENV"
+          echo "uuid=$DB_ID" >> "$GITHUB_OUTPUT"
+          echo "D1 database UUID: $DB_ID"
+
+      # ── Step 2: Apply D1 migrations (idempotent) ──────────────────────────
+      # Patches database_id into the local wrangler.toml (not committed) so
+      # wrangler can locate the database when running migrations.
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: modules/strategia
+        run: |
+          sed -i "s/FILL_AFTER_CREATE/$DB_ID/g" wrangler.toml
+          npx wrangler@3 d1 migrations apply skeptou-strategia --remote
+
+      # ── Step 3: Create R2 bucket (idempotent) ─────────────────────────────
+      - name: Provision R2 bucket
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/skeptou-strategia" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+
+          if [ "$HTTP_STATUS" = "404" ]; then
+            echo "Creating R2 bucket skeptou-strategia..."
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"name": "skeptou-strategia"}' | jq '.success, .errors'
+          else
+            echo "R2 bucket skeptou-strategia already exists (HTTP $HTTP_STATUS)"
+          fi
+
+      # ── Step 4: Build dist/ ────────────────────────────────────────────────
+      # static/ contains HTML/CSS/JS source and _headers; functions/ are Pages
+      # Functions. Both assembled into dist/ for wrangler pages deploy.
+      # Design tokens and Borges fonts are copied from assets/ at build time.
       - name: Build dist
         run: |
           rm -rf modules/strategia/dist
-          mkdir -p modules/strategia/dist
+          mkdir -p modules/strategia/dist/fonts/borges
+
+          # Static viewer files (static/ is source-controlled)
           cp -r modules/strategia/static/. modules/strategia/dist/
+
+          # Design tokens + shared CSS
+          cp assets/branding/tokens/design-tokens.css modules/strategia/dist/design-tokens.css
+          if [ -f assets/css/skeptou.css ]; then
+            cp assets/css/skeptou.css modules/strategia/dist/skeptou.css
+          fi
+
+          # Borges fonts (Access-gated subdomain; license applies)
+          if ls assets/fonts/Borges-*.ttf 1>/dev/null 2>&1; then
+            cp assets/fonts/Borges-*.ttf modules/strategia/dist/fonts/borges/
+          fi
+
+          # Pages Functions
           cp -r modules/strategia/functions modules/strategia/dist/functions
+
           echo "dist/ contents:"
           find modules/strategia/dist -not -type d | sort
 
-      # ── Step 3: Deploy to Cloudflare Pages ─────────────────────────────
+      # ── Step 5: Create Pages project (idempotent) ─────────────────────────
+      # Creates the CF Pages project if it does not already exist.
+      # Doing it explicitly here lets us configure bindings BEFORE deploy.
+      - name: Ensure Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/strategia" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Creating Pages project strategia..."
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"name": "strategia", "production_branch": "main"}' | jq '.success, .errors'
+          else
+            echo "Pages project strategia already exists"
+          fi
+
+      # ── Step 6: Configure Pages bindings + secrets ────────────────────────
+      # Sets STRATEGIA_DB, OP_DB, STRATEGIA_R2 bindings plus env vars and
+      # HMAC_SECRET on the production deployment config. Running before deploy
+      # ensures the first deployment has the right bindings.
+      #
+      # HMAC_SECRET: skipped with a warning if the GH secret is not set.
+      # Add it once: repo Settings → Secrets → Actions → HMAC_SECRET = <value>.
+      - name: Configure Pages bindings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          HMAC_SECRET: ${{ secrets.HMAC_SECRET }}
+        run: |
+          if [ -z "$HMAC_SECRET" ]; then
+            echo "::warning::HMAC_SECRET GitHub secret is not set — auth will run in dev mode. Add HMAC_SECRET to repo secrets to enable auth."
+            HMAC_BLOCK=''
+          else
+            HMAC_BLOCK=$(jq -n --arg v "$HMAC_SECRET" \
+              '{"HMAC_SECRET": {"type": "secret_text", "value": $v}}')
+          fi
+
+          BASE_BINDINGS=$(jq -n \
+            --arg db_id "$DB_ID" \
+            '{
+               "d1_databases":  {
+                 "STRATEGIA_DB": { "id": $db_id },
+                 "OP_DB":        { "id": "6321abe6-ed91-4577-8d82-c9dbf688795c" }
+               },
+               "r2_buckets":    { "STRATEGIA_R2":  { "name": "skeptou-strategia" } },
+               "env_vars": {
+                 "AUTH_DOMAIN": { "type": "plain_text", "value": "https://auth.skeptou.com" },
+                 "COOKIE_NAME": { "type": "plain_text", "value": "__skeptou_session"         }
+               }
+             }')
+
+          if [ -n "$HMAC_BLOCK" ]; then
+            PROD_CONFIG=$(echo "$BASE_BINDINGS" | \
+              jq --argjson h "$HMAC_BLOCK" '.env_vars += $h')
+          else
+            PROD_CONFIG="$BASE_BINDINGS"
+          fi
+
+          PAYLOAD=$(jq -n --argjson cfg "$PROD_CONFIG" \
+            '{"deployment_configs": {"production": $cfg}}')
+
+          curl -sf -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/strategia" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" | jq '.success, .errors'
+
+      # ── Step 7: Deploy to Cloudflare Pages ───────────────────────────────
       - name: Deploy to Cloudflare Pages
         working-directory: modules/strategia/dist
         run: npx wrangler@3 pages deploy . --project-name strategia --branch main --commit-dirty=true --commit-message "ci-deploy"
@@ -50,7 +225,36 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-    # ── Secrets registry ────────────────────────────────────────────────────
-    # GitHub Actions repo secrets:
-    #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED]
-    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED]
+      # ── Step 8: Attach custom domain (idempotent) ─────────────────────────
+      # CF Pages API creates both the domain binding and the DNS CNAME record
+      # in the skeptou.com zone (same CF account). Idempotent: skips if already
+      # present. May take up to 60 s for DNS propagation after first attach.
+      - name: Attach custom domain
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          EXISTING=$(curl -sf \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/strategia/domains" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            | jq -r '[.result[]?.name] | join(",")')
+
+          if echo "$EXISTING" | grep -qF "strategia.skeptou.com"; then
+            echo "Custom domain strategia.skeptou.com already attached"
+          else
+            echo "Attaching custom domain strategia.skeptou.com..."
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/strategia/domains" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"name": "strategia.skeptou.com"}' | jq '.success, .errors'
+          fi
+
+    # ── Secrets registry ─────────────────────────────────────────────────────
+    # GitHub Actions repo secrets (Settings → Secrets → Actions):
+    #   CLOUDFLARE_API_TOKEN   — Must have permissions: D1:Edit, R2:Edit,
+    #                            Pages:Edit, Workers Routes:Edit, Zone DNS:Edit
+    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
+    #   HMAC_SECRET            — 32-byte base64url HMAC key
+    #                            Same value as auth.skeptou.com's HMAC_SECRET.
+    #                            Add once; reused by all gated subdomains.
