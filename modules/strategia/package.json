@@ -2,11 +2,11 @@
   "name": "strategia",
   "version": "0.1.0",
   "private": true,
-  "description": "Strategia — document archive and viewer for skeptou.com",
+  "description": "Strategia — private document viewer for strategia.skeptou.com",
   "scripts": {
     "d1:migrate":       "npx wrangler@3 d1 migrations apply skeptou-strategia --remote",
     "d1:migrate:local": "npx wrangler@3 d1 migrations apply skeptou-strategia --local",
-    "dev":              "npx wrangler@3 pages dev public --d1 DB=skeptou-strategia"
+    "dev":              "npx wrangler@3 pages dev static --d1 STRATEGIA_DB=skeptou-strategia"
   },
   "engines": {
     "node": ">=20"

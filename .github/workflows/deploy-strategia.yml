@@ -25,9 +25,6 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Step 1: Copy design tokens, CSS, and fonts ──────────────────────
-      # assets/branding/tokens/design-tokens.css  → modules/strategia/public/
-      # assets/css/skeptou.css                    → modules/strategia/public/
-      # assets/fonts/Borges-*.ttf                 → modules/strategia/public/fonts/borges/
       - name: Copy design assets
         run: |
           cp assets/branding/tokens/design-tokens.css modules/strategia/static/design-tokens.css
@@ -36,7 +33,6 @@ jobs:
           cp assets/fonts/Borges-*.ttf modules/strategia/static/fonts/borges/
 
       # ── Step 2: Build dist/ ─────────────────────────────────────────────
-      # Flatten public/ → dist/, include functions/ for Pages Functions.
       - name: Build dist
         run: |
           rm -rf modules/strategia/dist
@@ -47,13 +43,6 @@ jobs:
           find modules/strategia/dist -not -type d | sort
 
       # ── Step 3: Deploy to Cloudflare Pages ─────────────────────────────
-      # Pages project name: strategia
-      # Bindings (set in CF dashboard → strategia → Settings → Functions):
-      #   DB            — D1: skeptou-strategia
-      #   OP_DB         — D1: skeptou-op  (shared service_tokens, S-4)
-      #   STRATEGIA_R2  — R2: skeptou-strategia
-      # Secrets (CF dashboard → strategia → Settings → Variables):
-      #   HMAC_SECRET   — session cookie signing key (same as phronesis)
       - name: Deploy to Cloudflare Pages
         working-directory: modules/strategia/dist
         run: npx wrangler@3 pages deploy . --project-name strategia --branch main --commit-dirty=true --commit-message "ci-deploy"
@@ -62,10 +51,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     # ── Secrets registry ────────────────────────────────────────────────────
-    # GitHub Actions repo secrets (Settings → Secrets → Actions):
+    # GitHub Actions repo secrets:
     #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED]
     #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED]
-    #
-    # Cloudflare Pages secrets (CF dashboard → strategia → Settings → Variables):
-    #   HMAC_SECRET   — same 32-byte base64url key as phronesis
-    #   AUTH_DOMAIN   — https://auth.skeptou.com (optional, default used if absent)
