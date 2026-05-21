@@ -1,0 +1,353 @@
+/* viewer.css — Strategia document viewer */
+/* Design tokens inline (copied at build time from assets/branding/tokens/design-tokens.css) */
+
+:root {
+  --color-parchment:   #fcf5e5;
+  --color-purple:      #301934;
+  --color-mauve:       #915f6d;
+  --color-wine:        #722f37;
+  --color-quartz:      #51414f;
+  --color-coral:       #f08080;
+  --color-light-steel: #b0c4de;
+  --color-steel:       #4682b4;
+  --font-body:         'Borges-Gris', serif;
+  --font-bold:         'Borges-Negra', serif;
+  --font-light:        'Borges-Blanca', serif;
+  --font-display:      'Borges-TituloBlanca', serif;
+  --font-ornament:     'Cinzel', serif;
+  --line-height:       1.5;
+  --section-margin:    1.75rem;
+  --rule-weight:       1px;
+  --rule-color:        var(--color-mauve);
+}
+
+/* ── Borges webfonts (served from /fonts/borges/ at runtime) ─────────────── */
+@font-face { font-family: 'Borges-Gris';         src: url('/fonts/borges/Borges-Gris.ttf')         format('truetype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Borges-GrisItalic';   src: url('/fonts/borges/Borges-GrisItalic.ttf')   format('truetype'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Borges-Negra';        src: url('/fonts/borges/Borges-Negra.ttf')        format('truetype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Borges-Blanca';       src: url('/fonts/borges/Borges-Blanca.ttf')       format('truetype'); font-weight: 300; font-style: normal; }
+@font-face { font-family: 'Borges-TituloBlanca'; src: url('/fonts/borges/Borges-TituloBlanca.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--color-parchment);
+  color:       var(--color-purple);
+  font-family: var(--font-body);
+  font-size:   16px;
+  line-height: var(--line-height);
+  min-height:  100vh;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.sk-shell {
+  display:        flex;
+  flex-direction: column;
+  min-height:     100vh;
+  max-width:      1200px;
+  margin:         0 auto;
+  padding:        0 1.5rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.sk-header {
+  display:         flex;
+  align-items:     baseline;
+  gap:             1rem;
+  padding:         1.25rem 0 0.75rem;
+  border-bottom:   var(--rule-weight) solid var(--rule-color);
+  margin-bottom:   var(--section-margin);
+}
+
+.sk-header__wordmark {
+  font-family: var(--font-ornament);
+  font-size:   1.05rem;
+  font-weight: 400;
+  color:       var(--color-mauve);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.sk-header__title {
+  font-family: var(--font-display);
+  font-size:   1.5rem;
+  font-weight: 400;
+  color:       var(--color-purple);
+}
+
+.sk-header__spacer { flex: 1; }
+
+.sk-header__back {
+  font-size:       0.85rem;
+  color:           var(--color-mauve);
+  text-decoration: none;
+  letter-spacing:  0.03em;
+}
+.sk-header__back:hover { color: var(--color-wine); }
+
+/* ── Filter bar (list view) ──────────────────────────────────────────────── */
+.sk-filters {
+  display:       flex;
+  gap:           0.75rem;
+  flex-wrap:     wrap;
+  align-items:   center;
+  margin-bottom: var(--section-margin);
+}
+
+.sk-filters label {
+  font-size:   0.8rem;
+  color:       var(--color-quartz);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sk-filters select,
+.sk-filters input[type="date"] {
+  font-family:   var(--font-body);
+  font-size:     0.875rem;
+  color:         var(--color-purple);
+  background:    var(--color-parchment);
+  border:        var(--rule-weight) solid var(--color-mauve);
+  border-radius: 2px;
+  padding:       0.3rem 0.5rem;
+  cursor:        pointer;
+}
+
+.sk-filters select:focus,
+.sk-filters input[type="date"]:focus {
+  outline:       2px solid var(--color-mauve);
+  outline-offset: 1px;
+}
+
+/* ── Document table (list view) ──────────────────────────────────────────── */
+.sk-table-wrap { overflow-x: auto; }
+
+.sk-table {
+  width:           100%;
+  border-collapse: collapse;
+  font-size:       0.9rem;
+}
+
+.sk-table thead th {
+  font-family:    var(--font-bold);
+  font-size:      0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color:          var(--color-mauve);
+  padding:        0.5rem 0.75rem;
+  text-align:     left;
+  border-bottom:  var(--rule-weight) solid var(--rule-color);
+}
+
+.sk-table tbody td {
+  padding:       0.6rem 0.75rem;
+  border-bottom: var(--rule-weight) solid rgba(145, 95, 109, 0.2);
+  vertical-align: top;
+}
+
+.sk-table tbody tr:last-child td { border-bottom: none; }
+
+.sk-table tbody tr:hover td { background: rgba(145, 95, 109, 0.04); }
+
+.sk-table__link {
+  color:           var(--color-wine);
+  text-decoration: none;
+  font-weight:     400;
+}
+.sk-table__link:hover { text-decoration: underline; }
+
+.sk-table__tag {
+  display:       inline-block;
+  font-size:     0.7rem;
+  letter-spacing: 0.04em;
+  color:         var(--color-quartz);
+  border:        1px solid rgba(145, 95, 109, 0.35);
+  border-radius: 2px;
+  padding:       0.1rem 0.35rem;
+  margin:        0.1rem 0.1rem 0 0;
+}
+
+.sk-table__date {
+  font-size:   0.825rem;
+  color:       var(--color-quartz);
+  white-space: nowrap;
+}
+
+.sk-table__empty {
+  text-align:  center;
+  color:       var(--color-quartz);
+  font-size:   0.9rem;
+  padding:     2rem 0;
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+.sk-pagination {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         var(--section-margin) 0 1rem;
+  font-size:       0.85rem;
+  color:           var(--color-quartz);
+}
+
+.sk-pagination__btn {
+  font-family:     var(--font-body);
+  font-size:       0.85rem;
+  color:           var(--color-mauve);
+  background:      transparent;
+  border:          var(--rule-weight) solid var(--rule-color);
+  border-radius:   2px;
+  padding:         0.3rem 0.75rem;
+  cursor:          pointer;
+}
+.sk-pagination__btn:hover:not(:disabled) { background: rgba(145, 95, 109, 0.08); }
+.sk-pagination__btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Viewer shell ─────────────────────────────────────────────────────────── */
+.sk-viewer {
+  display:        flex;
+  flex-direction: column;
+  flex:           1;
+  min-height:     0;
+}
+
+.sk-viewer__meta {
+  margin-bottom:  0.75rem;
+  font-size:      0.825rem;
+  color:          var(--color-quartz);
+  display:        flex;
+  gap:            1.5rem;
+  flex-wrap:      wrap;
+  align-items:    baseline;
+}
+
+.sk-viewer__meta span { white-space: nowrap; }
+.sk-viewer__meta strong { color: var(--color-mauve); font-family: var(--font-bold); }
+
+/* PDF canvas container */
+.sk-pdf-container {
+  flex:       1;
+  overflow-y: auto;
+  display:    flex;
+  flex-direction: column;
+  align-items: center;
+  gap:         0.5rem;
+  padding:     0.5rem 0 2rem;
+}
+
+.sk-pdf-container canvas {
+  max-width:    100%;
+  box-shadow:   0 1px 6px rgba(48, 25, 52, 0.12);
+  border:       var(--rule-weight) solid rgba(145, 95, 109, 0.2);
+}
+
+/* Markdown content */
+.sk-md-content {
+  flex:        1;
+  overflow-y:  auto;
+  padding:     1rem 0 3rem;
+  max-width:   72ch;
+}
+
+.sk-md-content h1, .sk-md-content h2, .sk-md-content h3 {
+  font-family:   var(--font-bold);
+  color:         var(--color-mauve);
+  margin-top:    1.5rem;
+  margin-bottom: 0.5rem;
+  font-weight:   700;
+}
+.sk-md-content h1 { font-size: 1.35rem; }
+.sk-md-content h2 { font-size: 1.1rem; }
+.sk-md-content h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.sk-md-content p  { margin-bottom: 0.75rem; }
+.sk-md-content ul,
+.sk-md-content ol { margin: 0.5rem 0 0.75rem 1.5rem; }
+.sk-md-content li { margin-bottom: 0.2rem; }
+.sk-md-content code {
+  font-size:   0.875em;
+  background:  rgba(145, 95, 109, 0.08);
+  border:      1px solid rgba(145, 95, 109, 0.2);
+  border-radius: 2px;
+  padding:     0.1em 0.3em;
+}
+.sk-md-content pre {
+  background:   rgba(48, 25, 52, 0.04);
+  border:       var(--rule-weight) solid rgba(145, 95, 109, 0.2);
+  border-radius: 2px;
+  padding:      0.75rem 1rem;
+  overflow-x:   auto;
+  margin:       0.75rem 0;
+}
+.sk-md-content pre code { background: none; border: none; padding: 0; }
+.sk-md-content blockquote {
+  border-left:   3px solid var(--color-mauve);
+  margin:        0.75rem 0;
+  padding-left:  1rem;
+  color:         var(--color-quartz);
+}
+.sk-md-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.875rem; }
+.sk-md-content th, .sk-md-content td { border: var(--rule-weight) solid rgba(145, 95, 109, 0.3); padding: 0.4rem 0.6rem; text-align: left; }
+.sk-md-content th { background: rgba(145, 95, 109, 0.08); font-family: var(--font-bold); color: var(--color-mauve); }
+.sk-md-content hr { border: none; border-top: var(--rule-weight) solid var(--rule-color); margin: 1.5rem 0; }
+
+/* Plain text */
+.sk-text-content {
+  flex:       1;
+  overflow-y: auto;
+  padding:    1rem 0 3rem;
+}
+.sk-text-content pre {
+  white-space: pre-wrap;
+  word-break:  break-word;
+  font-family: monospace;
+  font-size:   0.875rem;
+  color:       var(--color-purple);
+}
+
+/* Image viewer */
+.sk-img-content {
+  flex:            1;
+  overflow-y:      auto;
+  display:         flex;
+  justify-content: center;
+  padding:         1rem 0 3rem;
+}
+.sk-img-content img {
+  max-width:  100%;
+  height:     auto;
+  box-shadow: 0 1px 6px rgba(48, 25, 52, 0.12);
+}
+
+/* Status messages */
+.sk-status {
+  padding:   2rem 0;
+  font-size: 0.9rem;
+  color:     var(--color-quartz);
+}
+.sk-status--error { color: var(--color-wine); }
+
+/* PDF controls */
+.sk-pdf-controls {
+  display:     flex;
+  align-items: center;
+  gap:         0.75rem;
+  padding:     0.5rem 0;
+  font-size:   0.825rem;
+  color:       var(--color-quartz);
+  flex-wrap:   wrap;
+}
+.sk-pdf-controls button {
+  font-family: var(--font-body);
+  font-size:   0.825rem;
+  color:       var(--color-mauve);
+  background:  transparent;
+  border:      var(--rule-weight) solid var(--rule-color);
+  border-radius: 2px;
+  padding:     0.25rem 0.6rem;
+  cursor:      pointer;
+}
+.sk-pdf-controls button:hover:not(:disabled) { background: rgba(145, 95, 109, 0.08); }
+.sk-pdf-controls button:disabled { opacity: 0.35; cursor: default; }

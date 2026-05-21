@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Strategia — Sképtou</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/viewer.css" />
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- marked + DOMPurify for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+</head>
+<body>
+
+<div class="sk-shell">
+
+  <header class="sk-header">
+    <a href="/" class="sk-header__wordmark">Sképtou</a>
+    <span class="sk-header__title" id="doc-title">Strategia</span>
+    <span class="sk-header__spacer"></span>
+    <a href="/" class="sk-header__back">&#8592; All documents</a>
+  </header>
+
+  <div class="sk-viewer__meta" id="doc-meta" hidden>
+    <span><strong>Team:</strong> <span id="meta-team"></span></span>
+    <span><strong>Type:</strong> <span id="meta-type"></span></span>
+    <span><strong>Actor:</strong> <span id="meta-actor"></span></span>
+    <span><strong>Date:</strong> <span id="meta-date"></span></span>
+    <span><strong>Size:</strong> <span id="meta-size"></span></span>
+  </div>
+
+  <div id="status" class="sk-status" role="status" aria-live="polite">Loading&hellip;</div>
+
+  <!-- PDF controls (shown only for PDF) -->
+  <div class="sk-pdf-controls" id="pdf-controls" hidden>
+    <button id="pdf-prev" disabled>&#8592; Prev</button>
+    <span id="pdf-page-info"></span>
+    <button id="pdf-next" disabled>Next &#8594;</button>
+  </div>
+
+  <!-- Content mount point — viewer.js fills this -->
+  <div id="content-mount" class="sk-viewer"></div>
+
+</div>
+
+<script src="/viewer.js"></script>
+</body>
+</html>
