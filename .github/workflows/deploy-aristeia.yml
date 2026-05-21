@@ -10,21 +10,105 @@ on:
       - 'assets/css/**'
   workflow_dispatch:
 
+# ── Infra note ─────────────────────────────────────────────────────────────────
+# This workflow is fully infra-as-code for aristeia.skeptou.com.
+# On every run it:
+#   1. Creates the D1 database if absent, applies migrations (idempotent)
+#   2. Creates the R2 bucket if absent
+#   3. Builds dist/ and deploys to Cloudflare Pages
+#   4. Configures D1 + R2 bindings and AUTH_DOMAIN via CF API (idempotent PATCH)
+#   5. Pushes HMAC_SECRET to Pages secrets (if HMAC_SECRET is in repo secrets)
+#   6. Attaches aristeia.skeptou.com custom domain (idempotent -- 422 if already done)
+#
+# First-run behavior: the initial deploy creates the Pages project with no
+# active bindings; the CF API PATCH immediately after sets them. A second
+# deployment (triggered by the same workflow run) activates the bindings.
+# Subsequent runs are single-deploy.
+#
+# ── Required GitHub repo secrets (Settings > Secrets > Actions) ─────────────
+#   CLOUDFLARE_API_TOKEN   -- Cloudflare API token (Pages deploy + API calls)
+#   CLOUDFLARE_ACCOUNT_ID  -- Cloudflare account ID
+#   HMAC_SECRET            -- 32-byte base64url session signing key
+#                            (shared across skeptou modules; add once to repo secrets)
+#
+# ── Cam manual steps (one-time, after first merge) ──────────────────────────
+#   1. If HMAC_SECRET is NOT already in repo secrets:
+#      Go to GitHub repo -> Settings -> Secrets and variables -> Actions
+#      Add secret: Name = HMAC_SECRET, Value = <the auth.skeptou.com HMAC key>
+#      Then re-run this workflow (workflow_dispatch).
+#
+#   2. Cloudflare Access policy (gate before any real content):
+#      CF dashboard -> Zero Trust -> Access -> Applications -> Add an application
+#        Application type: Self-hosted
+#        Application name: Aristeia
+#        Session duration: 24h
+#        Application domain: aristeia.skeptou.com (zone: skeptou.com)
+#        Next -> Policy name: Allow Cam
+#          Action: Allow | Include: Emails | Value: camh502@alumni.stanford.edu
+#        Next -> Save
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       deployments: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ── Step 1: Copy design assets ───────────────────────────────────────
+      # ── Step 1: Provision D1 database ─────────────────────────────────────
+      # Creates skeptou-aristeia if absent, always applies migrations (idempotent).
+      # Outputs database_id for later use in the CF API binding configuration.
+      - name: Provision D1 database
+        id: d1
+        run: |
+          echo "Checking for D1 database skeptou-aristeia..."
+          RAW=$(npx wrangler@3 d1 info skeptou-aristeia --json 2>/dev/null || echo "")
+          DB_ID=$(printf '%s' "$RAW" | jq -r '.uuid // empty' 2>/dev/null || echo "")
+
+          if [ -z "$DB_ID" ]; then
+            echo "Database not found -- creating..."
+            CREATE_RAW=$(npx wrangler@3 d1 create skeptou-aristeia --json)
+            DB_ID=$(printf '%s' "$CREATE_RAW" | jq -r '.uuid')
+            echo "Created D1 database: $DB_ID"
+          else
+            echo "D1 database exists: $DB_ID"
+          fi
+
+          echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
+
+      # ── Step 2: Apply D1 migrations ──────────────────────────────────────
+      # Idempotent -- wrangler tracks applied migrations; only new ones run.
+      - name: Apply D1 migrations
+        run: |
+          echo "Applying migrations to skeptou-aristeia..."
+          npx wrangler@3 d1 migrations apply skeptou-aristeia --remote
+          echo "Migrations applied."
+
+      # ── Step 3: Provision R2 bucket ───────────────────────────────────────
+      # Creates skeptou-aristeia bucket if absent.
+      - name: Provision R2 bucket
+        run: |
+          echo "Checking for R2 bucket skeptou-aristeia..."
+          BUCKET_EXISTS=$(npx wrangler@3 r2 bucket list --json 2>/dev/null \
+            | jq -e 'any(.[]; .name == "skeptou-aristeia")' 2>/dev/null || echo "false")
+
+          if [ "$BUCKET_EXISTS" != "true" ]; then
+            echo "Bucket not found -- creating..."
+            npx wrangler@3 r2 bucket create skeptou-aristeia
+            echo "R2 bucket created."
+          else
+            echo "R2 bucket already exists."
+          fi
+
+      # ── Step 4: Copy design assets ───────────────────────────────────────
       - name: Copy design assets
         run: |
           cp assets/branding/tokens/design-tokens.css modules/aristeia/static/design-tokens.css
@@ -32,46 +116,132 @@ jobs:
           mkdir -p modules/aristeia/static/fonts/borges
           cp assets/fonts/Borges-*.ttf modules/aristeia/static/fonts/borges/
 
-      # ── Step 2: Build dist ────────────────────────────────────────────────
+      # ── Step 5: Build dist/ ───────────────────────────────────────────────
       - name: Build dist
         run: |
           rm -rf modules/aristeia/dist
           mkdir -p modules/aristeia/dist
-          # App shell
           cp modules/aristeia/index.html modules/aristeia/dist/
           cp modules/aristeia/view.html  modules/aristeia/dist/
-          # Static assets (CSS, fonts, _headers)
           cp -r modules/aristeia/static/. modules/aristeia/dist/
-          # Pages Functions
           cp -r modules/aristeia/functions modules/aristeia/dist/functions
           echo "=== dist/ ==="
           find modules/aristeia/dist -not -type d | sort
 
-      # ── Step 3: Deploy to Cloudflare Pages ───────────────────────────────
-      # Run `wrangler pages deploy .` with CWD = dist/ so wrangler finds
-      # ./functions/ alongside static assets and bundles them as Pages Functions.
+      # ── Step 6: Deploy to Cloudflare Pages ───────────────────────────────
+      # Creates the Pages project on first run; deploys on subsequent runs.
+      # Bindings configured in Step 7 take effect on the *next* deployment;
+      # Step 8 does a second deploy to ensure they are active from this run.
       - name: Deploy to Cloudflare Pages
+        id: deploy
         working-directory: modules/aristeia/dist
-        run: npx wrangler@3 pages deploy . --project-name aristeia --branch main --commit-dirty=true --commit-message "ci-deploy"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@3 pages deploy . \
+            --project-name aristeia \
+            --branch main \
+            --commit-dirty=true \
+            --commit-message "ci-deploy"
 
-    # ── Secrets registry ──────────────────────────────────────────────────────
-    # GitHub Actions repo secrets (Settings → Secrets → Actions):
-    #   CLOUDFLARE_API_TOKEN   — Pages deploy permission        [REQUIRED]
-    #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID          [REQUIRED]
-    #
-    # Cloudflare Pages secrets (CF dashboard → aristeia → Settings → Variables):
-    #   HMAC_SECRET            — 32-byte base64url HMAC key (auth-core shared secret)
-    #   AUTH_DOMAIN            — "https://auth.skeptou.com"
-    #
-    # Cloudflare Pages bindings (CF dashboard → aristeia → Settings → Functions):
-    #   D1 binding  DB            → skeptou-aristeia
-    #   R2 binding  ARISTEIA_R2   → skeptou-aristeia
-    #
-    # DevOps setup (one-time, before first deploy):
-    #   wrangler d1 create skeptou-aristeia
-    #   wrangler d1 migrations apply skeptou-aristeia --remote
-    #   wrangler r2 bucket create skeptou-aristeia
-    #   # Add database_id to wrangler.toml, then configure dashboard bindings
+      # ── Step 7: Configure Pages bindings + env vars via CF API ───────────
+      # Sets D1 (ARISTEIA_DB), R2 (ARISTEIA_R2), and AUTH_DOMAIN for the
+      # production deployment config. Idempotent PATCH -- safe to run every time.
+      # Requires the Pages project to already exist (created in Step 6).
+      - name: Configure Pages bindings and env vars
+        id: configure_bindings
+        run: |
+          DB_ID="${{ steps.d1.outputs.database_id }}"
+          echo "Configuring bindings: ARISTEIA_DB=$DB_ID, ARISTEIA_R2=skeptou-aristeia"
+
+          HTTP_STATUS=$(curl -s -o /tmp/cf_patch_resp.json -w "%{http_code}" \
+            -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/aristeia" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"deployment_configs\": {
+                \"production\": {
+                  \"d1_databases\": {
+                    \"ARISTEIA_DB\": {\"id\": \"${DB_ID}\"}
+                  },
+                  \"r2_buckets\": {
+                    \"ARISTEIA_R2\": {\"name\": \"skeptou-aristeia\"}
+                  },
+                  \"env_vars\": {
+                    \"AUTH_DOMAIN\": {
+                      \"value\": \"https://auth.skeptou.com\",
+                      \"type\": \"plain_text\"
+                    }
+                  }
+                }
+              }
+            }")
+
+          echo "CF API response HTTP $HTTP_STATUS:"
+          jq '.' /tmp/cf_patch_resp.json
+
+          SUCCESS=$(jq -r '.success' /tmp/cf_patch_resp.json)
+          if [ "$SUCCESS" != "true" ]; then
+            echo "Warning: CF API PATCH did not return success=true (HTTP $HTTP_STATUS)"
+            echo "Run workflow_dispatch again to retry binding configuration."
+          else
+            echo "Bindings configured successfully."
+            echo "bindings_configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Step 8: Re-deploy to activate newly configured bindings ──────────
+      # A second Pages deploy is needed for D1/R2 bindings to be active in
+      # Pages Functions. This step only runs when bindings were just configured
+      # (first run or binding update). On subsequent runs where nothing changed
+      # the first deploy already has the right bindings.
+      - name: Re-deploy to activate bindings
+        if: steps.configure_bindings.outputs.bindings_configured == 'true'
+        working-directory: modules/aristeia/dist
+        run: |
+          echo "Re-deploying to activate D1/R2 bindings..."
+          npx wrangler@3 pages deploy . \
+            --project-name aristeia \
+            --branch main \
+            --commit-dirty=true \
+            --commit-message "ci-deploy-activate-bindings"
+
+      # ── Step 9: Push HMAC_SECRET to Pages ────────────────────────────────
+      # Pushes the session signing secret to the Pages project.
+      # Requires HMAC_SECRET to be set in GitHub repo secrets.
+      # If not set, logs a reminder and skips (Cam adds it once -- see header).
+      - name: Push HMAC_SECRET to Pages
+        run: |
+          if [ -z "$HMAC_SECRET_VAL" ]; then
+            echo "HMAC_SECRET not found in repo secrets."
+            echo "Add it once: GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "Name: HMAC_SECRET | Value: <the auth.skeptou.com HMAC key>"
+            echo "Then re-run this workflow."
+          else
+            printf '%s' "$HMAC_SECRET_VAL" \
+              | npx wrangler@3 pages secret put HMAC_SECRET --project-name aristeia
+            echo "HMAC_SECRET pushed to Pages."
+          fi
+        env:
+          HMAC_SECRET_VAL: ${{ secrets.HMAC_SECRET }}
+
+      # ── Step 10: Attach custom domain ─────────────────────────────────────
+      # Attaches aristeia.skeptou.com to the Pages project via CF API.
+      # Returns 422 if already attached -- handled gracefully.
+      # Requires the skeptou.com zone to be in the Cloudflare account.
+      - name: Attach aristeia.skeptou.com custom domain
+        run: |
+          echo "Attaching aristeia.skeptou.com to Pages project aristeia..."
+          HTTP=$(curl -s -o /tmp/cf_domain_resp.json -w "%{http_code}" \
+            -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/aristeia/domains" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"name": "aristeia.skeptou.com"}')
+
+          echo "Response HTTP $HTTP:"
+          jq '.' /tmp/cf_domain_resp.json
+
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "409" ] || [ "$HTTP" = "422" ]; then
+            echo "Custom domain step complete (200=attached, 409/422=already exists -- OK)."
+          else
+            echo "Warning: unexpected HTTP $HTTP from domain attachment. Check CF dashboard."
+          fi

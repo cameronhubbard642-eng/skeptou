@@ -19,7 +19,7 @@ compatibility_date = "2026-05-01"
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
-binding = "DB"
+binding = "ARISTEIA_DB"
 database_name = "skeptou-aristeia"
 database_id = "FILL_AFTER_CREATE"
 

@@ -18,7 +18,7 @@ export async function onRequestGet(ctx) {
   const auth = await validateSession(request, env);
   if (!auth.authenticated) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-  if (!env.DB) return jsonResponse({ error: 'Database not configured' }, 503);
+  if (!env.ARISTEIA_DB) return jsonResponse({ error: 'Database not configured' }, 503);
 
   const url    = new URL(request.url);
   const status = url.searchParams.get('status') || null;
@@ -51,8 +51,8 @@ export async function onRequestGet(ctx) {
     dataParams.push(limit, offset);
 
     const [countResult, dataResult] = await Promise.all([
-      env.DB.prepare(countSql).bind(...countParams).first(),
-      env.DB.prepare(dataSql).bind(...dataParams).all(),
+      env.ARISTEIA_DB.prepare(countSql).bind(...countParams).first(),
+      env.ARISTEIA_DB.prepare(dataSql).bind(...dataParams).all(),
     ]);
 
     const rows = (dataResult.results || []).map(function(row) {
