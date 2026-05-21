@@ -112,10 +112,12 @@ export async function onRequestGet(ctx) {
     displayName  = `${slug}-current-handout.pdf`;
 
   } else if (TAGGED_SLIDES_RE.test(filename)) {
-    /* Tagged slides version: compiled/<slug>/<slug>-slides.pdf @ tag ref */
+    /* Tagged slides version: compiled/<slug>/<slug>-slides.pdf @ tag ref.
+       Tags live in a per-paper namespace (<slug>/style-V), so the slug
+       prefix is added here even though the filename URL omits it. */
     const tag    = filename.match(TAGGED_SLIDES_RE)[2];
     ghPath       = `compiled/${slug}/${slug}-slides.pdf`;
-    ghRef        = tag;
+    ghRef        = `${slug}/${tag}`;
     cacheControl = 'public, max-age=31536000, immutable';
     displayName  = filename;
 
@@ -123,7 +125,7 @@ export async function onRequestGet(ctx) {
     /* Tagged handout version: compiled/<slug>/<slug>-handout.pdf @ tag ref */
     const tag    = filename.match(TAGGED_HANDOUT_RE)[2];
     ghPath       = `compiled/${slug}/${slug}-handout.pdf`;
-    ghRef        = tag;
+    ghRef        = `${slug}/${tag}`;
     cacheControl = 'public, max-age=31536000, immutable';
     displayName  = filename;
 
@@ -144,13 +146,14 @@ export async function onRequestGet(ctx) {
     displayName  = filename;
 
   } else {
-    /* Tagged canonical version: papers/<slug>/main.pdf at the git tag ref
-       Filename is <slug>-style-<roman>.pdf; parse the tag back out. */
+    /* Tagged canonical version: papers/<slug>/main.pdf at the git tag ref.
+       URL filename is <slug>-style-<roman>.pdf; the git tag lives in the
+       per-paper namespace at <slug>/style-<roman>. */
     const m = filename.match(TAGGED_VERSION_RE);
     if (!m) return jsonError('Unrecognised filename pattern', 400);
     const tag    = m[2]; /* e.g. "style-II" */
     ghPath       = `papers/${slug}/main.pdf`;
-    ghRef        = tag;  /* git tag ref — promote-paper.yml tags energeia at each promotion */
+    ghRef        = `${slug}/${tag}`;
     cacheControl = 'public, max-age=31536000, immutable';
     displayName  = filename;
   }

@@ -1,11 +1,15 @@
 /**
  * GET /api/energeia/versions/:slug — version history for a paper
  *
- * Promotions are recorded as annotated git tags on agora: style-<ROMAN> for
- * major versions, style-<ROMAN>.<n> for minor patches. promote.yml writes the
- * tag message as:
+ * Promotions are recorded as annotated git tags on agora in a per-paper
+ * namespace: refs/tags/<slug>/style-<ROMAN> for majors, refs/tags/<slug>/
+ * style-<ROMAN>.<n> for minor patches. The display name (returned as `tag`)
+ * is just the suffix (style-V), since the slug prefix is a git-namespace
+ * concern, not user-visible.
  *
- *   style-V
+ * promote.yml writes the tag message as:
+ *
+ *   <slug>/style-V
  *   slug: <slug>
  *   source: dunamis/<slug>-<direction>
  *   classification: major|minor
@@ -13,10 +17,8 @@
  *   diff_pct: NN%
  *   note: <free text>
  *
- * This Worker lists the style-* tags, reads each annotation, keeps the ones
- * for <slug>, and returns them oldest-first with minor patches grouped under
- * their major. papers-list does not carry version history, so the paper-detail
- * page loads this lazily.
+ * Returned oldest-first with minor patches grouped under their major. The
+ * paper-detail page loads this lazily.
  *
  * Response: { slug, versions: [ { tag, date, note, lineage, classification, minors:[…] } ] }
  *
@@ -46,17 +48,21 @@ export async function onRequestGet(ctx) {
   };
 
   try {
-    /* All refs under tags/style- (prefix match → array, or 404 when none). */
+    /* Refs under tags/<slug>/style- — per-paper namespace, no cross-paper
+       filtering needed (prefix match → array, or 404 when this paper has
+       no promotions). */
     const refsResp = await fetch(
-      `https://api.github.com/repos/${env.AGORA_REPO}/git/refs/tags/style-`, { headers });
+      `https://api.github.com/repos/${env.AGORA_REPO}/git/refs/tags/${slug}/style-`,
+      { headers });
+    if (refsResp.status === 404) return jsonResponse({ slug, versions: [] });
     if (!refsResp.ok) return jsonResponse({ slug, versions: [] });
     const refs = await refsResp.json();
     const refList = Array.isArray(refs) ? refs : [refs];
 
     const items = [];
     for (const ref of refList) {
-      const tag = (ref.ref || '').replace('refs/tags/', '');
-      if (!/^style-[IVXLCDM]+(\.\d+)?$/.test(tag)) continue;
+      const suffix = (ref.ref || '').replace(`refs/tags/${slug}/`, '');
+      if (!/^style-[IVXLCDM]+(\.\d+)?$/.test(suffix)) continue;
 
       let message = '', date = '';
       if (ref.object && ref.object.type === 'tag') {
@@ -70,14 +76,13 @@ export async function onRequestGet(ctx) {
         }
       }
       const meta = parseTagMessage(message);
-      if (meta.slug !== slug) continue;
 
       items.push({
-        tag,
+        tag:            suffix,           /* display label — slug prefix stripped */
         date,
         note:           meta.note || '',
         lineage:        meta.source || '',
-        classification: meta.classification || (tag.includes('.') ? 'minor' : 'major'),
+        classification: meta.classification || (suffix.includes('.') ? 'minor' : 'major'),
       });
     }
 

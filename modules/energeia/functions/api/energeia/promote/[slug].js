@@ -223,69 +223,54 @@ async function computeDiffEstimate(pat, repo, branch, slug) {
 
 /* ── Next tag computation ───────────────────────────────────────────────── */
 async function computeNextTag(pat, repo, slug, classification) {
+  /* Tags live in a per-paper namespace: refs/tags/<slug>/style-<ROMAN>[.n].
+     This sidesteps git's global tag-name uniqueness: every paper's counter
+     starts at style-I with no chance of cross-paper collision. */
   const headers = {
     'Authorization': `Bearer ${pat}`,
     'Accept':        'application/vnd.github.v3+json',
     'User-Agent':    'energeia-skeptou',
   };
   try {
-    /* style-* tags are GLOBAL on agora — different papers share the namespace.
-       Filter to this paper's tags by reading each annotated tag's `slug:`
-       line (matches what promote.yml writes and what versions/[slug] reads),
-       then derive the next version from THIS paper's history only. */
     const refsResp = await fetch(
-      `https://api.github.com/repos/${repo}/git/refs/tags/style-`, { headers });
-    if (!refsResp.ok) return classification === 'major' ? 'style-I' : 'style-I';
+      `https://api.github.com/repos/${repo}/git/refs/tags/${slug}/style-`,
+      { headers });
+    if (!refsResp.ok) return `${slug}/style-I`;
 
     const refs = await refsResp.json();
     const refList = Array.isArray(refs) ? refs : [refs];
 
-    /* Resolve each annotated tag to its slug and tag name. Lightweight tags
-       (no annotation) are ignored — promote.yml always writes annotated. */
-    const paperMajors = [];   // [{ name, n }]
-    const paperMinors = {};   // { 'IV': [1,2], ... }
+    const majors = [];   // [{ suffix, n }]
+    const minors = {};   // { 'IV': [1,2], ... }
     for (const ref of refList) {
-      const tag = (ref.ref || '').replace('refs/tags/', '');
-      const mMajor = /^style-([IVXLCDM]+)$/.exec(tag);
-      const mMinor = /^style-([IVXLCDM]+)\.(\d+)$/.exec(tag);
-      if (!mMajor && !mMinor) continue;
-      if (!ref.object || ref.object.type !== 'tag') continue;
-
-      const tagResp = await fetch(
-        `https://api.github.com/repos/${repo}/git/tags/${ref.object.sha}`, { headers });
-      if (!tagResp.ok) continue;
-      const t = await tagResp.json();
-      const slugLine = (t.message || '')
-        .split('\n')
-        .find((l) => l.startsWith('slug:'));
-      if (!slugLine) continue;
-      if (slugLine.slice('slug:'.length).trim() !== slug) continue;
-
-      if (mMajor) {
-        paperMajors.push({ name: tag, n: romanToInt(mMajor[1]) });
-      } else {
-        (paperMinors[mMinor[1]] = paperMinors[mMinor[1]] || []).push(parseInt(mMinor[2], 10));
+      const suffix = (ref.ref || '').replace(`refs/tags/${slug}/`, '');
+      const mMaj = /^style-([IVXLCDM]+)$/.exec(suffix);
+      const mMin = /^style-([IVXLCDM]+)\.(\d+)$/.exec(suffix);
+      if (mMaj) {
+        majors.push({ suffix, n: romanToInt(mMaj[1]) });
+      } else if (mMin) {
+        (minors[mMin[1]] = minors[mMin[1]] || []).push(parseInt(mMin[2], 10));
       }
     }
 
     /* No prior tag for this paper → start at style-I, even if classification
        is "minor" (a minor of nothing is meaningless; treat as the major start). */
-    if (paperMajors.length === 0) return 'style-I';
+    if (majors.length === 0) return `${slug}/style-I`;
 
-    paperMajors.sort((a, b) => a.n - b.n);
-    const latest = paperMajors[paperMajors.length - 1];
+    majors.sort((a, b) => a.n - b.n);
+    const latest = majors[majors.length - 1];
 
     if (classification === 'major') {
-      return `style-${intToRoman(latest.n + 1)}`;
+      return `${slug}/style-${intToRoman(latest.n + 1)}`;
     }
     /* Minor: bump the highest minor under THIS paper's latest major. */
-    const roman = latest.name.replace('style-', '');
-    const existing = paperMinors[roman] || [];
+    const roman = latest.suffix.replace('style-', '');
+    const existing = minors[roman] || [];
     const next = existing.length ? Math.max(...existing) + 1 : 1;
-    return `style-${roman}.${next}`;
+    return `${slug}/style-${roman}.${next}`;
 
   } catch (_) {
-    return classification === 'major' ? 'style-I' : 'style-I';
+    return `${slug}/style-I`;
   }
 }
 
