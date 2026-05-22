@@ -1465,6 +1465,10 @@
                 'id="word-' + slug + '-' + d.name + '">Word</button>' +
               '<a class="sk-btn sk-btn--sm" href="' + docUrl + '" target="_blank"' +
                 ' title="Word .docx — click Word first if not yet available">.docx</a>' +
+              '<button class="sk-btn sk-btn--sm" ' +
+                'title="Override the title block (title, subtitle, author, affiliation, date) without editing Scrivener" ' +
+                'onclick="openTitleMetaModal(\'' + slug + '\',\'' + d.name + '\')" ' +
+                'id="titlemeta-' + slug + '-' + d.name + '">Title…</button>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                 'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')" ' +
                 'id="archive-' + slug + '-' + d.name + '">Archive</button>'
@@ -1704,6 +1708,9 @@
                   'onclick="compileWord(\'' + slug + '\',\'' + d.name + '\')">Word</button>' +
                 '<a class="sk-btn sk-btn--sm" href="' + docUrl + '" target="_blank"' +
                   ' title="Word .docx — click Word first if not yet available">.docx</a>' +
+                '<button class="sk-btn sk-btn--sm" ' +
+                  'title="Override the title block (title, subtitle, author, affiliation, date) without editing Scrivener" ' +
+                  'onclick="openTitleMetaModal(\'' + slug + '\',\'' + d.name + '\')">Title…</button>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
                   'onclick="archiveDirection(\'' + slug + '\',\'' + d.name + '\')">Archive</button>'
               : '<button class="sk-btn sk-btn--sm sk-btn--danger" ' +
@@ -2308,6 +2315,121 @@
     } catch (e) {
       if (fb) fb.textContent = 'Refreshing to confirm…';
       setTimeout(function() { location.reload(); }, 2500);
+    }
+  }
+
+  /* ── Title-meta override (per-direction sidecar) ─────────────────────── */
+  /* Edits papers/<slug>/title-meta.yaml on dunamis/<slug>-<direction>. The
+     compile workflows read it and inject \AtBeginDocument overrides via
+     PRETEX, so empty fields fall through to whatever Scrivener emitted. */
+  function openTitleMetaModal(slug, direction) {
+    var branch = 'dunamis/' + slug + '-' + direction;
+    var fields = [
+      { key: 'title',              label: 'Title',          rows: 2 },
+      { key: 'subtitle',           label: 'Subtitle',       rows: 2 },
+      { key: 'author',             label: 'Author',         rows: 1 },
+      { key: 'articleaffiliation', label: 'Affiliation',    rows: 1 },
+      { key: 'date',               label: 'Date',           rows: 1 }
+    ];
+    var inputs = fields.map(function(f) {
+      var id = 'tm-' + f.key;
+      return '<label style="display:block;margin-bottom:.6rem;font-size:.78rem;color:var(--color-quartz);">' +
+        '<span style="display:block;margin-bottom:.15rem;letter-spacing:.04em;text-transform:uppercase;font-size:.7rem;">' +
+          escHtml(f.label) + '</span>' +
+        '<textarea id="' + id + '" rows="' + f.rows + '" ' +
+          'style="width:100%;font-family:inherit;font-size:.85rem;padding:.4rem .5rem;' +
+          'border:1px solid #d6c9b5;border-radius:3px;background:#fffdf7;resize:vertical;" ' +
+          'placeholder="(falls through to Scrivener default)" disabled>Loading…</textarea>' +
+      '</label>';
+    }).join('');
+
+    var content = '<h2 class="sk-modal__title" id="sk-modal-title">Title metadata — ' +
+        escHtml(slug) + ' / ' + escHtml(direction) + '</h2>' +
+      '<div class="sk-modal__body">' +
+        '<p style="font-size:.78rem;color:var(--color-quartz);margin:-.2rem 0 .9rem 0;">' +
+          'Override the title block for <code>' + escHtml(branch) + '</code>. ' +
+          'LaTeX commands are allowed (e.g. <code>\\emph{...}</code>). ' +
+          'Leave a field blank to fall back to whatever Scrivener compiled into the .tex.' +
+        '</p>' +
+        inputs +
+      '</div>' +
+      '<div class="sk-modal__footer">' +
+        '<button class="sk-btn sk-btn--accept" id="tm-save" ' +
+          'onclick="saveTitleMeta(\'' + escHtml(slug) + '\',\'' + escHtml(direction) + '\')" disabled>Save</button>' +
+        '<button class="sk-btn" onclick="closeModal()">Cancel</button>' +
+        '<span id="tm-feedback" class="sk-inline-feedback" style="margin-left:.5rem;"></span>' +
+      '</div>';
+    openModal(content);
+    loadTitleMeta(slug, direction);
+  }
+
+  async function loadTitleMeta(slug, direction) {
+    var fb       = document.getElementById('tm-feedback');
+    var saveBtn  = document.getElementById('tm-save');
+    var fieldIds = ['title', 'subtitle', 'author', 'articleaffiliation', 'date'];
+    try {
+      var resp = await fetch('/api/energeia/title-meta/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        credentials: 'same-origin', redirect: 'manual'
+      });
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        return;
+      }
+      if (!resp.ok) {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Could not load: ' + (err.error || resp.statusText);
+        return;
+      }
+      var data = await resp.json();
+      var v = data.values || {};
+      fieldIds.forEach(function(k) {
+        var el = document.getElementById('tm-' + k);
+        if (el) { el.value = v[k] || ''; el.disabled = false; el.placeholder = '(falls through to Scrivener default)'; }
+      });
+      if (saveBtn) saveBtn.disabled = false;
+      if (fb) fb.textContent = data.exists ? 'Loaded existing sidecar.' : 'No sidecar yet — fields empty.';
+    } catch (e) {
+      if (fb) fb.textContent = 'Load failed: ' + e.message;
+    }
+  }
+
+  async function saveTitleMeta(slug, direction) {
+    var saveBtn = document.getElementById('tm-save');
+    var fb      = document.getElementById('tm-feedback');
+    var values  = {};
+    ['title', 'subtitle', 'author', 'articleaffiliation', 'date'].forEach(function(k) {
+      var el = document.getElementById('tm-' + k);
+      values[k] = el ? el.value : '';
+    });
+    if (saveBtn) saveBtn.disabled = true;
+    if (fb) fb.textContent = 'Saving…';
+    try {
+      var resp = await fetch('/api/energeia/title-meta/' +
+                              encodeURIComponent(slug) + '/' +
+                              encodeURIComponent(direction), {
+        method: 'PUT',
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: values })
+      });
+      if (resp.type === 'opaqueredirect' || resp.status === 0) {
+        if (fb) fb.textContent = 'Session expired — reload to log in.';
+        if (saveBtn) saveBtn.disabled = false;
+      } else if (resp.ok) {
+        var data = await resp.json();
+        if (fb) fb.textContent = (data.status === 'unchanged' ? 'No change.' : 'Saved ✓ — recompile to apply.');
+        if (saveBtn) saveBtn.disabled = false;
+      } else {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        if (fb) fb.textContent = 'Error: ' + (err.error || resp.statusText);
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    } catch (e) {
+      if (fb) fb.textContent = 'Save failed: ' + e.message;
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
