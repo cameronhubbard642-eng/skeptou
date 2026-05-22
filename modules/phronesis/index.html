@@ -434,8 +434,19 @@
     });
   }
 
-  /* ── Task completion state (session-only; not persisted) ─────────────── */
+  /* ── Task completion state (session-only override) ───────────────────── */
+  /* Stores the user's in-session check/uncheck intent — used for optimistic
+     UI and to win against the stale TASKS_DATA copy until next reload. */
   var completedTasks = {};
+
+  /* Is this task done? In-session override wins; otherwise consult the
+     persisted status from D1 (so completed tasks stay struck-through on
+     reload, even though completedTasks resets each session). */
+  function isTaskDone(t) {
+    return completedTasks[t.id] !== undefined
+      ? completedTasks[t.id]
+      : t.status === 'completed';
+  }
 
   /* ── Task toggle handler ─────────────────────────────────────────────── */
   /* Persists to D1: check → POST /api/tasks/complete/:id; uncheck →
@@ -732,7 +743,7 @@
 
     /* Next Up: top 3 tasks by nearest due date (future only, exclude completed) */
     const nextTasks = TASKS_DATA
-      .filter(function(t) { return t.due >= today && !completedTasks[t.id]; })
+      .filter(function(t) { return t.due >= today && !isTaskDone(t); })
       .slice()
       .sort(function(a, b) { return a.due.localeCompare(b.due); })
       .slice(0, 3);
@@ -1084,7 +1095,7 @@
     });
 
     function taskRow(t) {
-      var done = !!completedTasks[t.id];
+      var done = isTaskDone(t);
       /* Only project-parented tasks link to a detail page; commitment-parented
        * tasks show the parent name as plain text (no commitment detail page yet). */
       var proj = '';
@@ -1366,7 +1377,7 @@
       html += '<h2 class="sk-section-head" data-section="§">Tasks</h2>';
       html += '<ul class="sk-task-list" role="list">';
       html += tasks.map(function(t) {
-        var done = !!completedTasks[t.id];
+        var done = isTaskDone(t);
         return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
           '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
             '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
@@ -1463,7 +1474,7 @@
       html += '<h2 class="sk-section-head" data-section="§">Tasks</h2>';
       html += '<ul class="sk-task-list" role="list">';
       html += projTasks.map(function(t) {
-        var done = !!completedTasks[t.id];
+        var done = isTaskDone(t);
         return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
           '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
             '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
