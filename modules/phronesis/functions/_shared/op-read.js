@@ -196,3 +196,161 @@ export async function handleAuditTable(request, env, tableName) {
     return errorResponse(500, 'DB_ERROR', err.message);
   }
 }
+
+/* GET /api/audit/digest?since=<iso> — categorised changes for a planning
+ * sweep. Tasks completed are surfaced with their completed_at so the
+ * planner can credit progress; status flips, creations, deletions are
+ * broken out per table. Falls back to a 7-day window if `since` is
+ * omitted. Re-uses the /api/audit scope. */
+export async function handleAuditDigest(request, env) {
+  const gate = await authGate(request, env, '/api/audit');
+  if (gate.error) return gate.error;
+  const dbErr = requireDb(env);
+  if (dbErr) return dbErr;
+
+  const url = new URL(request.url);
+  const sinceParam = url.searchParams.get('since');
+  let since;
+  if (sinceParam) {
+    if (isNaN(Date.parse(sinceParam))) {
+      return errorResponse(400, 'VALIDATION_ERROR', 'Invalid since — use ISO 8601');
+    }
+    since = sinceParam;
+  } else {
+    /* Default window: last 7 days. */
+    since = new Date(Date.now() - 7 * 86400e3).toISOString();
+  }
+  const generated = new Date().toISOString();
+
+  /* Audit rows newer than `since`. LIMIT 5001 to detect truncation. */
+  let rowsResult;
+  try {
+    rowsResult = await env.OP_DB.prepare(
+      'SELECT id, ts, table_name, row_id, operation, actor, diff FROM audit_log '
+      + 'WHERE ts > ? ORDER BY ts ASC LIMIT 5001',
+    ).bind(since).all();
+  } catch (err) {
+    console.error('digest audit query error:', err);
+    return errorResponse(500, 'DB_ERROR', err.message);
+  }
+
+  const allRows = rowsResult.results || [];
+  const truncated = allRows.length > 5000;
+  const rows = allRows.slice(0, 5000);
+
+  /* Categorise events. */
+  const events = {
+    tasks_completed:        [],
+    tasks_reopened:         [],
+    tasks_created:          [],
+    tasks_other_changes:    [],
+    tasks_deleted:          [],
+    projects_created:       [],
+    projects_changed:       [],
+    projects_deleted:       [],
+    opportunities_created:  [],
+    opportunities_changed:  [],
+    opportunities_deleted:  [],
+    commitments_created:    [],
+    commitments_changed:    [],
+    commitments_deleted:    [],
+    inventory_created:      [],
+    inventory_changed:      [],
+    inventory_deleted:      [],
+  };
+
+  for (const r of rows) {
+    let diff = {};
+    try { diff = JSON.parse(r.diff || '{}'); } catch (_) { diff = {}; }
+    const before = diff.before || {};
+    const after  = diff.after  || {};
+    const meta   = { id: r.row_id, ts: r.ts, actor: r.actor };
+    const title  = after.title || after.name || before.title || before.name || '';
+
+    if (r.operation === 'INSERT') {
+      const entry = { ...meta, title, status: after.status };
+      if (r.table_name === 'tasks') {
+        events.tasks_created.push({
+          ...entry,
+          priority:    after.priority,
+          due_date:    after.due_date || null,
+          parent_kind: after.parent_kind || null,
+          parent_id:   after.parent_id   || null,
+        });
+      } else if (r.table_name === 'projects')      events.projects_created.push(entry);
+      else if (r.table_name === 'opportunities')   events.opportunities_created.push(entry);
+      else if (r.table_name === 'commitments')     events.commitments_created.push(entry);
+      else if (r.table_name === 'inventory')       events.inventory_created.push(entry);
+    } else if (r.operation === 'DELETE') {
+      const entry = { ...meta, title };
+      if (r.table_name === 'tasks')                events.tasks_deleted.push(entry);
+      else if (r.table_name === 'projects')        events.projects_deleted.push(entry);
+      else if (r.table_name === 'opportunities')   events.opportunities_deleted.push(entry);
+      else if (r.table_name === 'commitments')     events.commitments_deleted.push(entry);
+      else if (r.table_name === 'inventory')       events.inventory_deleted.push(entry);
+    } else if (r.operation === 'UPDATE') {
+      const fromStatus = before.status;
+      const toStatus   = after.status;
+      if (r.table_name === 'tasks') {
+        if (toStatus === 'completed' && fromStatus !== 'completed') {
+          events.tasks_completed.push({
+            ...meta, title,
+            completed_at: after.completed_at || r.ts,
+            parent_kind:  after.parent_kind || null,
+            parent_id:    after.parent_id   || null,
+            priority:     after.priority,
+          });
+        } else if (fromStatus === 'completed' && toStatus !== 'completed') {
+          events.tasks_reopened.push({
+            ...meta, title, after_status: toStatus,
+          });
+        } else {
+          events.tasks_other_changes.push({
+            ...meta, title, before_status: fromStatus, after_status: toStatus,
+          });
+        }
+      } else {
+        const entry = { ...meta, title, before_status: fromStatus, after_status: toStatus };
+        if (r.table_name === 'projects')           events.projects_changed.push(entry);
+        else if (r.table_name === 'opportunities') events.opportunities_changed.push(entry);
+        else if (r.table_name === 'commitments')   events.commitments_changed.push(entry);
+        else if (r.table_name === 'inventory')     events.inventory_changed.push(entry);
+      }
+    }
+  }
+
+  /* Lightweight current-state snapshot. Non-fatal if any query fails. */
+  const state = {};
+  try {
+    const [openTasks, doneInWindow, activeProjects, openOpps] = await env.OP_DB.batch([
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM tasks WHERE status IN ('open','in_progress')"),
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM tasks WHERE status = 'completed' AND completed_at > ?"
+      ).bind(since),
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM projects WHERE status NOT IN ('archived','completed')"),
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM opportunities WHERE archived = 0"),
+    ]);
+    state.open_tasks                 = openTasks.results[0].n;
+    state.tasks_completed_in_window  = doneInWindow.results[0].n;
+    state.active_projects            = activeProjects.results[0].n;
+    state.open_opportunities         = openOpps.results[0].n;
+  } catch (err) {
+    state.error = 'state snapshot unavailable: ' + err.message;
+  }
+
+  const totals = {};
+  for (const k of Object.keys(events)) totals[k] = events[k].length;
+
+  return new Response(JSON.stringify({
+    since,
+    generated,
+    audit_rows: rows.length,
+    truncated,
+    totals,
+    state,
+    events,
+  }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+}
