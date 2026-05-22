@@ -1291,8 +1291,14 @@
     var allDirs    = paper.directions;
 
     var dirPills = allDirs.map(function(d) {
-      return '<span class="sk-dir-pill sk-dir-pill--' + d.status + '">' +
-        '<span class="sk-dir-pill__dot"></span>' + escHtml(d.name) + '</span>';
+      /* Pill = greek letter + label (when set), so the card reads
+         "α · Phil Imprint Version" instead of an inscrutable "α". Falls
+         back to the bare greek letter when no label has been recorded. */
+      var inner = '<span class="sk-dir-pill__dot"></span>' + escHtml(d.name) +
+        (d.label ? ' <span style="opacity:.85;font-weight:normal;">· ' + escHtml(d.label) + '</span>' : '');
+      return '<span class="sk-dir-pill sk-dir-pill--' + d.status + '" ' +
+        (d.label ? 'title="' + escHtml(d.label) + '"' : '') + '>' +
+        inner + '</span>';
     }).join('');
 
     var canPromote = activeDirs.length > 0 && paper.status !== 'published';
@@ -1434,11 +1440,16 @@
                    encodeURIComponent(d.name);
       return '<li class="sk-direction-item">' +
         '<div>' +
+          /* Label is the main identifier — readers should see "Phil Imprint
+             Version" before "alpha". Falls back to a placeholder when no
+             label is recorded so the row doesn't collapse silently. */
+          '<div style="font-family:\'Cinzel\',serif;font-variant-caps:small-caps;letter-spacing:.04em;color:var(--color-purple,#301934);font-size:1rem;line-height:1.2;margin-bottom:.2rem;">' +
+            (d.label ? escHtml(d.label) : '<span style="opacity:.55;font-style:italic;">no label</span>') +
+          '</div>' +
           '<div class="sk-direction-item__name">' +
             '<span class="sk-dir-pill sk-dir-pill--' + d.status + '" style="margin-right:.5rem;">' +
               '<span class="sk-dir-pill__dot"></span>' + escHtml(d.name) +
             '</span>' +
-            (d.label ? '<span style="font-size:.92rem;color:var(--color-purple,#301934);">' + escHtml(d.label) + '</span>' : '') +
           '</div>' +
           '<div class="sk-direction-item__branch">' + escHtml(d.branch) + '</div>' +
           '<div style="font-size:.72rem;color:#51414f;margin-top:.15rem;">Last commit: ' + escHtml(d.lastCommit) + '</div>' +
