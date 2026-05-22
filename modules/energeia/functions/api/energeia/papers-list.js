@@ -35,6 +35,22 @@ export async function onRequestGet(ctx) {
       } catch (_) { /* paper dir may not exist yet */ }
     }));
 
+    /* Populate each direction's lastCommit (subject + relative time) by
+       hitting GitHub's branches endpoint in parallel. Non-fatal: an archived
+       direction whose branch was deleted, or a brand-new dunamis branch that
+       hasn't propagated, falls through to an empty string and the UI hides
+       the row. */
+    const branchLookups = [];
+    papers.forEach(function(paper) {
+      paper.directions.forEach(function(dir) {
+        branchLookups.push((async function() {
+          dir.lastCommit = await fetchBranchLastCommit(
+            env.AGORA_DISPATCH_PAT, env.AGORA_REPO, dir.branch);
+        })());
+      });
+    });
+    await Promise.all(branchLookups);
+
     return jsonResponse({ generated: new Date().toISOString(), papers });
   } catch (err) {
     console.error('papers-list error:', err);
@@ -57,6 +73,53 @@ async function ghGet(pat, repo, filePath) {
   if (!resp.ok) throw new Error(`GET ${filePath}: ${resp.status} ${resp.statusText}`);
   const data = await resp.json();
   return decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
+}
+
+/* ── last-commit lookup ───────────────────────────────────────────────── */
+/* GET /repos/:owner/:repo/branches/:branch returns commit.commit.message
+   and commit.commit.author.date in one call — no need for a second
+   /commits/{sha} hop. Returns an empty string on any failure so the caller
+   can fall through. Format: "<subject> · <relative time>". */
+async function fetchBranchLastCommit(pat, repo, branch) {
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${pat}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'energeia-skeptou'
+        }
+      }
+    );
+    if (!resp.ok) return '';
+    const data = await resp.json();
+    const c = data && data.commit && data.commit.commit;
+    if (!c) return '';
+    const subject = (c.message || '').split('\n')[0].trim().slice(0, 80);
+    const dateStr = (c.author && c.author.date) || (c.committer && c.committer.date) || '';
+    const rel = relativeTime(dateStr);
+    if (!subject && !rel) return '';
+    if (!subject) return rel;
+    if (!rel) return subject;
+    return `${subject} · ${rel}`;
+  } catch (_) {
+    return '';
+  }
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (diffSec < 60)       return 'just now';
+  if (diffSec < 3600)     return Math.floor(diffSec / 60)    + 'm ago';
+  if (diffSec < 86400)    return Math.floor(diffSec / 3600)  + 'h ago';
+  if (diffSec < 86400*7)  return Math.floor(diffSec / 86400) + 'd ago';
+  if (diffSec < 86400*30) return Math.floor(diffSec / (86400*7)) + 'w ago';
+  if (diffSec < 86400*365) return Math.floor(diffSec / (86400*30)) + 'mo ago';
+  return Math.floor(diffSec / (86400*365)) + 'y ago';
 }
 
 /* ── slugs.yaml parser ────────────────────────────────────────────────── */

@@ -1452,7 +1452,7 @@
             '</span>' +
           '</div>' +
           '<div class="sk-direction-item__branch">' + escHtml(d.branch) + '</div>' +
-          '<div style="font-size:.72rem;color:#51414f;margin-top:.15rem;">Last commit: ' + escHtml(d.lastCommit) + '</div>' +
+          (d.lastCommit ? '<div style="font-size:.72rem;color:#51414f;margin-top:.15rem;">Last commit: ' + escHtml(d.lastCommit) + '</div>' : '') +
         '</div>' +
         '<div class="sk-direction-item__actions">' +
           (isActive
@@ -1694,8 +1694,9 @@
           '<div>' +
             (d.label ? '<div style="font-family:\'Cinzel\',serif;font-variant-caps:small-caps;letter-spacing:.04em;color:var(--color-purple,#301934);font-size:.95rem;line-height:1.2;margin-bottom:.15rem;">' + escHtml(d.label) + '</div>' : '') +
             '<div class="sk-branch-item__name">' + escHtml(d.branch) + '</div>' +
-            '<div class="sk-branch-item__meta">Last commit: ' + escHtml(d.lastCommit) +
-              ' · <span class="sk-dir-pill sk-dir-pill--' + d.status + '" style="font-size:.68rem;">' +
+            '<div class="sk-branch-item__meta">' +
+              (d.lastCommit ? 'Last commit: ' + escHtml(d.lastCommit) + ' · ' : '') +
+              '<span class="sk-dir-pill sk-dir-pill--' + d.status + '" style="font-size:.68rem;">' +
                 '<span class="sk-dir-pill__dot"></span>' + d.status + '</span>' +
             '</div>' +
           '</div>' +
