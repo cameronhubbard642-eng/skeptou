@@ -23,17 +23,26 @@ export async function onRequestPost(ctx) {
 
   const branch = `dunamis/${slug}-${direction}`;
 
-  /* Optional compile toggles — anonymise / plain LaTeX. Body may be absent. */
+  /* Optional compile toggles — anonymise / plain LaTeX / word count.
+     Body may be absent (defaults below). wordcount triggers the .sty's
+     `wordcount` option, which runs texcount via \write18 to print an
+     "N words" line in the title block. */
   let body = {};
   try { body = await request.json(); } catch (_) { /* no body — defaults */ }
   const anonymous = body.anonymous === true;
   const plain     = body.plain === true;
+  const wordcount = body.wordcount === true;
 
   try {
     await dispatchWorkflow(env.AGORA_DISPATCH_PAT, env.AGORA_REPO,
       'compile-draft.yml',
-      { branch, slug, anonymous: String(anonymous), plain: String(plain) });
+      { branch, slug,
+        anonymous: String(anonymous),
+        plain:     String(plain),
+        wordcount: String(wordcount) });
 
+    const flags = [anonymous && 'anonymous', plain && 'plain', wordcount && 'wordcount']
+      .filter(Boolean);
     return jsonResponse({
       status: 'dispatched',
       slug,
@@ -41,8 +50,9 @@ export async function onRequestPost(ctx) {
       branch,
       anonymous,
       plain,
-      message: `Draft compile dispatched for ${branch}${anonymous || plain
-        ? ` (${[anonymous && 'anonymous', plain && 'plain'].filter(Boolean).join(', ')})` : ''}. `
+      wordcount,
+      message: `Draft compile dispatched for ${branch}${flags.length
+        ? ` (${flags.join(', ')})` : ''}. `
         + 'PDF will be committed to the branch when ready.'
     }, 202);
 

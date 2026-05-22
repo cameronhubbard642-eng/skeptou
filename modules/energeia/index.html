@@ -1449,6 +1449,8 @@
                 '<input type="checkbox" id="anon-' + slug + '-' + d.name + '">anon</label>' +
               '<label class="sk-compile-opt" title="Compile with default LaTeX fonts and colours — no Borges type or palette">' +
                 '<input type="checkbox" id="plain-' + slug + '-' + d.name + '">plain</label>' +
+              '<label class="sk-compile-opt" title="Add an \'N words\' line to the title block (runs texcount at compile time)">' +
+                '<input type="checkbox" id="wcount-' + slug + '-' + d.name + '">wcount</label>' +
               '<button class="sk-btn sk-btn--sm sk-btn--accept" ' +
                 'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
                 'onclick="compileDraft(\'' + slug + '\',\'' + d.name + '\')" ' +
@@ -1688,6 +1690,8 @@
                   '<input type="checkbox" id="anon-' + slug + '-' + d.name + '">anon</label>' +
                 '<label class="sk-compile-opt" title="Compile with default LaTeX fonts and colours — no Borges type or palette">' +
                   '<input type="checkbox" id="plain-' + slug + '-' + d.name + '">plain</label>' +
+                '<label class="sk-compile-opt" title="Add an \'N words\' line to the title block (runs texcount at compile time)">' +
+                  '<input type="checkbox" id="wcount-' + slug + '-' + d.name + '">wcount</label>' +
                 '<button class="sk-btn sk-btn--sm sk-btn--accept" id="compile-' + slug + '-' + d.name + '" ' +
                   'data-wf-kind="draft" data-wf-slug="' + slug + '" data-wf-ref="' + d.branch + '" ' +
                   'title="Compile this direction\'s current state to a draft PDF (no promotion, no tag, no version increment)" ' +
@@ -2136,10 +2140,12 @@
      disabled + "Running…" state from dispatch through run completion. */
   async function compileDraft(slug, direction) {
     var branch    = 'dunamis/' + slug + '-' + direction;
-    var anonEl    = document.getElementById('anon-'  + slug + '-' + direction);
-    var plainEl   = document.getElementById('plain-' + slug + '-' + direction);
-    var anonymous = !!(anonEl  && anonEl.checked);
-    var plain     = !!(plainEl && plainEl.checked);
+    var anonEl    = document.getElementById('anon-'   + slug + '-' + direction);
+    var plainEl   = document.getElementById('plain-'  + slug + '-' + direction);
+    var wcountEl  = document.getElementById('wcount-' + slug + '-' + direction);
+    var anonymous = !!(anonEl    && anonEl.checked);
+    var plain     = !!(plainEl   && plainEl.checked);
+    var wordcount = !!(wcountEl  && wcountEl.checked);
     wfMarkPending('draft', slug, branch);
 
     try {
@@ -2150,7 +2156,7 @@
         credentials: 'same-origin',
         redirect: 'manual',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anonymous: anonymous, plain: plain })
+        body: JSON.stringify({ anonymous: anonymous, plain: plain, wordcount: wordcount })
       });
       if (resp.status !== 202) {
         wfClearPending('draft', slug, branch);
