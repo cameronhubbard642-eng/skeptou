@@ -238,6 +238,32 @@ export async function handleAuditDigest(request, env) {
   const truncated = allRows.length > 5000;
   const rows = allRows.slice(0, 5000);
 
+  /* Build a slug→title lookup for parent resolution. Costs three small
+   * scans against (tasks, projects, commitments) but lets every event
+   * entry that has a parent_id carry a human-readable parent_title — so
+   * O&P can interpret the hierarchy without follow-up queries. Failures
+   * here are non-fatal; the digest just omits parent_title in that case. */
+  const parentTitles = { tasks: {}, projects: {}, commitments: {} };
+  try {
+    const [taskTitles, projTitles, commTitles] = await env.OP_DB.batch([
+      env.OP_DB.prepare('SELECT slug, title FROM tasks'),
+      env.OP_DB.prepare('SELECT slug, title FROM projects'),
+      env.OP_DB.prepare('SELECT slug, title FROM commitments'),
+    ]);
+    for (const r of taskTitles.results) parentTitles.tasks[r.slug] = r.title;
+    for (const r of projTitles.results) parentTitles.projects[r.slug] = r.title;
+    for (const r of commTitles.results) parentTitles.commitments[r.slug] = r.title;
+  } catch (_) { /* leave lookup empty, parent_title will be omitted */ }
+
+  function resolveParentTitle(kind, id) {
+    if (!kind || !id) return null;
+    const table = kind === 'task' ? 'tasks'
+                : kind === 'project' ? 'projects'
+                : kind === 'commitment' ? 'commitments' : null;
+    if (!table) return null;
+    return parentTitles[table][id] || null;
+  }
+
   /* Categorise events. */
   const events = {
     tasks_completed:        [],
@@ -259,6 +285,26 @@ export async function handleAuditDigest(request, env) {
     inventory_deleted:      [],
   };
 
+  /* Reusable: extracts parent_kind/parent_id from a task row (before or
+   * after) and adds parent_title via the slug lookup. Returns an object
+   * spread-ready for the event entry. */
+  function taskParent(row) {
+    const kind = row.parent_kind || null;
+    const id   = row.parent_id   || null;
+    return {
+      parent_kind:  kind,
+      parent_id:    id,
+      parent_title: resolveParentTitle(kind, id),
+    };
+  }
+  function projectParent(row) {
+    const id = row.parent_id || null;
+    return {
+      parent_id:    id,
+      parent_title: id ? (parentTitles.projects[id] || null) : null,
+    };
+  }
+
   for (const r of rows) {
     let diff = {};
     try { diff = JSON.parse(r.diff || '{}'); } catch (_) { diff = {}; }
@@ -274,17 +320,21 @@ export async function handleAuditDigest(request, env) {
           ...entry,
           priority:    after.priority,
           due_date:    after.due_date || null,
-          parent_kind: after.parent_kind || null,
-          parent_id:   after.parent_id   || null,
+          ...taskParent(after),
         });
-      } else if (r.table_name === 'projects')      events.projects_created.push(entry);
+      } else if (r.table_name === 'projects') {
+        events.projects_created.push({ ...entry, ...projectParent(after) });
+      }
       else if (r.table_name === 'opportunities')   events.opportunities_created.push(entry);
       else if (r.table_name === 'commitments')     events.commitments_created.push(entry);
       else if (r.table_name === 'inventory')       events.inventory_created.push(entry);
     } else if (r.operation === 'DELETE') {
       const entry = { ...meta, title };
-      if (r.table_name === 'tasks')                events.tasks_deleted.push(entry);
-      else if (r.table_name === 'projects')        events.projects_deleted.push(entry);
+      if (r.table_name === 'tasks') {
+        events.tasks_deleted.push({ ...entry, ...taskParent(before) });
+      } else if (r.table_name === 'projects') {
+        events.projects_deleted.push({ ...entry, ...projectParent(before) });
+      }
       else if (r.table_name === 'opportunities')   events.opportunities_deleted.push(entry);
       else if (r.table_name === 'commitments')     events.commitments_deleted.push(entry);
       else if (r.table_name === 'inventory')       events.inventory_deleted.push(entry);
@@ -296,33 +346,43 @@ export async function handleAuditDigest(request, env) {
           events.tasks_completed.push({
             ...meta, title,
             completed_at: after.completed_at || r.ts,
-            parent_kind:  after.parent_kind || null,
-            parent_id:    after.parent_id   || null,
             priority:     after.priority,
+            ...taskParent(after),
           });
         } else if (fromStatus === 'completed' && toStatus !== 'completed') {
           events.tasks_reopened.push({
             ...meta, title, after_status: toStatus,
+            ...taskParent(after),
           });
         } else {
           events.tasks_other_changes.push({
             ...meta, title, before_status: fromStatus, after_status: toStatus,
+            ...taskParent(after),
           });
         }
+      } else if (r.table_name === 'projects') {
+        events.projects_changed.push({
+          ...meta, title, before_status: fromStatus, after_status: toStatus,
+          ...projectParent(after),
+        });
       } else {
         const entry = { ...meta, title, before_status: fromStatus, after_status: toStatus };
-        if (r.table_name === 'projects')           events.projects_changed.push(entry);
-        else if (r.table_name === 'opportunities') events.opportunities_changed.push(entry);
+        if (r.table_name === 'opportunities')      events.opportunities_changed.push(entry);
         else if (r.table_name === 'commitments')   events.commitments_changed.push(entry);
         else if (r.table_name === 'inventory')     events.inventory_changed.push(entry);
       }
     }
   }
 
-  /* Lightweight current-state snapshot. Non-fatal if any query fails. */
+  /* Lightweight current-state snapshot. Non-fatal if any query fails.
+   * The hierarchy block tells O&P at a glance whether subtasks / sub-projects
+   * are in play this window, without having to scan the events for parents. */
   const state = {};
   try {
-    const [openTasks, doneInWindow, activeProjects, openOpps] = await env.OP_DB.batch([
+    const [
+      openTasks, doneInWindow, activeProjects, openOpps,
+      subtasksOpen, parentTasksOpen, subProjects, parentProjects,
+    ] = await env.OP_DB.batch([
       env.OP_DB.prepare(
         "SELECT COUNT(*) AS n FROM tasks WHERE status IN ('open','in_progress')"),
       env.OP_DB.prepare(
@@ -332,11 +392,33 @@ export async function handleAuditDigest(request, env) {
         "SELECT COUNT(*) AS n FROM projects WHERE status NOT IN ('archived','completed')"),
       env.OP_DB.prepare(
         "SELECT COUNT(*) AS n FROM opportunities WHERE archived = 0"),
+      /* Hierarchy counters — open subtasks (a task whose parent is another
+       * task) and unique open tasks that themselves parent at least one
+       * non-cancelled subtask. */
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM tasks "
+        + "WHERE parent_kind = 'task' AND status IN ('open','in_progress')"),
+      env.OP_DB.prepare(
+        "SELECT COUNT(DISTINCT parent_id) AS n FROM tasks "
+        + "WHERE parent_kind = 'task' AND status != 'cancelled'"),
+      /* Same for projects — non-archived sub-projects + distinct parents. */
+      env.OP_DB.prepare(
+        "SELECT COUNT(*) AS n FROM projects "
+        + "WHERE parent_id IS NOT NULL AND status NOT IN ('archived','completed')"),
+      env.OP_DB.prepare(
+        "SELECT COUNT(DISTINCT parent_id) AS n FROM projects "
+        + "WHERE parent_id IS NOT NULL AND status != 'archived'"),
     ]);
     state.open_tasks                 = openTasks.results[0].n;
     state.tasks_completed_in_window  = doneInWindow.results[0].n;
     state.active_projects            = activeProjects.results[0].n;
     state.open_opportunities         = openOpps.results[0].n;
+    state.hierarchy = {
+      open_subtasks:               subtasksOpen.results[0].n,
+      tasks_with_subtasks:         parentTasksOpen.results[0].n,
+      active_subprojects:          subProjects.results[0].n,
+      projects_with_subprojects:   parentProjects.results[0].n,
+    };
   } catch (err) {
     state.error = 'state snapshot unavailable: ' + err.message;
   }
