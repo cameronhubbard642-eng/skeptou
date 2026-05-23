@@ -1025,15 +1025,51 @@
 
     var HEAD = '<thead><tr><th>Project</th><th>Type</th><th>Status</th><th>Deadline</th></tr></thead>';
 
+    /* Flatten projects into a depth-first sequence so children appear under
+     * their parents. Children whose parent isn't in `list` (e.g. parent
+     * has a different status and lives in another section) are promoted
+     * to depth 0 so they don't vanish. */
+    function flattenProjectTree(list) {
+      var bySlug = {};
+      list.forEach(function(p) { if (p.slug) bySlug[p.slug] = p; });
+      var childrenBy = {};
+      var roots = [];
+      list.forEach(function(p) {
+        if (p.parentSlug && bySlug[p.parentSlug]) {
+          (childrenBy[p.parentSlug] = childrenBy[p.parentSlug] || []).push(p);
+        } else {
+          roots.push(p);
+        }
+      });
+      var out = [];
+      function walk(p, depth) {
+        out.push({ project: p, depth: depth });
+        (childrenBy[p.slug] || []).forEach(function(k) { walk(k, depth + 1); });
+      }
+      roots.forEach(function(r) { walk(r, 0); });
+      return out;
+    }
+
     function makeRows(projects) {
       if (!projects || !projects.length) return '';
-      return projects.map(function(p) {
+      return flattenProjectTree(projects).map(function(node) {
+        var p = node.project;
+        var depth = node.depth;
         var slug     = projectSlug(p);
         var badgeCls = (p.status === 'active' || p.status === 'confirmed-pursuing') ? 'sk-badge--confirmed'
                      : (p.status === 'done'   || p.status === 'completed')          ? 'sk-badge--declined'
                      :                                                                  'sk-badge--pending';
-        return '<tr>' +
+        /* Indent the title cell to convey hierarchy inside a flat <table>.
+         * "↳" + non-breaking-space-padding per level keeps things readable in
+         * both desktop and mobile (where the table collapses to data-label rows). */
+        var indentPrefix = '';
+        if (depth > 0) {
+          for (var i = 0; i < depth - 1; i++) indentPrefix += '   ';
+          indentPrefix += '↳ ';
+        }
+        return '<tr' + (depth ? ' class="sk-project-row--child"' : '') + '>' +
           '<td data-label="Project">' +
+            indentPrefix +
             '<a href="#project/' + slug + '" onclick="navigateToProject(\'' + slug + '\');return false;">' +
               escHtml(p.title) +
             '</a>' +
@@ -1094,35 +1130,8 @@
       return (a.due || '').localeCompare(b.due || '');
     });
 
-    function taskRow(t) {
-      var done = isTaskDone(t);
-      /* Only project-parented tasks link to a detail page; commitment-parented
-       * tasks show the parent name as plain text (no commitment detail page yet). */
-      var proj = '';
-      if (t.project) {
-        if (t.parentKind === 'project') {
-          var s = projectSlugFromTask(t);
-          proj = ' <span class="sk-task-item__project">· <a class="sk-task-proj-link" href="#project/' + s +
-            '" onclick="navigateToProject(\'' + s + '\');return false;">' + escHtml(t.project) + '</a></span>';
-        } else {
-          proj = ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>';
-        }
-      }
-      return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
-        '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
-          '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
-            ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
-        '</label>' +
-        '<span class="sk-task-item__title">' +
-          taskPriIcon(t.priority || 'low') + ' ' +
-          escHtml(t.title) + proj +
-        '</span>' +
-        '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
-      '</li>';
-    }
-
     if (groupBy === 'none') {
-      el.innerHTML = '<ul class="sk-task-list" role="list">' + tasks.map(taskRow).join('') + '</ul>';
+      el.innerHTML = '<ul class="sk-task-list" role="list">' + renderTaskTree(tasks) + '</ul>';
       return;
     }
 
@@ -1137,7 +1146,71 @@
 
     el.innerHTML = Object.keys(groups).map(function(key) {
       return '<div class="sk-task-group__head">' + escHtml(key) + '</div>' +
-        '<ul class="sk-task-list" role="list">' + groups[key].map(taskRow).join('') + '</ul>';
+        '<ul class="sk-task-list" role="list">' + renderTaskTree(groups[key]) + '</ul>';
+    }).join('');
+  }
+
+  /* ── Task-tree helpers (module-scope so commitment/project detail
+   *    surfaces can reuse them) ──────────────────────────────────────── */
+
+  /* Render one task row. depth = 0 for top-level; >0 indents 1.5rem per
+   * level to make nesting obvious. Project/commitment parent tags are
+   * suppressed for task-parented children because the indent already
+   * conveys the parent relationship. */
+  function renderTaskRow(t, depth) {
+    var done = isTaskDone(t);
+    var proj = '';
+    if (t.parentKind === 'project' && t.project) {
+      var s = projectSlugFromTask(t);
+      proj = ' <span class="sk-task-item__project">· <a class="sk-task-proj-link" href="#project/' + s +
+        '" onclick="navigateToProject(\'' + s + '\');return false;">' + escHtml(t.project) + '</a></span>';
+    } else if (t.parentKind === 'commitment' && t.project) {
+      proj = ' <span class="sk-task-item__project">· ' + escHtml(t.project) + '</span>';
+    }
+    var indent = depth ? ' style="padding-left:' + (1.5 * depth) + 'rem;"' : '';
+    return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') +
+      (depth ? ' sk-task-item--child' : '') + '"' + indent + '>' +
+      '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
+        '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
+          ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
+      '</label>' +
+      '<span class="sk-task-item__title">' +
+        taskPriIcon(t.priority || 'low') + ' ' +
+        escHtml(t.title) + proj +
+      '</span>' +
+      '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
+    '</li>';
+  }
+
+  /* Tree-flatten a sorted task list into depth-first order so each child
+   * follows its parent. A task whose parent isn't in the visible list
+   * (filtered out, on another page, etc.) is promoted to depth 0 rather
+   * than vanishing. */
+  function flattenTaskTree(taskList) {
+    var bySlug = {};
+    taskList.forEach(function(t) { if (t.slug) bySlug[t.slug] = t; });
+    var childrenBy = {};
+    var roots = [];
+    taskList.forEach(function(t) {
+      if (t.parentKind === 'task' && t.projectSlug && bySlug[t.projectSlug]) {
+        (childrenBy[t.projectSlug] = childrenBy[t.projectSlug] || []).push(t);
+      } else {
+        roots.push(t);
+      }
+    });
+    var out = [];
+    function walk(t, depth) {
+      out.push({ task: t, depth: depth });
+      var kids = childrenBy[t.slug] || [];
+      kids.forEach(function(k) { walk(k, depth + 1); });
+    }
+    roots.forEach(function(r) { walk(r, 0); });
+    return out;
+  }
+
+  function renderTaskTree(taskList) {
+    return flattenTaskTree(taskList).map(function(node) {
+      return renderTaskRow(node.task, node.depth);
     }).join('');
   }
 
@@ -1375,19 +1448,7 @@
     if (tasks.length > 0) {
       html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
       html += '<h2 class="sk-section-head" data-section="§">Tasks</h2>';
-      html += '<ul class="sk-task-list" role="list">';
-      html += tasks.map(function(t) {
-        var done = isTaskDone(t);
-        return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
-          '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
-            '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
-              ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
-          '</label>' +
-          '<span class="sk-task-item__title">' + taskPriIcon(t.priority || 'low') + ' ' + escHtml(t.title) + '</span>' +
-          '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
-        '</li>';
-      }).join('');
-      html += '</ul>';
+      html += '<ul class="sk-task-list" role="list">' + renderTaskTree(tasks) + '</ul>';
     }
     return html;
   }
@@ -1467,24 +1528,12 @@
     }
 
     /* Tasks embedded by GET /api/projects/:slug (parent_kind='project'). */
-    var projTasks = Array.isArray(p.tasks) ? p.tasks : [];
+    var projTasks = Array.isArray(p.tasks) ? adaptTasks(p.tasks, {}) : [];
 
     if (projTasks.length > 0) {
       html += '<hr class="sk-rule" style="margin:1.5rem 0;" />';
       html += '<h2 class="sk-section-head" data-section="§">Tasks</h2>';
-      html += '<ul class="sk-task-list" role="list">';
-      html += projTasks.map(function(t) {
-        var done = isTaskDone(t);
-        return '<li class="sk-task-item' + (done ? ' sk-task-item--done' : '') + '">' +
-          '<label class="sk-task-item__check" title="' + (done ? 'Mark incomplete' : 'Mark complete') + '">' +
-            '<input type="checkbox" class="sk-task-check"' + (done ? ' checked' : '') +
-              ' onchange="handleTaskToggle(' + JSON.stringify(t.id) + ', this.checked)" />' +
-          '</label>' +
-          '<span class="sk-task-item__title">' + taskPriIcon(t.priority || 'low') + ' ' + escHtml(t.title) + '</span>' +
-          '<span class="sk-task-item__due">' + taskDueIcon(t.due) + '</span>' +
-        '</li>';
-      }).join('');
-      html += '</ul>';
+      html += '<ul class="sk-task-list" role="list">' + renderTaskTree(projTasks) + '</ul>';
     }
 
     /* Edit source link — GitHub edit URL for the proj-*.md in agora */
@@ -1754,12 +1803,15 @@
     return PRESTIGE_LABELS[Number(n)] || '';
   }
 
-  /* D1 project row → legacy MANIFEST_DATA entry */
+  /* D1 project row → legacy MANIFEST_DATA entry. parentSlug carries the
+   * project's parent_id (NULL for top-level) so the manifest table can
+   * render the hierarchy. */
   function adaptProjectRow(r) {
     return {
       slug: r.slug, title: r.title || '',
       type: r.area || '', status: r.status || 'active',
-      deadline: r.due_date || '', priority: priInt2Str(r.priority)
+      deadline: r.due_date || '', priority: priInt2Str(r.priority),
+      parentSlug: r.parent_id || null
     };
   }
 

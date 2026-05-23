@@ -21,8 +21,8 @@ import { validateBody, filterAllowedFields } from './validate.js';
 const WRITE_CONFIG = {
   projects: {
     create: { required: ['slug', 'title'],
-              optional: ['status', 'area', 'description', 'due_date', 'priority', 'linked_opp_slug', 'metadata'] },
-    patch: ['title', 'status', 'area', 'description', 'due_date', 'priority', 'linked_opp_slug', 'metadata'],
+              optional: ['status', 'area', 'description', 'due_date', 'priority', 'linked_opp_slug', 'parent_id', 'metadata'] },
+    patch: ['title', 'status', 'area', 'description', 'due_date', 'priority', 'linked_opp_slug', 'parent_id', 'metadata'],
     softDelete: { status: 'archived', archived_at: true },
   },
   opportunities: {
@@ -59,7 +59,7 @@ const ENUMS = {
   opportunities: { status: ['pending', 'accepted', 'rejected', 'deferred', 'expired'],
                    opp_type: ['job', 'fellowship', 'grant', 'cfp', 'invitation', 'conference', 'other'] },
   tasks:         { status: ['open', 'in_progress', 'completed', 'cancelled'],
-                   parent_kind: ['project', 'commitment'] },
+                   parent_kind: ['project', 'commitment', 'task'] },
   inventory:     { category: ['hardware', 'software', 'subscription', 'reference', 'credential', 'other'],
                    status: ['active', 'retired', 'needed'] },
   commitments:   { kind: ['recurring', 'long_running'],
@@ -103,9 +103,37 @@ async function refExists(env, table, slug) {
   return !!row;
 }
 
-/* App-level FK validation (§III.5): polymorphic task parent + the
- * project↔opportunity circular reference are not DB-enforced. */
-async function checkRefs(env, table, data) {
+/* Walks up the parent chain in `table` starting from `startSlug`, returning
+ * true if `targetSlug` is reached. Bounded by MAX_DEPTH so a pre-existing
+ * cycle in the data (shouldn't happen, but defensively) doesn't hang.
+ * Used by the cycle guard when re-parenting tasks or projects. */
+async function ancestorContains(env, table, startSlug, targetSlug) {
+  const MAX_DEPTH = 100;
+  let cur = startSlug;
+  for (let i = 0; i < MAX_DEPTH; i++) {
+    if (cur === targetSlug) return true;
+    const row = await env.OP_DB.prepare(
+      table === 'tasks'
+        ? `SELECT parent_kind, parent_id FROM tasks WHERE slug = ?`
+        : `SELECT parent_id FROM projects WHERE slug = ?`,
+    ).bind(cur).first();
+    if (!row) return false;
+    if (table === 'tasks') {
+      if (row.parent_kind !== 'task' || !row.parent_id) return false;
+      cur = row.parent_id;
+    } else {
+      if (!row.parent_id) return false;
+      cur = row.parent_id;
+    }
+  }
+  return false; /* depth cap reached — treat as not-a-cycle */
+}
+
+/* App-level FK validation (§III.5): polymorphic task parent, the
+ * project↔opportunity circular reference, and the task→task / project→project
+ * nesting introduced in migration 0005 are not DB-enforced. `selfSlug` is the
+ * slug of the row being written; needed for the cycle guard on nesting. */
+async function checkRefs(env, table, data, selfSlug) {
   if (table === 'projects' && data.linked_opp_slug) {
     if (!(await refExists(env, 'opportunities', data.linked_opp_slug))) {
       return `linked_opp_slug '${data.linked_opp_slug}' does not exist`;
@@ -117,12 +145,30 @@ async function checkRefs(env, table, data) {
     }
   }
   if (table === 'tasks' && data.parent_kind) {
-    const parentTable = data.parent_kind === 'project' ? 'projects'
-                      : data.parent_kind === 'commitment' ? 'commitments' : null;
+    const parentTable = data.parent_kind === 'project'    ? 'projects'
+                      : data.parent_kind === 'commitment' ? 'commitments'
+                      : data.parent_kind === 'task'       ? 'tasks' : null;
     if (!parentTable) return `Invalid parent_kind '${data.parent_kind}'`;
     if (!data.parent_id) return 'parent_id is required when parent_kind is set';
     if (!(await refExists(env, parentTable, data.parent_id))) {
       return `parent_id '${data.parent_id}' not found in ${parentTable}`;
+    }
+    if (data.parent_kind === 'task' && selfSlug) {
+      if (selfSlug === data.parent_id) return 'A task cannot be its own parent';
+      if (await ancestorContains(env, 'tasks', data.parent_id, selfSlug)) {
+        return 'Setting this parent would create a cycle';
+      }
+    }
+  }
+  if (table === 'projects' && data.parent_id !== undefined && data.parent_id !== null && data.parent_id !== '') {
+    if (!(await refExists(env, 'projects', data.parent_id))) {
+      return `parent_id '${data.parent_id}' not found in projects`;
+    }
+    if (selfSlug) {
+      if (selfSlug === data.parent_id) return 'A project cannot be its own parent';
+      if (await ancestorContains(env, 'projects', data.parent_id, selfSlug)) {
+        return 'Setting this parent would create a cycle';
+      }
     }
   }
   return null;
@@ -155,7 +201,7 @@ export async function handleCreate(request, env, table, routePrefix) {
 
   const enumErr = checkEnums(table, data);
   if (enumErr) return errorResponse(400, 'VALIDATION_ERROR', enumErr);
-  const fkErr = await checkRefs(env, table, data);
+  const fkErr = await checkRefs(env, table, data, data.slug);
   if (fkErr) return errorResponse(400, 'VALIDATION_ERROR', fkErr);
 
   const existing = await env.OP_DB.prepare(
@@ -204,7 +250,7 @@ export async function handlePatch(request, env, table, routePrefix, keyCol, keyV
 
   const enumErr = checkEnums(table, updates);
   if (enumErr) return errorResponse(400, 'VALIDATION_ERROR', enumErr);
-  const fkErr = await checkRefs(env, table, updates);
+  const fkErr = await checkRefs(env, table, updates, before.slug);
   if (fkErr) return errorResponse(400, 'VALIDATION_ERROR', fkErr);
 
   const setClauses = Object.keys(updates).map((k) => `${k} = ?`).join(', ');
