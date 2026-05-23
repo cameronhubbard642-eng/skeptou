@@ -10,8 +10,9 @@
 --
 -- Cycle prevention lives in op-write.js (checkRefs); the schema only
 -- enforces shape, not graph validity.
-
-BEGIN;
+--
+-- D1 wraps each migration in its own implicit transaction and rejects
+-- raw BEGIN/COMMIT, so no explicit transaction block here.
 
 -- ── tasks ────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS tasks_updated_at;
@@ -63,5 +64,3 @@ CREATE TRIGGER tasks_updated_at
 -- the parent project's slug (app-level FK). NULL = top-level project.
 ALTER TABLE projects ADD COLUMN parent_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_id);
-
-COMMIT;
