@@ -47,8 +47,14 @@ jobs:
         run: node modules/phronesis/scripts/sync-vault.js
 
       # ── Step 2: Aggregate busy-period data ─────────────────────────────
-      # Warns and writes empty scores when calendar.ics / commitments.md absent.
+      # Pulls commitments / dated tasks / dated projects from D1 (remote),
+      # then merges any optional content/calendar-sync.md and falls back to
+      # content/commitments.md if D1 yielded nothing. Skips D1 silently when
+      # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are absent (local dev).
       - name: Aggregate busy-period data
+        env:
+          CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node modules/phronesis/scripts/aggregate-busy.js
 
       # ── Step 3: Generate visualizations ────────────────────────────────

@@ -2,10 +2,18 @@
 /**
  * aggregate-busy.js — phronesis build script
  *
- * Reads:
- *   content/calendar.ics    — iCloud calendar export (vault path: calendar/icloud-export.ics)
- *   content/commitments.md  — COMMITMENTS.md synced from O&P vault
- *   config/event-types.yaml — type definitions, colors, keywords
+ * Reads (in this order, each optional and non-fatal if missing):
+ *   1. D1 (remote) via `wrangler d1 execute skeptou-op --remote --json` —
+ *      commitments (recurring + long_running, expanded via cadence), tasks
+ *      with due_date, and projects with due_date.  Needs
+ *      CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in env (the deploy
+ *      workflow injects these).  Skipped locally if absent.
+ *   2. content/calendar-sync.md — committed in skeptou
+ *      (modules/phronesis/content/) or synced from a vault by sync-vault.js.
+ *      Markdown export from macOS Calendar.
+ *   3. content/commitments.md — legacy markdown form. Same parser as before;
+ *      only used as a fallback when D1 yields no commitments (e.g. before
+ *      migration).
  *
  * Writes:
  *   src/data/busy-scores.json
@@ -29,14 +37,11 @@
 
 'use strict';
 
-const fs   = require('fs');
-const path = require('path');
+const fs           = require('fs');
+const path         = require('path');
+const { spawnSync } = require('child_process');
 
 const ROOT        = path.resolve(__dirname, '..');
-/* Calendar source: commitments/calendar-sync.md in agora vault, synced to
- * content/calendar-sync.md.  Format: markdown export from macOS Calendar
- * (not .ics) — see parseCalendarSync() below.
- * TODO(pending-cam-confirm): parser rewrite for markdown format  */
 const CAL_PATH    = path.join(ROOT, 'content', 'calendar-sync.md');
 const COMM_PATH   = path.join(ROOT, 'content', 'commitments.md');
 const CONFIG_PATH = path.join(ROOT, 'config', 'event-types.yaml');
@@ -305,8 +310,195 @@ function priorityWeight(text) {
   return 1;
 }
 
+/* ── D1 (remote) reader ──────────────────────────────────────────────────── */
+/* Shells out to `wrangler d1 execute skeptou-op --remote --json`. Returns
+ * an array of result rows, or null if D1 isn't reachable (missing
+ * credentials, network error, schema mismatch). Caller treats null as
+ * "skip, fall back to whatever other input we have". */
+function d1Query(sql) {
+  if (!process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_ACCOUNT_ID) {
+    return null;
+  }
+  const proc = spawnSync('npx', [
+    '--yes', 'wrangler@3', 'd1', 'execute', 'skeptou-op',
+    '--remote', '--json', '--command', sql,
+  ], { cwd: ROOT, encoding: 'utf8' });
+  if (proc.status !== 0) {
+    const firstLine = (proc.stderr || proc.stdout || '').split('\n').find(l => l.trim()) || '(no output)';
+    console.warn('aggregate-busy: D1 query failed —', firstLine);
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(proc.stdout);
+    return (parsed[0] && parsed[0].results) || [];
+  } catch (e) {
+    console.warn('aggregate-busy: D1 JSON parse failed —', e.message);
+    return null;
+  }
+}
+
+/* ── Cadence expansion ───────────────────────────────────────────────────── */
+const DOW_INDEX = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tues: 2, tuesday: 2,
+  wed: 3, weds: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, saturday: 6,
+};
+
+/* Returns an array of YYYY-MM-DD date strings the commitment lands on
+ * within the busy window. Supported cadence strings (case-insensitive):
+ *   daily
+ *   weekdays
+ *   weekly:Mon            weekly:Mon,Wed,Fri
+ *   biweekly:Tue
+ *   monthly:15            (numeric day-of-month)
+ * Anything else falls back to scoring start_date once. kind='long_running'
+ * scores every day in the active window regardless of cadence. */
+function expandCommitmentDates(comm) {
+  const start = comm.start_date ? new Date(comm.start_date + 'T00:00:00') : null;
+  const end   = comm.end_date   ? new Date(comm.end_date   + 'T00:00:00') : windowEnd;
+  if (!start) return [];
+
+  const clipStart = new Date(Math.max(start.getTime(), windowStart.getTime()));
+  const clipEnd   = new Date(Math.min(end.getTime(),   windowEnd.getTime()));
+  if (clipEnd < clipStart) return [];
+
+  const isoDay = (d) => d.toISOString().slice(0, 10);
+  const dates = [];
+
+  if (comm.kind === 'long_running') {
+    for (let d = new Date(clipStart); d <= clipEnd; d.setDate(d.getDate() + 1)) {
+      dates.push(isoDay(d));
+    }
+    return dates;
+  }
+
+  const cad = (comm.cadence || '').trim().toLowerCase();
+  if (!cad) {
+    if (start >= windowStart && start <= windowEnd) dates.push(isoDay(start));
+    return dates;
+  }
+
+  if (cad === 'daily') {
+    for (let d = new Date(clipStart); d <= clipEnd; d.setDate(d.getDate() + 1)) {
+      dates.push(isoDay(d));
+    }
+    return dates;
+  }
+  if (cad === 'weekdays') {
+    for (let d = new Date(clipStart); d <= clipEnd; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay();
+      if (dow >= 1 && dow <= 5) dates.push(isoDay(d));
+    }
+    return dates;
+  }
+
+  const wm = /^(weekly|biweekly):(.+)$/.exec(cad);
+  if (wm) {
+    const interval = wm[1] === 'biweekly' ? 14 : 7;
+    const dows = wm[2].split(',').map(s => DOW_INDEX[s.trim()]).filter(n => n !== undefined);
+    for (const dow of dows) {
+      const cursor = new Date(start);
+      while (cursor.getDay() !== dow) cursor.setDate(cursor.getDate() + 1);
+      while (cursor <= clipEnd) {
+        if (cursor >= windowStart) dates.push(isoDay(cursor));
+        cursor.setDate(cursor.getDate() + interval);
+      }
+    }
+    return dates;
+  }
+
+  const mm = /^monthly:(\d{1,2})$/.exec(cad);
+  if (mm) {
+    const dom = parseInt(mm[1], 10);
+    const cursor = new Date(clipStart.getFullYear(), clipStart.getMonth(), 1);
+    while (cursor <= clipEnd) {
+      const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), dom);
+      if (candidate >= start && candidate <= end
+          && candidate >= windowStart && candidate <= windowEnd) {
+        dates.push(isoDay(candidate));
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return dates;
+  }
+
+  /* Unknown cadence string — score the start date once and move on. */
+  if (start >= windowStart && start <= windowEnd) dates.push(isoDay(start));
+  return dates;
+}
+
+/* ── D1 ingest ───────────────────────────────────────────────────────────── */
+/* Pulls active commitments, dated tasks, and dated projects from D1 and
+ * adds them to the score grid. Returns the count of D1 entries scored
+ * (so the caller knows whether D1 was the source).  */
+function ingestFromD1() {
+  const commitments = d1Query(
+    "SELECT slug, title, kind, status, cadence, start_date, end_date FROM commitments "
+    + "WHERE status IN ('active','paused')",
+  );
+  if (commitments === null) {
+    console.warn('aggregate-busy: D1 unavailable — skipping commitments/tasks/projects');
+    return 0;
+  }
+
+  let scored = 0;
+  for (const c of commitments) {
+    const type  = categorize({ title: c.title || '', categories: [] });
+    const dates = expandCommitmentDates(c);
+    for (const dateStr of dates) {
+      addTypedScore(dateStr, type, 1);
+      scored++;
+    }
+  }
+
+  const tasks = d1Query(
+    "SELECT slug, title, due_date, status, priority FROM tasks "
+    + "WHERE due_date IS NOT NULL AND status NOT IN ('completed','cancelled')",
+  ) || [];
+  for (const t of tasks) {
+    if (!t.due_date) continue;
+    const type   = categorize({ title: t.title || '', categories: [] });
+    const weight = t.priority === 1 ? 3
+                 : t.priority === 2 ? 2
+                 :                    1;
+    if (inWindow(t.due_date)) {
+      addTypedScore(t.due_date, type, weight);
+      scored++;
+    }
+  }
+
+  const projects = d1Query(
+    "SELECT slug, title, due_date, area, status FROM projects "
+    + "WHERE due_date IS NOT NULL AND status NOT IN ('archived','completed')",
+  ) || [];
+  for (const p of projects) {
+    if (!p.due_date) continue;
+    /* Project's area maps onto an event type when it lines up; otherwise
+     * fall back to title-keyword categorization. */
+    const type = (p.area && TYPE_KEYS.includes(p.area))
+      ? p.area
+      : categorize({ title: p.title || '', categories: [] });
+    if (inWindow(p.due_date)) {
+      addTypedScore(p.due_date, type, 2);
+      scored++;
+    }
+  }
+
+  console.log(`aggregate-busy: pulled ${commitments.length} commitments, `
+    + `${tasks.length} dated tasks, ${projects.length} dated projects from D1; `
+    + `wrote ${scored} day-scores`);
+  return scored;
+}
+
 /* ── Main ────────────────────────────────────────────────────────────────── */
 let parsed = 0;
+
+const d1Scored = ingestFromD1();
+if (d1Scored > 0) parsed++;
 
 if (fs.existsSync(CAL_PATH)) {
   try {
@@ -320,16 +512,19 @@ if (fs.existsSync(CAL_PATH)) {
   console.warn('aggregate-busy: calendar-sync.md not found at', CAL_PATH, '— skipping');
 }
 
-if (fs.existsSync(COMM_PATH)) {
+/* commitments.md is now a legacy fallback: D1 is canonical. Only parse it
+ * if D1 yielded nothing AND the markdown exists. */
+if (d1Scored === 0 && fs.existsSync(COMM_PATH)) {
   try {
     parseCommitments(fs.readFileSync(COMM_PATH, 'utf8'));
-    console.log('aggregate-busy: parsed commitments.md');
+    console.log('aggregate-busy: parsed commitments.md (D1 fallback)');
     parsed++;
   } catch (e) {
     console.error('aggregate-busy: commitments.md parse error —', e.message);
   }
-} else {
-  console.warn('aggregate-busy: commitments.md not found at', COMM_PATH, '— skipping');
+} else if (d1Scored === 0) {
+  console.warn('aggregate-busy: commitments.md not found at', COMM_PATH,
+    '— and D1 yielded nothing — heatmap will be empty');
 }
 
 const maxTotal = Object.values(scores).reduce((m, v) => Math.max(m, v.total), 0);
