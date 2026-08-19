@@ -4,7 +4,7 @@
 |---|---|
 | Subdomain | `skeptou.com (apex)` |
 | Tech tier | Static (Cloudflare Pages) |
-| Spec | `specs/apex-site.md` *(referenced in `notes/STATE_OF_PLAY.md`; not present in `specs/` — recover from history or re-draft)* |
+| Spec | `specs/apex-site.md` (rev 4) — rescued from the mirror on 2026-08-18; was in no commit |
 
 **Status: reset to blank slate (2026-08-18).** The v0 implementation was removed
 from trunk in the qualified-blank-slate reset. This directory is preserved to hold
