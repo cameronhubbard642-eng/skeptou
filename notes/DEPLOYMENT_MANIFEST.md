@@ -235,8 +235,13 @@ iCloud custom-domain email on `skeptou.com` must not break:
 
 `wrangler` OAuth expired **2026-07-17** and its refresh token is rejected; `wrangler login`
 needs an interactive browser. This manifest is therefore reconstructed **from repository
-configuration**, not read back from Cloudflare. Before the rebuild, re-authenticate and
-reconcile:
+configuration**, not read back from Cloudflare.
+
+*(The phronesis D1 reset was completed 2026-08-18 via the Cloudflare D1 MCP — see
+`archive/README.md`. That path reached D1 only; it did not reconcile the rest of this
+manifest, so everything below still needs verifying.)*
+
+Before the rebuild, re-authenticate and reconcile:
 
 ```bash
 wrangler login                       # or export CLOUDFLARE_API_TOKEN=…

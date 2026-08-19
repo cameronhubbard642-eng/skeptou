@@ -12,8 +12,9 @@
 > design/spec redo and will rewrite this file. Treat spec-status and phase claims here
 > as historical until then.
 >
-> One reset step is still outstanding: the phronesis D1 export + clear
-> (`scripts/phronesis-d1-reset.sh`) — blocked on Cloudflare credentials, see `archive/README.md`.
+> The phronesis D1 was backed up and cleared on 2026-08-18 (schema and migrations
+> preserved); see `archive/README.md`. The seven deploy workflows are disabled until
+> each module's v1 lands.
 
 ---
 

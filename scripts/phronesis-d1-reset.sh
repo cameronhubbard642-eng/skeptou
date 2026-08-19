@@ -2,9 +2,10 @@
 #
 # phronesis-d1-reset.sh — export + clear the phronesis D1 (`skeptou-op`).
 #
-# Written 2026-08-18 for the qualified-blank-slate reset. NOT YET RUN:
-# wrangler's OAuth expired 2026-07-17 and its refresh token is rejected, so the
-# reset session could not authenticate. Run this once a token is available.
+# Written 2026-08-18 for the qualified-blank-slate reset, but NEVER RUN: wrangler's
+# OAuth had expired, so that reset was carried out through the Cloudflare D1 MCP
+# instead (see archive/README.md). Retained as a guarded, re-runnable utility for
+# any future clear.
 #
 #   export CLOUDFLARE_API_TOKEN=...      # needs D1:Edit on account 0eac870e...
 #   ./scripts/phronesis-d1-reset.sh
