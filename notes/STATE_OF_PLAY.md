@@ -1,5 +1,22 @@
 # STATE_OF_PLAY — Sképtou
 
+> ## ⚠️ SUPERSEDED BY THE 2026-08-18 RESET
+>
+> The implementation described below was reset to a qualified blank slate on
+> **2026-08-18**. v0 module code is archived at tag **`v0-archive`** and removed from
+> trunk. **Architecture and the module division are kept; implementation is reset.**
+> Deployed infrastructure, bindings, and secrets are untouched and still live —
+> see **`notes/DEPLOYMENT_MANIFEST.md`**.
+>
+> Everything below is a pre-reset record. A separate architecture-lead effort owns the
+> design/spec redo and will rewrite this file. Treat spec-status and phase claims here
+> as historical until then.
+>
+> One reset step is still outstanding: the phronesis D1 export + clear
+> (`scripts/phronesis-d1-reset.sh`) — blocked on Cloudflare credentials, see `archive/README.md`.
+
+---
+
 **Authoritative project state. Updated by Lead Dev / Architect after each phase milestone.**  
 **Last updated:** 2026-05-17 (specs/phero.md rev 4; brief-phero-phase1.md rev 2; specs/scholia.md rev 1 drafted)
 

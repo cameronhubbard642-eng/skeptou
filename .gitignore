@@ -37,3 +37,8 @@ npm-debug.log*
 
 # LaTeX templates — canonical location is agora/templates/; not tracked here
 assets/tex_templates/
+
+# D1 exports — contain personal data (phronesis commitments/tasks/audit log).
+# Kept locally only; never committed. See archive/README.md.
+archive/*.sql
+archive/*.sql.gz
